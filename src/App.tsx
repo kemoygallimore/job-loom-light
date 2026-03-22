@@ -13,6 +13,8 @@ import Pipeline from "./pages/Pipeline";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminOverview from "./pages/admin/AdminOverview";
 import AdminCompanies from "./pages/admin/AdminCompanies";
+import CareersPage from "./pages/careers/CareersPage";
+import JobDetailsPage from "./pages/careers/JobDetailsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
