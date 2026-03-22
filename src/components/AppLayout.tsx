@@ -1,7 +1,7 @@
 import { Link, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Briefcase, Users, FolderKanban, LayoutDashboard, LogOut, Menu, X } from "lucide-react";
+import { Briefcase, Users, FolderKanban, LayoutDashboard, LogOut, Menu, Shield } from "lucide-react";
 import { useState } from "react";
 
 const navItems = [
