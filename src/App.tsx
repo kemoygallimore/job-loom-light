@@ -11,6 +11,8 @@ import Jobs from "./pages/Jobs";
 import Candidates from "./pages/Candidates";
 import Pipeline from "./pages/Pipeline";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminOverview from "./pages/admin/AdminOverview";
+import AdminCompanies from "./pages/admin/AdminCompanies";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
