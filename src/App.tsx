@@ -11,6 +11,8 @@ import Jobs from "./pages/Jobs";
 import Candidates from "./pages/Candidates";
 import Pipeline from "./pages/Pipeline";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminOverview from "./pages/admin/AdminOverview";
+import AdminCompanies from "./pages/admin/AdminCompanies";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -52,7 +54,10 @@ const App = () => (
               <Route path="/jobs" element={<Jobs />} />
               <Route path="/candidates" element={<Candidates />} />
               <Route path="/pipeline" element={<Pipeline />} />
-              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin" element={<AdminDashboard />}>
+                <Route index element={<AdminOverview />} />
+                <Route path="companies" element={<AdminCompanies />} />
+              </Route>
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

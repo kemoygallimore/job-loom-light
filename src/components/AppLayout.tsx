@@ -1,7 +1,7 @@
 import { Link, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Briefcase, Users, FolderKanban, LayoutDashboard, LogOut, Menu, Shield, X, ChevronLeft } from "lucide-react";
+import { Briefcase, Users, FolderKanban, LayoutDashboard, LogOut, Menu, Shield, X, ChevronLeft, Building2 } from "lucide-react";
 import { useState } from "react";
 
 const navItems = [
@@ -12,7 +12,8 @@ const navItems = [
 ];
 
 const superAdminNav = [
-  { to: "/admin", label: "Super Admin", icon: Shield },
+  { to: "/admin", label: "Overview", icon: LayoutDashboard },
+  { to: "/admin/companies", label: "Companies", icon: Building2 },
 ];
 
 export default function AppLayout() {
@@ -22,6 +23,7 @@ export default function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
 
   const links = role === "super_admin" ? superAdminNav : navItems;
+  const isSuperAdmin = role === "super_admin";
 
   return (
     <div className="min-h-screen flex w-full">
@@ -41,7 +43,7 @@ export default function AppLayout() {
           <div className="w-8 h-8 rounded-lg bg-sidebar-primary flex items-center justify-center flex-shrink-0">
             <Briefcase className="w-4 h-4 text-sidebar-primary-foreground" />
           </div>
-          {!collapsed && <span className="font-semibold text-base tracking-tight">HireFlow</span>}
+          {!collapsed && <span className="font-semibold text-base tracking-tight">{isSuperAdmin ? "HireFlow Admin" : "HireFlow"}</span>}
           <button
             onClick={() => setMobileOpen(false)}
             className="ml-auto lg:hidden text-sidebar-foreground/60 hover:text-sidebar-foreground"
@@ -52,8 +54,13 @@ export default function AppLayout() {
 
         {/* Nav */}
         <nav className="flex-1 px-2 py-3 space-y-0.5">
+          {isSuperAdmin && !collapsed && (
+            <div className="px-3 mb-2">
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/30">Platform</span>
+            </div>
+          )}
           {links.map(item => {
-            const active = location.pathname === item.to;
+            const active = location.pathname === item.to || (item.to !== "/admin" && location.pathname.startsWith(item.to));
             return (
               <Link
                 key={item.to}
