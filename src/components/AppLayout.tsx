@@ -23,6 +23,7 @@ export default function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
 
   const links = role === "super_admin" ? superAdminNav : navItems;
+  const isSuperAdmin = role === "super_admin";
 
   return (
     <div className="min-h-screen flex w-full">
