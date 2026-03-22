@@ -136,6 +136,7 @@ export default function Jobs() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Search */}
