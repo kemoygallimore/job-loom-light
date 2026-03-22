@@ -51,6 +51,8 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/auth" element={<AuthRoute />} />
+            <Route path="/careers/:companySlug" element={<CareersPage />} />
+            <Route path="/careers/:companySlug/:jobId" element={<JobDetailsPage />} />
             <Route element={<ProtectedRoutes />}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/jobs" element={<Jobs />} />
