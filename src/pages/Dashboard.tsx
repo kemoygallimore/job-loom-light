@@ -7,8 +7,6 @@ import { Briefcase, Users, FileText, TrendingUp } from "lucide-react";
 
 export default function Dashboard() {
   const { profile, role } = useAuth();
-
-  if (role === "super_admin") return <Navigate to="/admin" replace />;
   const [stats, setStats] = useState({ jobs: 0, candidates: 0, applications: 0, openJobs: 0 });
 
   useEffect(() => {
