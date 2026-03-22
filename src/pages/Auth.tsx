@@ -48,7 +48,7 @@ export default function Auth() {
 
     const { data: company, error: companyError } = await supabase
       .from("companies")
-      .insert({ name: companyName.trim() })
+      .insert({ name: companyName.trim() } as any)
       .select()
       .single();
 
