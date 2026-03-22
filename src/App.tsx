@@ -16,7 +16,7 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 function ProtectedRoutes() {
-  const { user, loading, profile } = useAuth();
+  const { user, loading, profile, role } = useAuth();
 
   if (loading) {
     return (
