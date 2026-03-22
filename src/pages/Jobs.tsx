@@ -29,6 +29,8 @@ export default function Jobs() {
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState("open");
   const [search, setSearch] = useState("");
+  const [companySlug, setCompanySlug] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const load = async () => {
     const { data } = await supabase.from("jobs").select("*").order("created_at", { ascending: false });
