@@ -37,7 +37,23 @@ export default function Jobs() {
     setJobs((data as Job[]) ?? []);
   };
 
-  useEffect(() => { if (profile) load(); }, [profile]);
+  useEffect(() => {
+    if (!profile) return;
+    load();
+    // Fetch company slug
+    supabase.from("companies").select("slug").eq("id", profile.company_id).maybeSingle()
+      .then(({ data }) => { if (data) setCompanySlug(data.slug); });
+  }, [profile]);
+
+  const careersUrl = companySlug ? `${window.location.origin}/careers/${companySlug}` : null;
+
+  const handleCopyLink = async () => {
+    if (!careersUrl) return;
+    await navigator.clipboard.writeText(careersUrl);
+    setCopied(true);
+    toast.success("Careers link copied to clipboard");
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
