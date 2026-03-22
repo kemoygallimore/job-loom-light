@@ -43,7 +43,7 @@ export default function AppLayout() {
           <div className="w-8 h-8 rounded-lg bg-sidebar-primary flex items-center justify-center flex-shrink-0">
             <Briefcase className="w-4 h-4 text-sidebar-primary-foreground" />
           </div>
-          {!collapsed && <span className="font-semibold text-base tracking-tight">HireFlow</span>}
+          {!collapsed && <span className="font-semibold text-base tracking-tight">{isSuperAdmin ? "HireFlow Admin" : "HireFlow"}</span>}
           <button
             onClick={() => setMobileOpen(false)}
             className="ml-auto lg:hidden text-sidebar-foreground/60 hover:text-sidebar-foreground"
