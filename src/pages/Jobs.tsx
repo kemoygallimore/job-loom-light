@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Search } from "lucide-react";
 
 interface Job {
   id: string;
@@ -28,6 +28,7 @@ export default function Jobs() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState("open");
+  const [search, setSearch] = useState("");
 
   const load = async () => {
     const { data } = await supabase.from("jobs").select("*").order("created_at", { ascending: false });
@@ -39,7 +40,6 @@ export default function Jobs() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile) return;
-
     if (editJob) {
       const { error } = await supabase.from("jobs").update({ title, description, status: status as any }).eq("id", editJob.id);
       if (error) { toast.error(error.message); return; }
@@ -76,28 +76,28 @@ export default function Jobs() {
     setStatus("open");
   };
 
+  const filtered = jobs.filter(j => j.title.toLowerCase().includes(search.toLowerCase()));
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3 animate-fade-in">
         <h1 className="text-2xl font-bold">Jobs</h1>
         <Dialog open={open} onOpenChange={v => { if (!v) resetForm(); else setOpen(true); }}>
           <DialogTrigger asChild>
             <Button><Plus className="w-4 h-4 mr-2" />Add Job</Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editJob ? "Edit Job" : "New Job"}</DialogTitle>
-            </DialogHeader>
+            <DialogHeader><DialogTitle>{editJob ? "Edit Job" : "New Job"}</DialogTitle></DialogHeader>
             <form onSubmit={handleSave} className="space-y-4">
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label>Title</Label>
                 <Input value={title} onChange={e => setTitle(e.target.value)} required />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label>Description</Label>
                 <Textarea value={description} onChange={e => setDescription(e.target.value)} rows={4} />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label>Status</Label>
                 <Select value={status} onValueChange={setStatus}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -113,33 +113,65 @@ export default function Jobs() {
         </Dialog>
       </div>
 
-      <div className="grid gap-3">
-        {jobs.map((job, i) => (
-          <Card key={job.id} className="animate-fade-in" style={{ animationDelay: `${i * 60}ms` }}>
-            <CardContent className="flex items-center justify-between py-4">
-              <div>
-                <div className="font-semibold">{job.title}</div>
-                <div className="text-sm text-muted-foreground mt-0.5">{job.description?.slice(0, 80)}</div>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className={`badge-stage ${job.status === "open" ? "badge-hired" : "badge-rejected"}`}>
-                  {job.status}
-                </span>
-                <Button variant="ghost" size="icon" onClick={() => openEdit(job)}>
-                  <Pencil className="w-4 h-4" />
-                </Button>
-                {role === "admin" && (
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(job.id)}>
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-        {jobs.length === 0 && (
-          <div className="text-center py-12 text-muted-foreground">No jobs yet. Create your first job posting.</div>
-        )}
+      {/* Search */}
+      <div className="relative max-w-xs animate-fade-in" style={{ animationDelay: "80ms" }}>
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search jobs..."
+          className="pl-9"
+        />
+      </div>
+
+      {/* Table */}
+      <div className="bg-card rounded-xl border overflow-hidden animate-fade-in" style={{ animationDelay: "160ms", boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.04)" }}>
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="font-semibold">Title</TableHead>
+              <TableHead className="font-semibold hidden sm:table-cell">Description</TableHead>
+              <TableHead className="font-semibold">Status</TableHead>
+              <TableHead className="font-semibold">Date</TableHead>
+              <TableHead className="font-semibold w-24">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filtered.map(job => (
+              <TableRow key={job.id} className="group">
+                <TableCell className="font-medium">{job.title}</TableCell>
+                <TableCell className="text-muted-foreground text-sm hidden sm:table-cell max-w-xs truncate">{job.description?.slice(0, 60)}</TableCell>
+                <TableCell>
+                  <span className={`badge-stage ${job.status === "open" ? "badge-hired" : "badge-rejected"}`}>
+                    {job.status}
+                  </span>
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground tabular-nums">
+                  {new Date(job.created_at).toLocaleDateString()}
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(job)}>
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                    {role === "admin" && (
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(job.id)}>
+                        <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                      </Button>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+            {filtered.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
+                  {search ? "No jobs match your search" : "No jobs yet. Create your first job posting."}
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

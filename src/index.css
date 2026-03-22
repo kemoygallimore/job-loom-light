@@ -6,38 +6,44 @@
 
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 220 20% 14%;
+    --background: 220 16% 96%;
+    --foreground: 224 24% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 220 20% 14%;
+    --card-foreground: 224 24% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 14%;
-    --primary: 220 65% 48%;
+    --popover-foreground: 224 24% 12%;
+    --primary: 228 56% 42%;
     --primary-foreground: 0 0% 100%;
     --secondary: 220 14% 92%;
-    --secondary-foreground: 220 20% 14%;
-    --muted: 220 14% 95%;
-    --muted-foreground: 220 10% 46%;
-    --accent: 152 55% 42%;
+    --secondary-foreground: 224 24% 12%;
+    --muted: 220 14% 94%;
+    --muted-foreground: 220 10% 44%;
+    --accent: 158 48% 38%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 72% 51%;
+    --destructive: 4 68% 48%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 13% 90%;
-    --input: 220 13% 90%;
-    --ring: 220 65% 48%;
+    --border: 220 14% 89%;
+    --input: 220 14% 89%;
+    --ring: 228 56% 42%;
     --radius: 0.625rem;
-    --sidebar-background: 220 20% 14%;
-    --sidebar-foreground: 220 14% 92%;
-    --sidebar-primary: 220 65% 58%;
+    --sidebar-background: 224 24% 10%;
+    --sidebar-foreground: 220 14% 90%;
+    --sidebar-primary: 228 56% 56%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 18% 20%;
-    --sidebar-accent-foreground: 220 14% 92%;
-    --sidebar-border: 220 18% 22%;
-    --sidebar-ring: 220 65% 48%;
+    --sidebar-accent: 224 20% 16%;
+    --sidebar-accent-foreground: 220 14% 90%;
+    --sidebar-border: 224 18% 18%;
+    --sidebar-ring: 228 56% 42%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
-    --success: 152 55% 42%;
+    --success: 158 48% 38%;
     --success-foreground: 0 0% 100%;
+    --chart-1: 228 56% 42%;
+    --chart-2: 158 48% 38%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 280 50% 48%;
+    --chart-5: 4 68% 48%;
+    --chart-6: 190 60% 40%;
   }
 }
 
@@ -47,9 +53,21 @@
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   h1, h2, h3, h4, h5, h6 {
     @apply tracking-tight;
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+}
+
+@layer utilities {
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
 }
 
@@ -57,19 +75,70 @@
   .page-container {
     @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
   }
+
+  /* Stage badges */
   .badge-stage {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+    @apply inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium;
   }
-  .badge-applied { @apply bg-blue-100 text-blue-800; }
-  .badge-screening { @apply bg-amber-100 text-amber-800; }
-  .badge-interview { @apply bg-purple-100 text-purple-800; }
-  .badge-offer { @apply bg-emerald-100 text-emerald-800; }
-  .badge-hired { @apply bg-green-100 text-green-800; }
-  .badge-rejected { @apply bg-red-100 text-red-800; }
+  .badge-applied { @apply bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-600/20; }
+  .badge-screening { @apply bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20; }
+  .badge-interview { @apply bg-violet-50 text-violet-700 ring-1 ring-inset ring-violet-600/20; }
+  .badge-offer { @apply bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20; }
+  .badge-hired { @apply bg-green-50 text-green-700 ring-1 ring-inset ring-green-600/20; }
+  .badge-rejected { @apply bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/20; }
+
+  /* Kanban */
   .kanban-column {
-    @apply bg-muted/50 rounded-lg p-3 min-w-[260px] max-w-[300px] flex-shrink-0;
+    @apply rounded-xl p-3 min-w-[272px] max-w-[300px] flex-shrink-0;
+    background: hsl(var(--muted) / 0.6);
   }
   .kanban-card {
-    @apply bg-card rounded-lg border p-3 shadow-sm hover:shadow-md transition-all duration-150 active:scale-[0.97];
+    @apply bg-card rounded-lg border p-3 cursor-grab active:cursor-grabbing;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+    transition: box-shadow 0.15s ease-out, transform 0.1s ease-out;
   }
+  .kanban-card:hover {
+    box-shadow: 0 4px 12px -2px rgb(0 0 0 / 0.08), 0 1px 3px -1px rgb(0 0 0 / 0.06);
+  }
+  .kanban-card:active {
+    transform: scale(0.97);
+  }
+  .kanban-card.dragging {
+    box-shadow: 0 12px 24px -4px rgb(0 0 0 / 0.12), 0 4px 8px -2px rgb(0 0 0 / 0.06);
+    transform: rotate(2deg);
+  }
+
+  /* Stat cards */
+  .stat-card {
+    @apply bg-card rounded-xl border p-5;
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.04);
+    transition: box-shadow 0.2s ease-out;
+  }
+  .stat-card:hover {
+    box-shadow: 0 4px 12px -2px rgb(0 0 0 / 0.08);
+  }
+}
+
+/* Animations */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); filter: blur(4px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(16px); filter: blur(4px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.animate-fade-in-up {
+  animation: fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.animate-scale-in {
+  animation: scale-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
