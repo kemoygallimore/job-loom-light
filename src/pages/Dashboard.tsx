@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
+import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Briefcase, Users, FileText, TrendingUp } from "lucide-react";
 
 export default function Dashboard() {
-  const { profile } = useAuth();
+  const { profile, role } = useAuth();
   const [stats, setStats] = useState({ jobs: 0, candidates: 0, applications: 0, openJobs: 0 });
 
   useEffect(() => {
@@ -26,6 +27,8 @@ export default function Dashboard() {
     };
     load();
   }, [profile]);
+
+  if (role === "super_admin") return <Navigate to="/admin" replace />;
 
   const cards = [
     { label: "Open Jobs", value: stats.openJobs, icon: Briefcase, color: "text-primary" },

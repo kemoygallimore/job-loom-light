@@ -1,7 +1,7 @@
 import { Link, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Briefcase, Users, FolderKanban, LayoutDashboard, LogOut, Menu, X } from "lucide-react";
+import { Briefcase, Users, FolderKanban, LayoutDashboard, LogOut, Menu, Shield } from "lucide-react";
 import { useState } from "react";
 
 const navItems = [
@@ -9,6 +9,10 @@ const navItems = [
   { to: "/jobs", label: "Jobs", icon: Briefcase },
   { to: "/candidates", label: "Candidates", icon: Users },
   { to: "/pipeline", label: "Pipeline", icon: FolderKanban },
+];
+
+const superAdminNav = [
+  { to: "/admin", label: "Super Admin", icon: Shield },
 ];
 
 export default function AppLayout() {
@@ -32,7 +36,7 @@ export default function AppLayout() {
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1">
-          {navItems.map(item => {
+          {(role === "super_admin" ? superAdminNav : navItems).map(item => {
             const active = location.pathname === item.to;
             return (
               <Link

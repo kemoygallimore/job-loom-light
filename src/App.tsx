@@ -10,12 +10,13 @@ import Dashboard from "./pages/Dashboard";
 import Jobs from "./pages/Jobs";
 import Candidates from "./pages/Candidates";
 import Pipeline from "./pages/Pipeline";
+import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
 function ProtectedRoutes() {
-  const { user, loading, profile } = useAuth();
+  const { user, loading, profile, role } = useAuth();
 
   if (loading) {
     return (
@@ -25,17 +26,15 @@ function ProtectedRoutes() {
     );
   }
 
-  if (!user || !profile) return <Navigate to="/auth" replace />;
+  if (!user || (!profile && !loading)) return <Navigate to="/auth" replace />;
 
-  return (
-    <AppLayout />
-  );
+  return <AppLayout />;
 }
 
 function AuthRoute() {
-  const { user, loading, profile } = useAuth();
+  const { user, loading, profile, role } = useAuth();
   if (loading) return null;
-  if (user && profile) return <Navigate to="/" replace />;
+  if (user && (profile || role === "super_admin")) return <Navigate to="/" replace />;
   return <Auth />;
 }
 
@@ -53,6 +52,7 @@ const App = () => (
               <Route path="/jobs" element={<Jobs />} />
               <Route path="/candidates" element={<Candidates />} />
               <Route path="/pipeline" element={<Pipeline />} />
+              <Route path="/admin" element={<AdminDashboard />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
