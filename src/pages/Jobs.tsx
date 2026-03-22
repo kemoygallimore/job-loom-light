@@ -100,10 +100,17 @@ export default function Jobs() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3 animate-fade-in">
         <h1 className="text-2xl font-bold">Jobs</h1>
-        <Dialog open={open} onOpenChange={v => { if (!v) resetForm(); else setOpen(true); }}>
-          <DialogTrigger asChild>
-            <Button><Plus className="w-4 h-4 mr-2" />Add Job</Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          {careersUrl && (
+            <Button variant="outline" onClick={handleCopyLink} className="gap-2">
+              {copied ? <Check className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
+              {copied ? "Copied!" : "Copy Careers Link"}
+            </Button>
+          )}
+          <Dialog open={open} onOpenChange={v => { if (!v) resetForm(); else setOpen(true); }}>
+            <DialogTrigger asChild>
+              <Button><Plus className="w-4 h-4 mr-2" />Add Job</Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>{editJob ? "Edit Job" : "New Job"}</DialogTitle></DialogHeader>
             <form onSubmit={handleSave} className="space-y-4">
