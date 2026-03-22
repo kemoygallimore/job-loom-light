@@ -13,6 +13,8 @@ import Pipeline from "./pages/Pipeline";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminOverview from "./pages/admin/AdminOverview";
 import AdminCompanies from "./pages/admin/AdminCompanies";
+import CareersPage from "./pages/careers/CareersPage";
+import JobDetailsPage from "./pages/careers/JobDetailsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -49,6 +51,8 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/auth" element={<AuthRoute />} />
+            <Route path="/careers/:companySlug" element={<CareersPage />} />
+            <Route path="/careers/:companySlug/:jobId" element={<JobDetailsPage />} />
             <Route element={<ProtectedRoutes />}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/jobs" element={<Jobs />} />
