@@ -11,6 +11,10 @@ const navItems = [
   { to: "/pipeline", label: "Pipeline", icon: FolderKanban },
 ];
 
+const superAdminNav = [
+  { to: "/admin", label: "Super Admin", icon: Shield },
+];
+
 export default function AppLayout() {
   const { profile, role, signOut } = useAuth();
   const location = useLocation();
