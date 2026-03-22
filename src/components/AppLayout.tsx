@@ -36,7 +36,7 @@ export default function AppLayout() {
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1">
-          {navItems.map(item => {
+          {(role === "super_admin" ? superAdminNav : navItems).map(item => {
             const active = location.pathname === item.to;
             return (
               <Link
