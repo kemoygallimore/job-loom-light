@@ -1,7 +1,7 @@
 import { Link, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Briefcase, Users, FolderKanban, LayoutDashboard, LogOut, Menu, Shield, X, ChevronLeft } from "lucide-react";
+import { Briefcase, Users, FolderKanban, LayoutDashboard, LogOut, Menu, Shield, X, ChevronLeft, Building2 } from "lucide-react";
 import { useState } from "react";
 
 const navItems = [
@@ -12,7 +12,8 @@ const navItems = [
 ];
 
 const superAdminNav = [
-  { to: "/admin", label: "Super Admin", icon: Shield },
+  { to: "/admin", label: "Overview", icon: LayoutDashboard },
+  { to: "/admin/companies", label: "Companies", icon: Building2 },
 ];
 
 export default function AppLayout() {
