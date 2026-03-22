@@ -32,9 +32,9 @@ function ProtectedRoutes() {
 }
 
 function AuthRoute() {
-  const { user, loading, profile } = useAuth();
+  const { user, loading, profile, role } = useAuth();
   if (loading) return null;
-  if (user && profile) return <Navigate to="/" replace />;
+  if (user && (profile || role === "super_admin")) return <Navigate to="/" replace />;
   return <Auth />;
 }
 
