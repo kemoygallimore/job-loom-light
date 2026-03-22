@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Link2, Check } from "lucide-react";
 
 interface Job {
   id: string;
@@ -29,13 +29,31 @@ export default function Jobs() {
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState("open");
   const [search, setSearch] = useState("");
+  const [companySlug, setCompanySlug] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const load = async () => {
     const { data } = await supabase.from("jobs").select("*").order("created_at", { ascending: false });
     setJobs((data as Job[]) ?? []);
   };
 
-  useEffect(() => { if (profile) load(); }, [profile]);
+  useEffect(() => {
+    if (!profile) return;
+    load();
+    // Fetch company slug
+    supabase.from("companies").select("slug").eq("id", profile.company_id).maybeSingle()
+      .then(({ data }) => { if (data) setCompanySlug(data.slug); });
+  }, [profile]);
+
+  const careersUrl = companySlug ? `${window.location.origin}/careers/${companySlug}` : null;
+
+  const handleCopyLink = async () => {
+    if (!careersUrl) return;
+    await navigator.clipboard.writeText(careersUrl);
+    setCopied(true);
+    toast.success("Careers link copied to clipboard");
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,10 +100,17 @@ export default function Jobs() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3 animate-fade-in">
         <h1 className="text-2xl font-bold">Jobs</h1>
-        <Dialog open={open} onOpenChange={v => { if (!v) resetForm(); else setOpen(true); }}>
-          <DialogTrigger asChild>
-            <Button><Plus className="w-4 h-4 mr-2" />Add Job</Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          {careersUrl && (
+            <Button variant="outline" onClick={handleCopyLink} className="gap-2">
+              {copied ? <Check className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
+              {copied ? "Copied!" : "Copy Careers Link"}
+            </Button>
+          )}
+          <Dialog open={open} onOpenChange={v => { if (!v) resetForm(); else setOpen(true); }}>
+            <DialogTrigger asChild>
+              <Button><Plus className="w-4 h-4 mr-2" />Add Job</Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>{editJob ? "Edit Job" : "New Job"}</DialogTitle></DialogHeader>
             <form onSubmit={handleSave} className="space-y-4">
@@ -111,6 +136,7 @@ export default function Jobs() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Search */}
