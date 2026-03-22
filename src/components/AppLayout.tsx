@@ -54,8 +54,13 @@ export default function AppLayout() {
 
         {/* Nav */}
         <nav className="flex-1 px-2 py-3 space-y-0.5">
+          {isSuperAdmin && !collapsed && (
+            <div className="px-3 mb-2">
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/30">Platform</span>
+            </div>
+          )}
           {links.map(item => {
-            const active = location.pathname === item.to;
+            const active = location.pathname === item.to || (item.to !== "/admin" && location.pathname.startsWith(item.to));
             return (
               <Link
                 key={item.to}
