@@ -28,6 +28,8 @@ export default function Dashboard() {
     load();
   }, [profile]);
 
+  if (role === "super_admin") return <Navigate to="/admin" replace />;
+
   const cards = [
     { label: "Open Jobs", value: stats.openJobs, icon: Briefcase, color: "text-primary" },
     { label: "Total Candidates", value: stats.candidates, icon: Users, color: "text-accent" },
