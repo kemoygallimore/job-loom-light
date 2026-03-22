@@ -26,7 +26,7 @@ function ProtectedRoutes() {
     );
   }
 
-  if (!user || !profile) return <Navigate to="/auth" replace />;
+  if (!user || (!profile && !loading)) return <Navigate to="/auth" replace />;
 
   return (
     <AppLayout />
