@@ -28,9 +28,12 @@ function ProtectedRoutes() {
 
   if (!user || (!profile && !loading)) return <Navigate to="/auth" replace />;
 
-  return (
-    <AppLayout />
-  );
+  // Super admins go to admin dashboard, others to regular app
+  if (role === "super_admin") {
+    return <Navigate to="/admin" replace />;
+  }
+
+  return <AppLayout />;
 }
 
 function AuthRoute() {
