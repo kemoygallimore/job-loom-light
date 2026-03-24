@@ -267,7 +267,7 @@ export default function Candidates() {
               </TableRow>
             ) : (
               filtered.map((c) => (
-                <TableRow key={c.id} className="group cursor-pointer" onClick={() => openEdit(c)}>
+                <TableRow key={c.id} className="group cursor-pointer" onClick={() => navigate(`/candidates/${c.id}`)}>
                   <TableCell>
                     <div className="flex items-center gap-2.5">
                       <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center flex-shrink-0">

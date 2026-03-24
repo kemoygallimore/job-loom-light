@@ -9,6 +9,7 @@ import AppLayout from "./components/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import Jobs from "./pages/Jobs";
 import Candidates from "./pages/Candidates";
+import CandidateProfile from "./pages/CandidateProfile";
 import Pipeline from "./pages/Pipeline";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminOverview from "./pages/admin/AdminOverview";
@@ -57,6 +58,7 @@ const App = () => (
               <Route path="/" element={<Dashboard />} />
               <Route path="/jobs" element={<Jobs />} />
               <Route path="/candidates" element={<Candidates />} />
+              <Route path="/candidates/:id" element={<CandidateProfile />} />
               <Route path="/pipeline" element={<Pipeline />} />
               <Route path="/admin" element={<AdminDashboard />}>
                 <Route index element={<AdminOverview />} />
