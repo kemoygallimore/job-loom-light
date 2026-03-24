@@ -92,7 +92,7 @@ export default function CandidateProfile() {
   }, [id, profile]);
 
   const handleStageChange = async (appId: string, newStage: string) => {
-    const { error } = await supabase.from("applications").update({ stage: newStage }).eq("id", appId);
+    const { error } = await supabase.from("applications").update({ stage: newStage as any }).eq("id", appId);
     if (error) { toast.error(error.message); return; }
     toast.success(`Stage updated to ${newStage}`);
     setApplications((prev) =>
