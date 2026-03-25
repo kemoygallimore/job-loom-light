@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
-  ArrowLeft, Mail, Phone, FileText, Briefcase, Calendar, Clock, User, Plus,
+  ArrowLeft, Mail, Phone, FileText, Briefcase, Calendar, Clock, User, Plus, RotateCcw,
 } from "lucide-react";
 
 const STAGES = ["applied", "screening", "interview", "offer", "hired", "rejected"] as const;
@@ -37,8 +37,10 @@ interface ApplicationWithJob {
   id: string;
   stage: string;
   updated_at: string;
+  created_at: string;
   job_id: string;
   job_title: string;
+  latest_note: string | null;
 }
 
 interface Note {
@@ -66,7 +68,7 @@ export default function CandidateProfile() {
       setLoading(true);
       const [cRes, aRes, nRes] = await Promise.all([
         supabase.from("candidates").select("*").eq("id", id).single(),
-        supabase.from("applications").select("id, stage, updated_at, job_id, jobs(title)").eq("candidate_id", id).order("updated_at", { ascending: false }),
+        supabase.from("applications").select("id, stage, updated_at, created_at, job_id, jobs(title)").eq("candidate_id", id).order("updated_at", { ascending: false }),
         supabase.from("notes").select("*").eq("candidate_id", id).order("created_at", { ascending: false }),
       ]);
 
@@ -75,17 +77,22 @@ export default function CandidateProfile() {
         navigate("/candidates");
         return;
       }
+
+      const allNotes = (nRes.data as Note[]) ?? [];
+
       setCandidate(cRes.data as Candidate);
       setApplications(
         (aRes.data ?? []).map((a: any) => ({
           id: a.id,
           stage: a.stage,
           updated_at: a.updated_at,
+          created_at: a.created_at,
           job_id: a.job_id,
           job_title: a.jobs?.title ?? "Unknown",
+          latest_note: null, // notes are candidate-level, not per-application
         }))
       );
-      setNotes((nRes.data as Note[]) ?? []);
+      setNotes(allNotes);
       setLoading(false);
     };
     load();
@@ -122,6 +129,7 @@ export default function CandidateProfile() {
   };
 
   const latestApp = applications[0] ?? null;
+  const isRepeatApplicant = applications.length > 1;
 
   if (loading) {
     return (
@@ -135,7 +143,8 @@ export default function CandidateProfile() {
         </div>
         <div className="bg-card border rounded-xl p-6 space-y-3">
           <Skeleton className="h-5 w-32" />
-          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full" />
         </div>
       </div>
     );
@@ -154,14 +163,22 @@ export default function CandidateProfile() {
       {/* Header card */}
       <div className="bg-card border rounded-xl overflow-hidden" style={{ boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.04)" }}>
         <div className="p-6 space-y-5">
-          {/* Name + stage */}
+          {/* Name + badges */}
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3">
               <div className="w-11 h-11 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
                 <User className="w-5 h-5 text-muted-foreground" />
               </div>
               <div>
-                <h1 className="text-xl font-bold leading-tight">{candidate.name}</h1>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-xl font-bold leading-tight">{candidate.name}</h1>
+                  {isRepeatApplicant && (
+                    <Badge variant="outline" className="gap-1 text-xs font-medium border-amber-300 text-amber-700 dark:border-amber-600 dark:text-amber-400">
+                      <RotateCcw className="w-3 h-3" />
+                      Repeat Applicant
+                    </Badge>
+                  )}
+                </div>
                 {latestApp && (
                   <p className="text-sm text-muted-foreground mt-0.5">{latestApp.job_title}</p>
                 )}
@@ -214,32 +231,89 @@ export default function CandidateProfile() {
         </div>
       </div>
 
-      {/* Applications */}
+      {/* Application History */}
       {applications.length > 0 && (
         <div className="bg-card border rounded-xl p-6 space-y-4" style={{ boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.04)" }}>
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Applications</h2>
-          <div className="space-y-3">
-            {applications.map((app) => (
-              <div key={app.id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <Briefcase className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                  <span className="text-sm font-medium truncate">{app.job_title}</span>
-                  <span className="text-xs text-muted-foreground tabular-nums hidden sm:inline">
-                    {new Date(app.updated_at).toLocaleDateString()}
-                  </span>
-                </div>
-                <Select value={app.stage} onValueChange={(v) => handleStageChange(app.id, v)}>
-                  <SelectTrigger className="w-[130px] h-8 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STAGES.map((s) => (
-                      <SelectItem key={s} value={s} className="capitalize text-xs">{s}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ))}
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Application History
+            </h2>
+            <span className="text-xs text-muted-foreground tabular-nums">
+              {applications.length} application{applications.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+
+          {/* Timeline */}
+          <div className="relative">
+            {/* Timeline line */}
+            {applications.length > 1 && (
+              <div className="absolute left-[15px] top-6 bottom-6 w-px bg-border" />
+            )}
+
+            <div className="space-y-0">
+              {applications.map((app, index) => {
+                const isLatest = index === 0;
+                return (
+                  <div key={app.id} className="relative flex gap-4 py-3">
+                    {/* Timeline dot */}
+                    <div className="relative z-10 flex-shrink-0 mt-0.5">
+                      <div className={`w-[30px] h-[30px] rounded-full flex items-center justify-center ${
+                        isLatest
+                          ? "bg-primary/10 ring-2 ring-primary/20"
+                          : "bg-muted"
+                      }`}>
+                        <Briefcase className={`w-3.5 h-3.5 ${isLatest ? "text-primary" : "text-muted-foreground"}`} />
+                      </div>
+                    </div>
+
+                    {/* Content */}
+                    <div className={`flex-1 rounded-lg p-3 ${isLatest ? "bg-primary/5 border border-primary/10" : "bg-muted/50"}`}>
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`text-sm font-medium truncate ${isLatest ? "text-foreground" : "text-foreground/80"}`}>
+                              {app.job_title}
+                            </span>
+                            {isLatest && (
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                Latest
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              Applied {new Date(app.created_at).toLocaleDateString()}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              Updated {new Date(app.updated_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Stage selector */}
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className={`capitalize text-xs font-medium ${STAGE_COLORS[app.stage] ?? ""}`}>
+                            {app.stage}
+                          </Badge>
+                          <Select value={app.stage} onValueChange={(v) => handleStageChange(app.id, v)}>
+                            <SelectTrigger className="w-[120px] h-7 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {STAGES.map((s) => (
+                                <SelectItem key={s} value={s} className="capitalize text-xs">{s}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
