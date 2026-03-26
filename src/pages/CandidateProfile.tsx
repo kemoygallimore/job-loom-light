@@ -4,13 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
-  ArrowLeft, Mail, Phone, FileText, Briefcase, Calendar, Clock, User, Plus, RotateCcw,
+  ArrowLeft, Mail, Phone, FileText, Briefcase, Calendar, Clock, User, RotateCcw,
 } from "lucide-react";
+import CandidateNotes, { type NoteWithAuthor } from "@/components/candidate/CandidateNotes";
+import ActivityTimeline, { type TimelineEvent } from "@/components/candidate/ActivityTimeline";
 
 const STAGES = ["applied", "screening", "interview", "offer", "hired", "rejected"] as const;
 
@@ -40,14 +41,6 @@ interface ApplicationWithJob {
   created_at: string;
   job_id: string;
   job_title: string;
-  latest_note: string | null;
-}
-
-interface Note {
-  id: string;
-  content: string;
-  created_at: string;
-  user_id: string;
 }
 
 export default function CandidateProfile() {
@@ -57,10 +50,8 @@ export default function CandidateProfile() {
 
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [applications, setApplications] = useState<ApplicationWithJob[]>([]);
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [newNote, setNewNote] = useState("");
+  const [notes, setNotes] = useState<NoteWithAuthor[]>([]);
   const [loading, setLoading] = useState(true);
-  const [noteSaving, setNoteSaving] = useState(false);
 
   useEffect(() => {
     if (!id || !profile) return;
@@ -78,7 +69,18 @@ export default function CandidateProfile() {
         return;
       }
 
-      const allNotes = (nRes.data as Note[]) ?? [];
+      const rawNotes = (nRes.data ?? []) as any[];
+
+      // Fetch author names for notes
+      const authorIds = [...new Set(rawNotes.map((n: any) => n.user_id))];
+      let authorMap: Record<string, string> = {};
+      if (authorIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("user_id, name")
+          .in("user_id", authorIds);
+        (profiles ?? []).forEach((p: any) => { authorMap[p.user_id] = p.name; });
+      }
 
       setCandidate(cRes.data as Candidate);
       setApplications(
@@ -89,10 +91,15 @@ export default function CandidateProfile() {
           created_at: a.created_at,
           job_id: a.job_id,
           job_title: a.jobs?.title ?? "Unknown",
-          latest_note: null, // notes are candidate-level, not per-application
         }))
       );
-      setNotes(allNotes);
+      setNotes(rawNotes.map((n: any) => ({
+        id: n.id,
+        content: n.content,
+        created_at: n.created_at,
+        user_id: n.user_id,
+        author_name: authorMap[n.user_id] ?? "Unknown",
+      })));
       setLoading(false);
     };
     load();
@@ -107,25 +114,55 @@ export default function CandidateProfile() {
     );
   };
 
-  const addNote = async () => {
-    if (!profile || !newNote.trim() || !candidate) return;
-    setNoteSaving(true);
-    const { error } = await supabase.from("notes").insert({
-      company_id: profile.company_id,
-      candidate_id: candidate.id,
-      user_id: profile.user_id,
-      content: newNote.trim(),
+  // Build activity timeline events
+  const buildTimeline = (): TimelineEvent[] => {
+    if (!candidate) return [];
+    const events: TimelineEvent[] = [];
+
+    // Candidate created
+    events.push({
+      id: "created-" + candidate.id,
+      type: "created",
+      title: "Candidate profile created",
+      timestamp: candidate.created_at,
     });
-    if (error) { toast.error(error.message); setNoteSaving(false); return; }
-    toast.success("Note added");
-    setNewNote("");
-    const { data } = await supabase
-      .from("notes")
-      .select("*")
-      .eq("candidate_id", candidate.id)
-      .order("created_at", { ascending: false });
-    setNotes((data as Note[]) ?? []);
-    setNoteSaving(false);
+
+    // Resume uploaded
+    if (candidate.resume_url) {
+      events.push({
+        id: "resume-" + candidate.id,
+        type: "resume",
+        title: "Resume uploaded",
+        timestamp: candidate.created_at,
+      });
+    }
+
+    // Applications
+    applications.forEach((app) => {
+      events.push({
+        id: "app-" + app.id,
+        type: "applied",
+        title: `Applied for ${app.job_title}`,
+        description: `Current stage: ${app.stage}`,
+        timestamp: app.created_at,
+      });
+    });
+
+    // Notes
+    notes.forEach((n) => {
+      events.push({
+        id: "note-" + n.id,
+        type: "note",
+        title: "Note added",
+        description: n.content.length > 120 ? n.content.slice(0, 120) + "…" : n.content,
+        timestamp: n.created_at,
+        meta: n.author_name,
+      });
+    });
+
+    // Sort newest first
+    events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return events;
   };
 
   const latestApp = applications[0] ?? null;
@@ -139,11 +176,9 @@ export default function CandidateProfile() {
           <Skeleton className="h-6 w-64" />
           <Skeleton className="h-4 w-48" />
           <Skeleton className="h-4 w-40" />
-          <Skeleton className="h-4 w-56" />
         </div>
         <div className="bg-card border rounded-xl p-6 space-y-3">
           <Skeleton className="h-5 w-32" />
-          <Skeleton className="h-20 w-full" />
           <Skeleton className="h-20 w-full" />
         </div>
       </div>
@@ -163,7 +198,6 @@ export default function CandidateProfile() {
       {/* Header card */}
       <div className="bg-card border rounded-xl overflow-hidden" style={{ boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.04)" }}>
         <div className="p-6 space-y-5">
-          {/* Name + badges */}
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3">
               <div className="w-11 h-11 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
@@ -191,7 +225,6 @@ export default function CandidateProfile() {
             )}
           </div>
 
-          {/* Details grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {candidate.email && (
               <div className="flex items-center gap-2.5 text-sm">
@@ -217,7 +250,6 @@ export default function CandidateProfile() {
             )}
           </div>
 
-          {/* Actions */}
           <div className="flex items-center gap-2 flex-wrap">
             {candidate.resume_url && (
               <a href={candidate.resume_url} target="_blank" rel="noopener noreferrer">
@@ -235,76 +267,42 @@ export default function CandidateProfile() {
       {applications.length > 0 && (
         <div className="bg-card border rounded-xl p-6 space-y-4" style={{ boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.04)" }}>
           <div className="flex items-center justify-between">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Application History
-            </h2>
-            <span className="text-xs text-muted-foreground tabular-nums">
-              {applications.length} application{applications.length !== 1 ? "s" : ""}
-            </span>
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Application History</h2>
+            <span className="text-xs text-muted-foreground tabular-nums">{applications.length} application{applications.length !== 1 ? "s" : ""}</span>
           </div>
 
-          {/* Timeline */}
           <div className="relative">
-            {/* Timeline line */}
             {applications.length > 1 && (
               <div className="absolute left-[15px] top-6 bottom-6 w-px bg-border" />
             )}
-
             <div className="space-y-0">
               {applications.map((app, index) => {
                 const isLatest = index === 0;
                 return (
                   <div key={app.id} className="relative flex gap-4 py-3">
-                    {/* Timeline dot */}
                     <div className="relative z-10 flex-shrink-0 mt-0.5">
-                      <div className={`w-[30px] h-[30px] rounded-full flex items-center justify-center ${
-                        isLatest
-                          ? "bg-primary/10 ring-2 ring-primary/20"
-                          : "bg-muted"
-                      }`}>
+                      <div className={`w-[30px] h-[30px] rounded-full flex items-center justify-center ${isLatest ? "bg-primary/10 ring-2 ring-primary/20" : "bg-muted"}`}>
                         <Briefcase className={`w-3.5 h-3.5 ${isLatest ? "text-primary" : "text-muted-foreground"}`} />
                       </div>
                     </div>
-
-                    {/* Content */}
                     <div className={`flex-1 rounded-lg p-3 ${isLatest ? "bg-primary/5 border border-primary/10" : "bg-muted/50"}`}>
                       <div className="flex items-center justify-between gap-3 flex-wrap">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className={`text-sm font-medium truncate ${isLatest ? "text-foreground" : "text-foreground/80"}`}>
-                              {app.job_title}
-                            </span>
-                            {isLatest && (
-                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                                Latest
-                              </Badge>
-                            )}
+                            <span className={`text-sm font-medium truncate ${isLatest ? "text-foreground" : "text-foreground/80"}`}>{app.job_title}</span>
+                            {isLatest && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Latest</Badge>}
                           </div>
                           <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              Applied {new Date(app.created_at).toLocaleDateString()}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              Updated {new Date(app.updated_at).toLocaleDateString()}
-                            </span>
+                            <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />Applied {new Date(app.created_at).toLocaleDateString()}</span>
+                            <span className="flex items-center gap-1"><Clock className="w-3 h-3" />Updated {new Date(app.updated_at).toLocaleDateString()}</span>
                           </div>
                         </div>
-
-                        {/* Stage selector */}
                         <div className="flex items-center gap-2">
-                          <Badge variant="secondary" className={`capitalize text-xs font-medium ${STAGE_COLORS[app.stage] ?? ""}`}>
-                            {app.stage}
-                          </Badge>
+                          <Badge variant="secondary" className={`capitalize text-xs font-medium ${STAGE_COLORS[app.stage] ?? ""}`}>{app.stage}</Badge>
                           <Select value={app.stage} onValueChange={(v) => handleStageChange(app.id, v)}>
-                            <SelectTrigger className="w-[120px] h-7 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
+                            <SelectTrigger className="w-[120px] h-7 text-xs"><SelectValue /></SelectTrigger>
                             <SelectContent>
-                              {STAGES.map((s) => (
-                                <SelectItem key={s} value={s} className="capitalize text-xs">{s}</SelectItem>
-                              ))}
+                              {STAGES.map((s) => (<SelectItem key={s} value={s} className="capitalize text-xs">{s}</SelectItem>))}
                             </SelectContent>
                           </Select>
                         </div>
@@ -319,36 +317,16 @@ export default function CandidateProfile() {
       )}
 
       {/* Notes */}
-      <div className="bg-card border rounded-xl p-6 space-y-4" style={{ boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.04)" }}>
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Notes</h2>
-        <div className="flex gap-2">
-          <Textarea
-            value={newNote}
-            onChange={(e) => setNewNote(e.target.value)}
-            placeholder="Add a note about this candidate..."
-            rows={2}
-            className="flex-1 text-sm"
-          />
-          <Button onClick={addNote} disabled={!newNote.trim() || noteSaving} size="sm" className="self-end gap-1.5">
-            <Plus className="w-3.5 h-3.5" />
-            Add
-          </Button>
-        </div>
-        <div className="space-y-2">
-          {notes.map((n) => (
-            <div key={n.id} className="bg-muted rounded-lg p-3">
-              <p className="text-sm">{n.content}</p>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1.5">
-                <Clock className="w-3 h-3" />
-                {new Date(n.created_at).toLocaleString()}
-              </div>
-            </div>
-          ))}
-          {notes.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-6">No notes yet. Add your first note above.</p>
-          )}
-        </div>
-      </div>
+      <CandidateNotes
+        candidateId={candidate.id}
+        companyId={candidate.company_id}
+        userId={profile!.user_id}
+        notes={notes}
+        onNotesChange={setNotes}
+      />
+
+      {/* Activity Timeline */}
+      <ActivityTimeline events={buildTimeline()} />
     </div>
   );
 }
