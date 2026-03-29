@@ -278,17 +278,13 @@ export default function PublicScreening() {
               <div className="bg-muted rounded-lg p-4 space-y-2">
                 <h3 className="font-semibold text-sm">Instructions</h3>
                 <ul className="text-sm text-muted-foreground space-y-1.5">
-                  <li>• You'll have a <strong>15 second countdown</strong> to prepare</li>
+                  <li>• You'll be shown a question to answer</li>
+                  <li>• You'll have a <strong>15 second countdown</strong> to prepare your answer</li>
                   <li>• Recording will start automatically and lasts <strong>max 30 seconds</strong></li>
-                  <li>• You can review and re-record before submitting</li>
                 </ul>
               </div>
-              <div className="bg-muted/60 rounded-lg p-4">
-                <p className="text-sm font-medium mb-1">Your question:</p>
-                <p className="text-sm text-muted-foreground">{job?.question}</p>
-              </div>
               <Button onClick={startCountdown} className="w-full gap-2">
-                <Camera className="w-4 h-4" /> Start Recording
+                <Camera className="w-4 h-4" /> I'm Ready
               </Button>
             </div>
           )}
