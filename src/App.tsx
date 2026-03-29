@@ -79,11 +79,11 @@ const App = () => (
             <Route path="/careers/:companySlug/:jobId" element={<JobDetailsPage />} />
             <Route path="/screen/:linkId" element={<PublicScreening />} />
             <Route element={<ProtectedRoutes />}>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/jobs" element={<Jobs />} />
-              <Route path="/candidates" element={<Candidates />} />
-              <Route path="/candidates/:id" element={<CandidateProfile />} />
-              <Route path="/pipeline" element={<Pipeline />} />
+              <Route path="/" element={<DefaultRedirect />} />
+              <Route path="/jobs" element={<ATSGuard><Jobs /></ATSGuard>} />
+              <Route path="/candidates" element={<ATSGuard><Candidates /></ATSGuard>} />
+              <Route path="/candidates/:id" element={<ATSGuard><CandidateProfile /></ATSGuard>} />
+              <Route path="/pipeline" element={<ATSGuard><Pipeline /></ATSGuard>} />
               <Route path="/screening" element={<ScreeningJobs />} />
               <Route path="/screening/:jobId/submissions" element={<ScreeningSubmissions />} />
               <Route path="/admin" element={<AdminDashboard />}>
