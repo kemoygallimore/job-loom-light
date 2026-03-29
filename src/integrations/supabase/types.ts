@@ -237,6 +237,116 @@ export type Database = {
           },
         ]
       }
+      screening_analytics: {
+        Row: {
+          archived_at: string
+          company_id: string
+          id: string
+          job_title: string
+          screening_job_id: string | null
+          total_submissions: number
+        }
+        Insert: {
+          archived_at?: string
+          company_id: string
+          id?: string
+          job_title: string
+          screening_job_id?: string | null
+          total_submissions?: number
+        }
+        Update: {
+          archived_at?: string
+          company_id?: string
+          id?: string
+          job_title?: string
+          screening_job_id?: string | null
+          total_submissions?: number
+        }
+        Relationships: []
+      }
+      screening_jobs: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string
+          expires_at: string
+          id: string
+          question: string
+          title: string
+          unique_link_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by: string
+          expires_at: string
+          id?: string
+          question: string
+          title: string
+          unique_link_id?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          id?: string
+          question?: string
+          title?: string
+          unique_link_id?: string
+        }
+        Relationships: []
+      }
+      screening_submissions: {
+        Row: {
+          candidate_email: string
+          candidate_name: string
+          company_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          privacy_consent: boolean
+          rating: number | null
+          screening_job_id: string
+          status: string
+          video_url: string
+        }
+        Insert: {
+          candidate_email: string
+          candidate_name: string
+          company_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          privacy_consent?: boolean
+          rating?: number | null
+          screening_job_id: string
+          status?: string
+          video_url: string
+        }
+        Update: {
+          candidate_email?: string
+          candidate_name?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          privacy_consent?: boolean
+          rating?: number | null
+          screening_job_id?: string
+          status?: string
+          video_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "screening_submissions_screening_job_id_fkey"
+            columns: ["screening_job_id"]
+            isOneToOne: false
+            referencedRelation: "screening_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
