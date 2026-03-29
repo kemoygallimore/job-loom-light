@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Building2, Users, Briefcase } from "lucide-react";
+import ScreeningAnalytics from "@/pages/screening/ScreeningAnalytics";
 
 export default function AdminOverview() {
   const [stats, setStats] = useState({ companies: 0, users: 0, jobs: 0 });
@@ -55,6 +56,9 @@ export default function AdminOverview() {
           </div>
         ))}
       </div>
+
+      {/* Video Screening Analytics */}
+      <ScreeningAnalytics />
     </div>
   );
 }
