@@ -28,8 +28,13 @@ export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
-  const links = role === "super_admin" ? superAdminNav : navItems;
+  const isTestAdmin = profile?.email === TEST_ADMIN_EMAIL;
   const isSuperAdmin = role === "super_admin";
+  const links = isSuperAdmin
+    ? superAdminNav
+    : isTestAdmin
+      ? [...atsNavItems, ...screeningNavItems]
+      : screeningNavItems;
 
   return (
     <div className="min-h-screen flex w-full">
