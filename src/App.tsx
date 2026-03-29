@@ -16,6 +16,9 @@ import AdminOverview from "./pages/admin/AdminOverview";
 import AdminCompanies from "./pages/admin/AdminCompanies";
 import CareersPage from "./pages/careers/CareersPage";
 import JobDetailsPage from "./pages/careers/JobDetailsPage";
+import ScreeningJobs from "./pages/screening/ScreeningJobs";
+import ScreeningSubmissions from "./pages/screening/ScreeningSubmissions";
+import PublicScreening from "./pages/screening/PublicScreening";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -54,12 +57,15 @@ const App = () => (
             <Route path="/auth" element={<AuthRoute />} />
             <Route path="/careers/:companySlug" element={<CareersPage />} />
             <Route path="/careers/:companySlug/:jobId" element={<JobDetailsPage />} />
+            <Route path="/screen/:linkId" element={<PublicScreening />} />
             <Route element={<ProtectedRoutes />}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/jobs" element={<Jobs />} />
               <Route path="/candidates" element={<Candidates />} />
               <Route path="/candidates/:id" element={<CandidateProfile />} />
               <Route path="/pipeline" element={<Pipeline />} />
+              <Route path="/screening" element={<ScreeningJobs />} />
+              <Route path="/screening/:jobId/submissions" element={<ScreeningSubmissions />} />
               <Route path="/admin" element={<AdminDashboard />}>
                 <Route index element={<AdminOverview />} />
                 <Route path="companies" element={<AdminCompanies />} />
