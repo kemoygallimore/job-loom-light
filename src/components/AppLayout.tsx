@@ -4,11 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Briefcase, Users, FolderKanban, LayoutDashboard, LogOut, Menu, Shield, X, ChevronLeft, Building2, Video } from "lucide-react";
 import { useState } from "react";
 
-const navItems = [
+const TEST_ADMIN_EMAIL = "testadmin@email.com";
+
+const atsNavItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/jobs", label: "Jobs", icon: Briefcase },
   { to: "/candidates", label: "Candidates", icon: Users },
   { to: "/pipeline", label: "Pipeline", icon: FolderKanban },
+];
+
+const screeningNavItems = [
   { to: "/screening", label: "Screening", icon: Video },
 ];
 
