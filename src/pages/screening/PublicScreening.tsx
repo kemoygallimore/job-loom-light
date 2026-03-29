@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Video, ChevronRight, RotateCcw, Send, CheckCircle2, XCircle, Camera, Loader2 } from "lucide-react";
+import { Video, ChevronRight, Send, CheckCircle2, XCircle, Camera, Loader2, RotateCcw } from "lucide-react";
 import { isAfter } from "date-fns";
 
 interface ScreeningJob {
@@ -33,6 +33,7 @@ export default function PublicScreening() {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [attempt, setAttempt] = useState(1);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -62,6 +63,15 @@ export default function PublicScreening() {
     load();
   }, [linkId]);
 
+  // Re-attach stream to video element whenever step changes or video ref mounts
+  useEffect(() => {
+    if ((step === "instructions" || step === "recording") && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.muted = true;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [step]);
+
   const startCamera = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -90,9 +100,9 @@ export default function PublicScreening() {
     startCamera();
   };
 
-  const startCountdown = () => {
+  const startCountdown = (seconds: number) => {
     setStep("recording");
-    setCountdown(15);
+    setCountdown(seconds);
     countdownRef.current = setInterval(() => {
       setCountdown(prev => {
         if (prev <= 1) {
@@ -139,11 +149,13 @@ export default function PublicScreening() {
     setRecording(false);
   };
 
-  const reRecord = () => {
+  const reRecord = async () => {
     setVideoBlob(null);
     setVideoUrl(null);
-    setStep("instructions");
-    startCamera();
+    setAttempt(2);
+    await startCamera();
+    // Go directly to recording with 5-second countdown (no instructions step)
+    startCountdown(5);
   };
 
   const submitVideo = async () => {
@@ -283,7 +295,7 @@ export default function PublicScreening() {
                   <li>• Recording will start automatically and lasts <strong>max 30 seconds</strong></li>
                 </ul>
               </div>
-              <Button onClick={startCountdown} className="w-full gap-2">
+              <Button onClick={() => startCountdown(15)} className="w-full gap-2">
                 <Camera className="w-4 h-4" /> I'm Ready
               </Button>
             </div>
@@ -302,7 +314,11 @@ export default function PublicScreening() {
                   <div className="absolute inset-0 flex items-center justify-center bg-black/60">
                     <div className="text-center">
                       <div className="text-6xl font-bold text-white tabular-nums">{countdown}</div>
-                      <p className="text-white/70 text-sm mt-2">Read the question above & prepare your answer...</p>
+                      <p className="text-white/70 text-sm mt-2">
+                        {attempt === 1
+                          ? "Read the question above & prepare your answer..."
+                          : "Get ready to re-record..."}
+                      </p>
                     </div>
                   </div>
                 )}
@@ -327,15 +343,22 @@ export default function PublicScreening() {
               <div className="rounded-lg overflow-hidden bg-black aspect-video">
                 <video src={videoUrl} controls className="w-full h-full" />
               </div>
-              <div className="flex gap-3">
-                <Button variant="outline" onClick={reRecord} className="flex-1 gap-2">
-                  <RotateCcw className="w-4 h-4" /> Re-record
-                </Button>
-                <Button onClick={submitVideo} disabled={submitting} className="flex-1 gap-2">
+              {attempt === 1 ? (
+                <div className="flex gap-3">
+                  <Button variant="outline" onClick={reRecord} className="flex-1 gap-2">
+                    <RotateCcw className="w-4 h-4" /> Re-record
+                  </Button>
+                  <Button onClick={submitVideo} disabled={submitting} className="flex-1 gap-2">
+                    {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    {submitting ? "Submitting..." : "Submit"}
+                  </Button>
+                </div>
+              ) : (
+                <Button onClick={submitVideo} disabled={submitting} className="w-full gap-2">
                   {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  {submitting ? "Submitting..." : "Submit"}
+                  {submitting ? "Submitting..." : "Submit Video"}
                 </Button>
-              </div>
+              )}
             </div>
           )}
         </div>
