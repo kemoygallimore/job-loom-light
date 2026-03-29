@@ -22,6 +22,7 @@ import PublicScreening from "./pages/screening/PublicScreening";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+const TEST_ADMIN_EMAIL = "testadmin@email.com";
 
 function ProtectedRoutes() {
   const { user, loading, profile, role } = useAuth();
@@ -39,10 +40,29 @@ function ProtectedRoutes() {
   return <AppLayout />;
 }
 
+function ATSGuard({ children }: { children: React.ReactNode }) {
+  const { profile } = useAuth();
+  if (profile?.email !== TEST_ADMIN_EMAIL) {
+    return <Navigate to="/screening" replace />;
+  }
+  return <>{children}</>;
+}
+
+function DefaultRedirect() {
+  const { profile } = useAuth();
+  if (profile?.email === TEST_ADMIN_EMAIL) {
+    return <Dashboard />;
+  }
+  return <Navigate to="/screening" replace />;
+}
+
 function AuthRoute() {
   const { user, loading, profile, role } = useAuth();
   if (loading) return null;
-  if (user && (profile || role === "super_admin")) return <Navigate to="/" replace />;
+  if (user && (profile || role === "super_admin")) {
+    const redirectTo = profile?.email === TEST_ADMIN_EMAIL ? "/" : "/screening";
+    return <Navigate to={redirectTo} replace />;
+  }
   return <Auth />;
 }
 
