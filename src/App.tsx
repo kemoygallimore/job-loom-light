@@ -22,6 +22,7 @@ import PublicScreening from "./pages/screening/PublicScreening";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+const TEST_ADMIN_EMAIL = "testadmin@email.com";
 
 function ProtectedRoutes() {
   const { user, loading, profile, role } = useAuth();
@@ -39,10 +40,29 @@ function ProtectedRoutes() {
   return <AppLayout />;
 }
 
+function ATSGuard({ children }: { children: React.ReactNode }) {
+  const { profile } = useAuth();
+  if (profile?.email !== TEST_ADMIN_EMAIL) {
+    return <Navigate to="/screening" replace />;
+  }
+  return <>{children}</>;
+}
+
+function DefaultRedirect() {
+  const { profile } = useAuth();
+  if (profile?.email === TEST_ADMIN_EMAIL) {
+    return <Dashboard />;
+  }
+  return <Navigate to="/screening" replace />;
+}
+
 function AuthRoute() {
   const { user, loading, profile, role } = useAuth();
   if (loading) return null;
-  if (user && (profile || role === "super_admin")) return <Navigate to="/" replace />;
+  if (user && (profile || role === "super_admin")) {
+    const redirectTo = profile?.email === TEST_ADMIN_EMAIL ? "/" : "/screening";
+    return <Navigate to={redirectTo} replace />;
+  }
   return <Auth />;
 }
 
@@ -59,11 +79,11 @@ const App = () => (
             <Route path="/careers/:companySlug/:jobId" element={<JobDetailsPage />} />
             <Route path="/screen/:linkId" element={<PublicScreening />} />
             <Route element={<ProtectedRoutes />}>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/jobs" element={<Jobs />} />
-              <Route path="/candidates" element={<Candidates />} />
-              <Route path="/candidates/:id" element={<CandidateProfile />} />
-              <Route path="/pipeline" element={<Pipeline />} />
+              <Route path="/" element={<DefaultRedirect />} />
+              <Route path="/jobs" element={<ATSGuard><Jobs /></ATSGuard>} />
+              <Route path="/candidates" element={<ATSGuard><Candidates /></ATSGuard>} />
+              <Route path="/candidates/:id" element={<ATSGuard><CandidateProfile /></ATSGuard>} />
+              <Route path="/pipeline" element={<ATSGuard><Pipeline /></ATSGuard>} />
               <Route path="/screening" element={<ScreeningJobs />} />
               <Route path="/screening/:jobId/submissions" element={<ScreeningSubmissions />} />
               <Route path="/admin" element={<AdminDashboard />}>
