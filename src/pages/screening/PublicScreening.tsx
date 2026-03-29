@@ -292,13 +292,17 @@ export default function PublicScreening() {
           {/* Step 3: Countdown + Recording */}
           {step === "recording" && (
             <div className="space-y-4 animate-fade-in">
+              <div className="bg-muted/60 rounded-lg p-4 mb-2">
+                <p className="text-sm font-medium mb-1">Your question:</p>
+                <p className="text-sm text-muted-foreground">{job?.question}</p>
+              </div>
               <div className="rounded-lg overflow-hidden bg-black aspect-video relative">
                 <video ref={videoRef} className="w-full h-full object-cover" />
                 {countdown > 0 && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/60">
                     <div className="text-center">
                       <div className="text-6xl font-bold text-white tabular-nums">{countdown}</div>
-                      <p className="text-white/70 text-sm mt-2">Get ready...</p>
+                      <p className="text-white/70 text-sm mt-2">Read the question above & prepare your answer...</p>
                     </div>
                   </div>
                 )}
