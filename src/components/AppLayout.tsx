@@ -9,6 +9,7 @@ const navItems = [
   { to: "/jobs", label: "Jobs", icon: Briefcase },
   { to: "/candidates", label: "Candidates", icon: Users },
   { to: "/pipeline", label: "Pipeline", icon: FolderKanban },
+  { to: "/screening", label: "Screening", icon: Video },
 ];
 
 const superAdminNav = [
