@@ -36,6 +36,8 @@ export default function ScreeningSubmissions() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [selectedSub, setSelectedSub] = useState<Submission | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [resolvedVideoUrl, setResolvedVideoUrl] = useState<string | null>(null);
+  const [loadingVideo, setLoadingVideo] = useState(false);
   const [rating, setRating] = useState<number>(0);
   const [notes, setNotes] = useState("");
 
