@@ -174,11 +174,21 @@ export default function ScreeningSubmissions() {
           </DialogHeader>
           {selectedSub && (
             <div className="space-y-4">
-              <video
-                src={selectedSub.video_url}
-                controls
-                className="w-full rounded-lg bg-black aspect-video"
-              />
+              {loadingVideo ? (
+                <div className="w-full rounded-lg bg-black aspect-video flex items-center justify-center">
+                  <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : resolvedVideoUrl ? (
+                <video
+                  src={resolvedVideoUrl}
+                  controls
+                  className="w-full rounded-lg bg-black aspect-video"
+                />
+              ) : (
+                <div className="w-full rounded-lg bg-black aspect-video flex items-center justify-center text-muted-foreground text-sm">
+                  Failed to load video
+                </div>
+              )}
               <div className="space-y-3">
                 <div>
                   <label className="text-sm font-medium mb-1.5 block">Rating</label>
