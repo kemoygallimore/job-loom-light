@@ -2,12 +2,13 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { resolveVideoUrl } from "@/lib/videoUrl";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { ArrowLeft, Play, Star, MessageSquare } from "lucide-react";
+import { ArrowLeft, Play, Star, MessageSquare, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 
 interface Submission {
@@ -35,6 +36,8 @@ export default function ScreeningSubmissions() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [selectedSub, setSelectedSub] = useState<Submission | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [resolvedVideoUrl, setResolvedVideoUrl] = useState<string | null>(null);
+  const [loadingVideo, setLoadingVideo] = useState(false);
   const [rating, setRating] = useState<number>(0);
   const [notes, setNotes] = useState("");
 
@@ -63,7 +66,18 @@ export default function ScreeningSubmissions() {
     setSelectedSub(sub);
     setRating(sub.rating ?? 0);
     setNotes(sub.notes ?? "");
+    setResolvedVideoUrl(null);
+    setLoadingVideo(true);
     setReviewOpen(true);
+
+    try {
+      const url = await resolveVideoUrl(sub.video_url);
+      setResolvedVideoUrl(url);
+    } catch (err: any) {
+      toast.error("Failed to load video: " + (err.message || "Unknown error"));
+    } finally {
+      setLoadingVideo(false);
+    }
 
     // Mark as watched
     if (sub.status === "new") {
@@ -160,11 +174,21 @@ export default function ScreeningSubmissions() {
           </DialogHeader>
           {selectedSub && (
             <div className="space-y-4">
-              <video
-                src={selectedSub.video_url}
-                controls
-                className="w-full rounded-lg bg-black aspect-video"
-              />
+              {loadingVideo ? (
+                <div className="w-full rounded-lg bg-black aspect-video flex items-center justify-center">
+                  <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : resolvedVideoUrl ? (
+                <video
+                  src={resolvedVideoUrl}
+                  controls
+                  className="w-full rounded-lg bg-black aspect-video"
+                />
+              ) : (
+                <div className="w-full rounded-lg bg-black aspect-video flex items-center justify-center text-muted-foreground text-sm">
+                  Failed to load video
+                </div>
+              )}
               <div className="space-y-3">
                 <div>
                   <label className="text-sm font-medium mb-1.5 block">Rating</label>
