@@ -1,53 +1,45 @@
 
 
-# Separating Video Screening from ATS
+# Integrate Render Backend for R2 Video Uploads
 
-## Approach
+## Overview
 
-Use the existing `useAuth` hook to control navigation visibility based on the logged-in user's email. No database changes needed — purely a frontend gating mechanism.
+Replace the current Supabase Storage upload in the screening flow with Cloudflare R2 uploads via your Render backend. The `uploadToR2` utility already exists — we just need to wire it into the `submitVideo` function and configure the backend URL.
 
-**How it works:**
-- A hardcoded test email (`testadmin@email.com`) gets full access to all modules (ATS + Screening)
-- All other authenticated users see only the Video Screening module
-- Super admins continue to see the admin panel as before
+## Steps
 
-## Changes
+### 1. Add `VITE_BACKEND_BASE_URL` environment variable
+- Store your Render backend URL (e.g. `https://your-api.onrender.com`) as a public env var in the codebase since it's not a secret.
 
-### 1. Update `AppLayout.tsx` — Conditional navigation
+### 2. Update `submitVideo` in `PublicScreening.tsx`
+- Replace the Supabase Storage upload (lines 166-175) with the `uploadToR2` utility
+- Convert the `videoBlob` to a `File` object (required by `uploadToR2`)
+- Use the returned R2 `key` as the `video_url` stored in `screening_submissions` (instead of a public Supabase URL)
+- Also insert a record into `candidate_files` table for tracking
+- The flow becomes:
+  1. Request presigned URL from Render backend
+  2. PUT video directly to R2
+  3. Save R2 key in `screening_submissions.video_url` and `candidate_files`
 
-Split the current `navItems` into two sets:
+### 3. Update video playback in `ScreeningSubmissions.tsx`
+- Since videos are now in R2 (not Supabase Storage), the `video_url` field will contain an R2 key rather than a public URL
+- Need to add a mechanism to generate viewable URLs — either:
+  - A Render endpoint like `/api/download-url` that returns signed read URLs
+  - Or store the full CDN URL if your R2 bucket has a public custom domain
 
-```text
-ATS-only nav (hidden from regular users):
-  Dashboard, Jobs, Candidates, Pipeline
+### 4. Secure the `screening-videos` Supabase bucket
+- Since videos will now go to R2, the existing `screening-videos` bucket can be made private or removed. Existing videos already uploaded there will need consideration.
 
-Screening nav (visible to everyone):
-  Screening (as the default "/" route)
-```
+## Technical Details
 
-Logic in `AppLayout`:
-- If `profile?.email === "testadmin@email.com"` → show all nav items (ATS + Screening)
-- If `role === "super_admin"` → show super admin nav (unchanged)
-- Otherwise → show only Screening nav
+**File changes:**
+- `src/pages/screening/PublicScreening.tsx` — replace `supabase.storage` upload with `uploadToR2`
+- `src/pages/screening/ScreeningSubmissions.tsx` — update video URL resolution for R2-stored videos
+- Possibly add a small utility for generating R2 read URLs via your Render backend
 
-### 2. Update `App.tsx` — Route protection and default redirect
+**Key consideration:** Your Render backend needs two endpoints:
+1. `POST /api/upload-url` — generates presigned PUT URL (for uploads)
+2. `GET /api/download-url` or similar — generates presigned GET URL (for playback in the recruiter dashboard)
 
-- Wrap ATS routes (Dashboard, Jobs, Candidates, Pipeline) with an email check
-- Regular users hitting `/`, `/jobs`, `/candidates`, `/pipeline` get redirected to `/screening`
-- The `/screening` route becomes the default landing page for non-test users
-- Public routes (careers, screening links) remain unchanged
-
-### 3. Update `ProtectedRoutes` / create a small guard component
-
-A simple `<ATSGuard>` wrapper that checks `profile?.email === "testadmin@email.com"` and redirects to `/screening` if not authorized.
-
-## What stays the same
-- Database, RLS policies, auth flow — no changes
-- Super admin dashboard — unchanged
-- Public screening candidate flow — unchanged
-- All ATS code remains in place, just hidden from navigation
-
-## Summary
-
-This is the lightest-touch separation: a single email check controls nav visibility and route access. When the ATS is ready to launch, you simply remove the email guard and restore the full nav for all users.
+If your R2 bucket has a public domain or CDN, the download endpoint may not be needed.
 
