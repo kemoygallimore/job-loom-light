@@ -183,8 +183,7 @@ export default function Candidates() {
     const path = `${profile!.company_id}/${crypto.randomUUID()}.${ext}`;
     const { error } = await supabase.storage.from("resumes").upload(path, file);
     if (error) { toast.error("Upload failed"); return null; }
-    const { data } = supabase.storage.from("resumes").getPublicUrl(path);
-    return data.publicUrl;
+    return path;
   };
 
   const handleSave = async (e: React.FormEvent) => {

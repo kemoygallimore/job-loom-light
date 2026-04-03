@@ -97,11 +97,7 @@ export default function JobDetailsPage() {
 
       if (uploadError) throw new Error("Failed to upload resume");
 
-      const { data: { publicUrl } } = supabase.storage
-        .from("resumes")
-        .getPublicUrl(filePath);
-
-      // Create candidate
+      // Create candidate with file path (not public URL)
       const { data: candidate, error: candidateError } = await supabase
         .from("candidates")
         .insert({
@@ -109,7 +105,7 @@ export default function JobDetailsPage() {
           name: name.trim(),
           email: email.trim(),
           phone: phone.trim(),
-          resume_url: publicUrl,
+          resume_url: filePath,
         })
         .select()
         .single();
