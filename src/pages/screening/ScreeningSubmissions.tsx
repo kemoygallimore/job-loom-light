@@ -66,7 +66,18 @@ export default function ScreeningSubmissions() {
     setSelectedSub(sub);
     setRating(sub.rating ?? 0);
     setNotes(sub.notes ?? "");
+    setResolvedVideoUrl(null);
+    setLoadingVideo(true);
     setReviewOpen(true);
+
+    try {
+      const url = await resolveVideoUrl(sub.video_url);
+      setResolvedVideoUrl(url);
+    } catch (err: any) {
+      toast.error("Failed to load video: " + (err.message || "Unknown error"));
+    } finally {
+      setLoadingVideo(false);
+    }
 
     // Mark as watched
     if (sub.status === "new") {
