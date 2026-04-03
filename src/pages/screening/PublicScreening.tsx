@@ -164,27 +164,48 @@ export default function PublicScreening() {
     setSubmitting(true);
 
     try {
-      const fileName = `${job.id}/${Date.now()}-${name.replace(/\s/g, "_")}.webm`;
-      const { error: uploadError } = await supabase.storage
-        .from("screening-videos")
-        .upload(fileName, videoBlob, { contentType: "video/webm" });
+      // Convert Blob to File for uploadToR2
+      const videoFile = new File(
+        [videoBlob],
+        `${Date.now()}-${name.replace(/\s/g, "_")}.webm`,
+        { type: "video/webm" }
+      );
 
-      if (uploadError) throw uploadError;
+      // Upload to Cloudflare R2 via Render backend
+      const r2Result = await uploadToR2({
+        file: videoFile,
+        companyId: job.company_id,
+        jobId: job.id,
+        candidateId: email.trim(), // use email as candidate identifier for screening
+        category: "video",
+        backendBaseUrl: "https://job-loom-light-backend.onrender.com",
+      });
 
-      const { data: urlData } = supabase.storage
-        .from("screening-videos")
-        .getPublicUrl(fileName);
-
+      // Save submission with R2 key as video_url
       const { error: insertError } = await supabase.from("screening_submissions").insert({
         screening_job_id: job.id,
         company_id: job.company_id,
         candidate_name: name.trim(),
         candidate_email: email.trim(),
-        video_url: urlData.publicUrl,
+        video_url: r2Result.key,
         privacy_consent: true,
       });
 
       if (insertError) throw insertError;
+
+      // Also track in candidate_files
+      await supabase.from("candidate_files").insert({
+        company_id: job.company_id,
+        job_id: job.id,
+        candidate_id: job.id, // screening context - no candidate record yet
+        category: "video",
+        bucket: r2Result.bucket,
+        file_key: r2Result.key,
+        file_name: r2Result.fileName,
+        file_type: r2Result.fileType,
+        file_size: r2Result.fileSize,
+      });
+
       setStep("submitted");
     } catch (err: any) {
       toast.error(err.message || "Failed to submit video");
