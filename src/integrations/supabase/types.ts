@@ -66,6 +66,70 @@ export type Database = {
           },
         ]
       }
+      candidate_files: {
+        Row: {
+          bucket: string
+          candidate_id: string
+          category: string
+          company_id: string
+          file_key: string
+          file_name: string
+          file_size: number
+          file_type: string
+          id: string
+          job_id: string
+          uploaded_at: string
+        }
+        Insert: {
+          bucket: string
+          candidate_id: string
+          category: string
+          company_id: string
+          file_key: string
+          file_name: string
+          file_size?: number
+          file_type: string
+          id?: string
+          job_id: string
+          uploaded_at?: string
+        }
+        Update: {
+          bucket?: string
+          candidate_id?: string
+          category?: string
+          company_id?: string
+          file_key?: string
+          file_name?: string
+          file_size?: number
+          file_type?: string
+          id?: string
+          job_id?: string
+          uploaded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidate_files_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candidate_files_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candidate_files_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       candidates: {
         Row: {
           company_id: string
