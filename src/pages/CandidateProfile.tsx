@@ -252,12 +252,24 @@ export default function CandidateProfile() {
 
           <div className="flex items-center gap-2 flex-wrap">
             {candidate.resume_url && (
-              <a href={candidate.resume_url} target="_blank" rel="noopener noreferrer">
-                <Button variant="outline" size="sm" className="gap-2">
-                  <FileText className="w-4 h-4" />
-                  View Resume
-                </Button>
-              </a>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={async () => {
+                  const { data, error } = await supabase.storage
+                    .from("resumes")
+                    .createSignedUrl(candidate.resume_url!, 3600);
+                  if (error || !data?.signedUrl) {
+                    toast.error("Failed to load resume");
+                    return;
+                  }
+                  window.open(data.signedUrl, "_blank");
+                }}
+              >
+                <FileText className="w-4 h-4" />
+                View Resume
+              </Button>
             )}
           </div>
         </div>
