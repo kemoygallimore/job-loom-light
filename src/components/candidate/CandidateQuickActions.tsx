@@ -90,11 +90,23 @@ export default function CandidateQuickActions({
 
         {/* View resume */}
         {resumeUrl && (
-          <a href={resumeUrl} target="_blank" rel="noopener noreferrer">
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <FileText className="w-3.5 h-3.5" />
-            </Button>
-          </a>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={async () => {
+              const { data, error } = await supabase.storage
+                .from("resumes")
+                .createSignedUrl(resumeUrl, 3600);
+              if (error || !data?.signedUrl) {
+                toast.error("Failed to load resume");
+                return;
+              }
+              window.open(data.signedUrl, "_blank");
+            }}
+          >
+            <FileText className="w-3.5 h-3.5" />
+          </Button>
         )}
 
         {/* View profile / history */}
