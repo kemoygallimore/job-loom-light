@@ -1,4 +1,5 @@
-const BACKEND_URL = import.meta.env.VITE_UPLOAD_BACKEND_URL?.replace(/\/$/, "");
+const BACKEND_URL =
+  import.meta.env.VITE_UPLOAD_BACKEND_URL?.replace(/\/$/, "") || "https://job-loom-light-backend.onrender.com";
 
 function isFullUrl(value: string) {
   return /^https?:\/\//i.test(value);
