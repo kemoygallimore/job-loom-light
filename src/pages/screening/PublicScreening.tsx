@@ -269,11 +269,11 @@ export default function PublicScreening() {
         job_id: job.id,
         candidate_id: email.trim().toLowerCase(),
         category: "video",
-        bucket: r2Result.bucket,
-        file_key: r2Result.key,
-        file_name: r2Result.fileName,
-        file_type: r2Result.fileType,
-        file_size: r2Result.fileSize,
+        bucket: uploadResult.bucket,
+        file_key: uploadResult.path,
+        file_name: uploadResult.fileName,
+        file_type: uploadResult.fileType,
+        file_size: uploadResult.fileSize,
       });
 
       if (candidateFileError) {
