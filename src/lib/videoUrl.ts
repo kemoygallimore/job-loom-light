@@ -1,37 +1,26 @@
-const BACKEND_URL = import.meta.env.VITE_UPLOAD_BACKEND_URL?.replace(/\/$/, "");
+import { supabase } from "@/integrations/supabase/client";
 
 function isFullUrl(value: string) {
   return /^https?:\/\//i.test(value);
 }
 
-export async function resolveVideoUrl(videoUrlOrKey: string | null | undefined): Promise<string | null> {
+export async function resolveVideoUrl(
+  videoUrlOrKey: string | null | undefined
+): Promise<string | null> {
   if (!videoUrlOrKey) return null;
 
-  // If it's already a full URL (old Supabase or public URL)
   if (isFullUrl(videoUrlOrKey)) {
     return videoUrlOrKey;
   }
 
-  if (!BACKEND_URL) {
-    throw new Error("Missing VITE_UPLOAD_BACKEND_URL");
+  // It's a storage path — create a signed URL from the screening-videos bucket
+  const { data, error } = await supabase.storage
+    .from("screening-videos")
+    .createSignedUrl(videoUrlOrKey, 3600);
+
+  if (error || !data?.signedUrl) {
+    throw new Error("Failed to resolve video URL");
   }
 
-  const response = await fetch(`${BACKEND_URL}/api/download-url`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      key: videoUrlOrKey,
-      bucketType: "videos", // 🔥 IMPORTANT
-    }),
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error || "Failed to resolve video URL");
-  }
-
-  return data.downloadUrl || null;
+  return data.signedUrl;
 }

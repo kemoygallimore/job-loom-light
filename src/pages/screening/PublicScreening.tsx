@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { uploadToR2 } from "@/lib/uploadToR2";
+import { uploadToStorage } from "@/lib/uploadToStorage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,8 +20,6 @@ interface ScreeningJob {
 
 type Step = "info" | "instructions" | "recording" | "review" | "submitted" | "expired" | "not-found";
 
-const BACKEND_BASE_URL =
-  import.meta.env.VITE_UPLOAD_BACKEND_URL?.replace(/\/$/, "") || "https://job-loom-light-backend.onrender.com";
 
 export default function PublicScreening() {
   const { linkId } = useParams<{ linkId: string }>();
@@ -245,13 +243,12 @@ export default function PublicScreening() {
         type: videoBlob.type || "video/webm",
       });
 
-      const r2Result = await uploadToR2({
+      const uploadResult = await uploadToStorage({
         file: videoFile,
         companyId: job.company_id,
         jobId: job.id,
         candidateId: email.trim().toLowerCase(),
         category: "video",
-        backendBaseUrl: BACKEND_BASE_URL,
       });
 
       const { error: submissionError } = await supabase.from("screening_submissions").insert({
@@ -259,7 +256,7 @@ export default function PublicScreening() {
         company_id: job.company_id,
         candidate_name: name.trim(),
         candidate_email: email.trim().toLowerCase(),
-        video_url: r2Result.key,
+        video_url: uploadResult.path,
         privacy_consent: true,
       });
 
@@ -272,11 +269,11 @@ export default function PublicScreening() {
         job_id: job.id,
         candidate_id: email.trim().toLowerCase(),
         category: "video",
-        bucket: r2Result.bucket,
-        file_key: r2Result.key,
-        file_name: r2Result.fileName,
-        file_type: r2Result.fileType,
-        file_size: r2Result.fileSize,
+        bucket: uploadResult.bucket,
+        file_key: uploadResult.path,
+        file_name: uploadResult.fileName,
+        file_type: uploadResult.fileType,
+        file_size: uploadResult.fileSize,
       });
 
       if (candidateFileError) {
