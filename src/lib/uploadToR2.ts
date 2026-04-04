@@ -31,6 +31,11 @@ function mapCategoryToBucketType(category: UploadCategory): BucketType {
   return category === "video" ? "videos" : "resumes";
 }
 
+function normalizeContentType(fileType?: string): string {
+  if (!fileType) return "application/octet-stream";
+  return fileType.split(";")[0].trim() || "application/octet-stream";
+}
+
 export async function requestUploadUrl({
   file,
   companyId,
@@ -40,6 +45,7 @@ export async function requestUploadUrl({
   backendBaseUrl,
 }: RequestUploadUrlParams): Promise<RequestUploadUrlResponse> {
   const bucketType = mapCategoryToBucketType(category);
+  const normalizedFileType = normalizeContentType(file.type);
 
   const response = await fetch(`${backendBaseUrl}/api/upload-url`, {
     method: "POST",
@@ -48,7 +54,7 @@ export async function requestUploadUrl({
     },
     body: JSON.stringify({
       fileName: file.name,
-      fileType: file.type || "application/octet-stream",
+      fileType: normalizedFileType,
       companyId,
       jobId,
       candidateId,
@@ -66,10 +72,12 @@ export async function requestUploadUrl({
 }
 
 export async function uploadFileDirectToR2(signedUrl: string, file: File): Promise<void> {
+  const normalizedFileType = normalizeContentType(file.type);
+
   const uploadResponse = await fetch(signedUrl, {
     method: "PUT",
     headers: {
-      "Content-Type": file.type || "application/octet-stream",
+      "Content-Type": normalizedFileType,
     },
     body: file,
   });
@@ -104,7 +112,7 @@ export async function uploadToR2({
     bucket: signedUrlData.bucket,
     bucketType: signedUrlData.bucketType,
     fileName: file.name,
-    fileType: file.type || "application/octet-stream",
+    fileType: normalizeContentType(file.type),
     fileSize: file.size,
   };
 }
