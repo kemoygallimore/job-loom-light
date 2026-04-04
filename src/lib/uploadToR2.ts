@@ -1,4 +1,5 @@
 export type UploadCategory = "resume" | "video";
+export type BucketType = "resumes" | "videos";
 
 export interface RequestUploadUrlParams {
   file: File;
@@ -10,20 +11,24 @@ export interface RequestUploadUrlParams {
 }
 
 export interface RequestUploadUrlResponse {
-  success: boolean;
-  url: string;
+  uploadUrl: string;
   key: string;
   bucket: string;
-  expiresIn: number;
+  bucketType: BucketType;
   error?: string;
 }
 
 export interface UploadToR2Result {
   key: string;
   bucket: string;
+  bucketType: BucketType;
   fileName: string;
   fileType: string;
   fileSize: number;
+}
+
+function mapCategoryToBucketType(category: UploadCategory): BucketType {
+  return category === "video" ? "videos" : "resumes";
 }
 
 export async function requestUploadUrl({
@@ -34,6 +39,8 @@ export async function requestUploadUrl({
   category,
   backendBaseUrl,
 }: RequestUploadUrlParams): Promise<RequestUploadUrlResponse> {
+  const bucketType = mapCategoryToBucketType(category);
+
   const response = await fetch(`${backendBaseUrl}/api/upload-url`, {
     method: "POST",
     headers: {
@@ -41,37 +48,35 @@ export async function requestUploadUrl({
     },
     body: JSON.stringify({
       fileName: file.name,
-      fileType: file.type,
+      fileType: file.type || "application/octet-stream",
       companyId,
       jobId,
       candidateId,
-      category,
+      bucketType,
     }),
   });
 
   const data = await response.json();
 
-  if (!response.ok || !data.success) {
+  if (!response.ok) {
     throw new Error(data.error || "Failed to request upload URL");
   }
 
   return data;
 }
 
-export async function uploadFileDirectToR2(
-  signedUrl: string,
-  file: File
-): Promise<void> {
+export async function uploadFileDirectToR2(signedUrl: string, file: File): Promise<void> {
   const uploadResponse = await fetch(signedUrl, {
     method: "PUT",
     headers: {
-      "Content-Type": file.type,
+      "Content-Type": file.type || "application/octet-stream",
     },
     body: file,
   });
 
   if (!uploadResponse.ok) {
-    throw new Error("Failed to upload file to storage");
+    const errorText = await uploadResponse.text();
+    throw new Error(errorText || "Failed to upload file to storage");
   }
 }
 
@@ -92,13 +97,14 @@ export async function uploadToR2({
     backendBaseUrl,
   });
 
-  await uploadFileDirectToR2(signedUrlData.url, file);
+  await uploadFileDirectToR2(signedUrlData.uploadUrl, file);
 
   return {
     key: signedUrlData.key,
     bucket: signedUrlData.bucket,
+    bucketType: signedUrlData.bucketType,
     fileName: file.name,
-    fileType: file.type,
+    fileType: file.type || "application/octet-stream",
     fileSize: file.size,
   };
 }
