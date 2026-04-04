@@ -1,5 +1,4 @@
-const BACKEND_URL =
-  import.meta.env.VITE_UPLOAD_BACKEND_URL?.replace(/\/$/, "") || "https://job-loom-light-backend.onrender.com";
+const BACKEND_URL = import.meta.env.VITE_UPLOAD_BACKEND_URL?.replace(/\/$/, "");
 
 function isFullUrl(value: string) {
   return /^https?:\/\//i.test(value);
@@ -8,6 +7,7 @@ function isFullUrl(value: string) {
 export async function resolveVideoUrl(videoUrlOrKey: string | null | undefined): Promise<string | null> {
   if (!videoUrlOrKey) return null;
 
+  // If it's already a full URL (old Supabase or public URL)
   if (isFullUrl(videoUrlOrKey)) {
     return videoUrlOrKey;
   }
@@ -23,7 +23,7 @@ export async function resolveVideoUrl(videoUrlOrKey: string | null | undefined):
     },
     body: JSON.stringify({
       key: videoUrlOrKey,
-      bucketType: "videos",
+      bucketType: "videos", // 🔥 IMPORTANT
     }),
   });
 
