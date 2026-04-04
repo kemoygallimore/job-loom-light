@@ -1,45 +1,34 @@
 
 
-# Integrate Render Backend for R2 Video Uploads
+# Fix R2 Video Screening Integration
 
-## Overview
+## Problem
 
-Replace the current Supabase Storage upload in the screening flow with Cloudflare R2 uploads via your Render backend. The `uploadToR2` utility already exists — we just need to wire it into the `submitVideo` function and configure the backend URL.
+The R2 upload flow is already wired up but has a bug that will cause submissions to fail: **line 264 of `PublicScreening.tsx`** inserts `bucket_type: r2Result.bucketType` into `screening_submissions`, but that table has **no `bucket_type` column**. This will throw a database error on every submission.
 
-## Steps
+Additionally, the `VITE_UPLOAD_BACKEND_URL` environment variable needs to be set so both the upload and download flows use your Render backend consistently.
 
-### 1. Add `VITE_BACKEND_BASE_URL` environment variable
-- Store your Render backend URL (e.g. `https://your-api.onrender.com`) as a public env var in the codebase since it's not a secret.
+## Changes
 
-### 2. Update `submitVideo` in `PublicScreening.tsx`
-- Replace the Supabase Storage upload (lines 166-175) with the `uploadToR2` utility
-- Convert the `videoBlob` to a `File` object (required by `uploadToR2`)
-- Use the returned R2 `key` as the `video_url` stored in `screening_submissions` (instead of a public Supabase URL)
-- Also insert a record into `candidate_files` table for tracking
-- The flow becomes:
-  1. Request presigned URL from Render backend
-  2. PUT video directly to R2
-  3. Save R2 key in `screening_submissions.video_url` and `candidate_files`
+### 1. Fix `screening_submissions` insert in `PublicScreening.tsx`
+- Remove the `bucket_type` field from the insert on line 264 — the table doesn't have this column
+- The R2 key stored in `video_url` is sufficient; bucket info is already tracked in `candidate_files`
 
-### 3. Update video playback in `ScreeningSubmissions.tsx`
-- Since videos are now in R2 (not Supabase Storage), the `video_url` field will contain an R2 key rather than a public URL
-- Need to add a mechanism to generate viewable URLs — either:
-  - A Render endpoint like `/api/download-url` that returns signed read URLs
-  - Or store the full CDN URL if your R2 bucket has a public custom domain
+### 2. Set `VITE_UPLOAD_BACKEND_URL` environment variable
+- Value: `https://job-loom-light-backend.onrender.com`
+- This is used by both `PublicScreening.tsx` (upload) and `videoUrl.ts` (download/playback)
+- Currently the upload side has a hardcoded fallback but `videoUrl.ts` will throw if the env var is missing
 
-### 4. Secure the `screening-videos` Supabase bucket
-- Since videos will now go to R2, the existing `screening-videos` bucket can be made private or removed. Existing videos already uploaded there will need consideration.
+### 3. Verify `videoUrl.ts` response field
+- Currently expects `data.downloadUrl` from your Render `/api/download-url` endpoint
+- Confirm your backend returns `{ downloadUrl: "..." }` — if it returns a different field name (e.g. `url`), we'll update accordingly
 
-## Technical Details
+## Files Modified
+- `src/pages/screening/PublicScreening.tsx` — remove `bucket_type` from insert
+- Environment config — add `VITE_UPLOAD_BACKEND_URL`
 
-**File changes:**
-- `src/pages/screening/PublicScreening.tsx` — replace `supabase.storage` upload with `uploadToR2`
-- `src/pages/screening/ScreeningSubmissions.tsx` — update video URL resolution for R2-stored videos
-- Possibly add a small utility for generating R2 read URLs via your Render backend
-
-**Key consideration:** Your Render backend needs two endpoints:
-1. `POST /api/upload-url` — generates presigned PUT URL (for uploads)
-2. `GET /api/download-url` or similar — generates presigned GET URL (for playback in the recruiter dashboard)
-
-If your R2 bucket has a public domain or CDN, the download endpoint may not be needed.
+## Render Backend Requirements
+Your backend needs these two endpoints working:
+1. **`POST /api/upload-url`** — accepts `{ fileName, fileType, companyId, jobId, candidateId, bucketType }`, returns `{ uploadUrl, key, bucket, bucketType }`
+2. **`POST /api/download-url`** — accepts `{ key, bucketType }`, returns `{ downloadUrl }`
 
