@@ -264,21 +264,9 @@ export default function PublicScreening() {
         throw submissionError;
       }
 
-      const { error: candidateFileError } = await supabase.from("candidate_files").insert({
-        company_id: job.company_id,
-        job_id: job.id,
-        candidate_id: email.trim().toLowerCase(),
-        category: "video",
-        bucket: uploadResult.bucket,
-        file_key: uploadResult.path,
-        file_name: uploadResult.fileName,
-        file_type: uploadResult.fileType,
-        file_size: uploadResult.fileSize,
-      });
-
-      if (candidateFileError) {
-        throw candidateFileError;
-      }
+      // candidate_files requires a UUID candidate_id — screening submissions
+      // don't have a candidate record, so we skip this insert.
+      // The video path is already stored in screening_submissions.video_url.
 
       setStep("submitted");
       toast.success("Video submitted successfully");
