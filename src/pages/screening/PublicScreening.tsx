@@ -20,8 +20,6 @@ interface ScreeningJob {
 
 type Step = "info" | "instructions" | "recording" | "review" | "submitted" | "expired" | "not-found";
 
-const BACKEND_BASE_URL =
-  import.meta.env.VITE_UPLOAD_BACKEND_URL?.replace(/\/$/, "") || "https://job-loom-light-backend.onrender.com";
 
 export default function PublicScreening() {
   const { linkId } = useParams<{ linkId: string }>();
