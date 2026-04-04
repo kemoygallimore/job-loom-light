@@ -261,7 +261,6 @@ export default function PublicScreening() {
         candidate_email: email.trim().toLowerCase(),
         video_url: r2Result.key,
         privacy_consent: true,
-        bucket_type: r2Result.bucketType,
       });
 
       if (submissionError) {
