@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { uploadToR2, UploadCategory } from "@/lib/uploadToR2";
+import { uploadToStorage, UploadCategory } from "@/lib/uploadToStorage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -12,9 +12,7 @@ type CandidateFileUploadProps = {
   label?: string;
 };
 
-type UploadState = "idle" | "requesting-url" | "uploading" | "saving" | "success" | "error";
-
-const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL as string;
+type UploadState = "idle" | "uploading" | "saving" | "success" | "error";
 
 export default function CandidateFileUpload({
   companyId,
@@ -40,7 +38,6 @@ export default function CandidateFileUpload({
     setErrorMessage("");
     setSuccessMessage("");
     setUploadState("idle");
-
     const file = event.target.files?.[0] || null;
     setSelectedFile(file);
   };
@@ -54,36 +51,31 @@ export default function CandidateFileUpload({
     try {
       setErrorMessage("");
       setSuccessMessage("");
+      setUploadState("uploading");
 
-      setUploadState("requesting-url");
-
-      const uploadedFile = await uploadToR2({
+      const result = await uploadToStorage({
         file: selectedFile,
         companyId,
         jobId,
         candidateId,
         category,
-        backendBaseUrl: BACKEND_BASE_URL,
       });
 
       setUploadState("saving");
 
-      const { error } = await supabase.from("candidate_files" as any).insert({
+      const { error } = await supabase.from("candidate_files").insert({
         company_id: companyId,
         job_id: jobId,
         candidate_id: candidateId,
         category,
-        bucket: uploadedFile.bucket,
-        file_key: uploadedFile.key,
-        file_name: uploadedFile.fileName,
-        file_type: uploadedFile.fileType,
-        file_size: uploadedFile.fileSize,
-        uploaded_at: new Date().toISOString(),
+        bucket: result.bucket,
+        file_key: result.path,
+        file_name: result.fileName,
+        file_type: result.fileType,
+        file_size: result.fileSize,
       });
 
-      if (error) {
-        throw new Error(error.message);
-      }
+      if (error) throw new Error(error.message);
 
       setUploadState("success");
       setSuccessMessage(
@@ -103,22 +95,15 @@ export default function CandidateFileUpload({
 
   const getStatusText = () => {
     switch (uploadState) {
-      case "requesting-url":
-        return "Preparing secure upload...";
-      case "uploading":
-        return "Uploading file...";
-      case "saving":
-        return "Saving file record...";
-      case "success":
-        return "Upload complete.";
-      case "error":
-        return "Upload failed.";
-      default:
-        return "";
+      case "uploading": return "Uploading file...";
+      case "saving": return "Saving file record...";
+      case "success": return "Upload complete.";
+      case "error": return "Upload failed.";
+      default: return "";
     }
   };
 
-  const isUploading = uploadState === "requesting-url" || uploadState === "uploading" || uploadState === "saving";
+  const isUploading = uploadState === "uploading" || uploadState === "saving";
 
   return (
     <div className="space-y-4">
@@ -143,34 +128,22 @@ export default function CandidateFileUpload({
           <p className="text-sm text-foreground">
             File: <span className="font-medium">{selectedFile.name}</span>
           </p>
-          <p className="text-xs text-muted-foreground">
-            Type: {selectedFile.type}
-          </p>
+          <p className="text-xs text-muted-foreground">Type: {selectedFile.type}</p>
           <p className="text-xs text-muted-foreground">
             Size: {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
           </p>
         </div>
       )}
 
-      <Button
-        onClick={handleUpload}
-        disabled={!selectedFile || isUploading}
-        className="w-full"
-      >
+      <Button onClick={handleUpload} disabled={!selectedFile || isUploading} className="w-full">
         {isUploading ? "Please wait..." : buttonLabel}
       </Button>
 
       {getStatusText() && (
         <p className="text-sm text-muted-foreground">{getStatusText()}</p>
       )}
-
-      {errorMessage && (
-        <p className="text-sm text-destructive">{errorMessage}</p>
-      )}
-
-      {successMessage && (
-        <p className="text-sm text-green-600">{successMessage}</p>
-      )}
+      {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
+      {successMessage && <p className="text-sm text-green-600">{successMessage}</p>}
     </div>
   );
 }
