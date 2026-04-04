@@ -256,7 +256,7 @@ export default function PublicScreening() {
         company_id: job.company_id,
         candidate_name: name.trim(),
         candidate_email: email.trim().toLowerCase(),
-        video_url: r2Result.key,
+        video_url: uploadResult.path,
         privacy_consent: true,
       });
 
