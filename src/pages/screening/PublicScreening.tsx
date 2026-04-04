@@ -243,13 +243,12 @@ export default function PublicScreening() {
         type: videoBlob.type || "video/webm",
       });
 
-      const r2Result = await uploadToR2({
+      const uploadResult = await uploadToStorage({
         file: videoFile,
         companyId: job.company_id,
         jobId: job.id,
         candidateId: email.trim().toLowerCase(),
         category: "video",
-        backendBaseUrl: BACKEND_BASE_URL,
       });
 
       const { error: submissionError } = await supabase.from("screening_submissions").insert({
