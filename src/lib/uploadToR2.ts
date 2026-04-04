@@ -1,3 +1,28 @@
+export async function uploadFileDirectToR2(signedUrl: string, file: File): Promise<void> {
+  const normalizedFileType = normalizeContentType(file.type);
+
+  console.log("Uploading to R2 with:");
+  console.log("signedUrl:", signedUrl);
+  console.log("file.name:", file.name);
+  console.log("file.type:", file.type);
+  console.log("normalizedFileType:", normalizedFileType);
+  console.log("file.size:", file.size);
+
+  const uploadResponse = await fetch(signedUrl, {
+    method: "PUT",
+    headers: {
+      "Content-Type": normalizedFileType,
+    },
+    body: file,
+  });
+
+  if (!uploadResponse.ok) {
+    const errorText = await uploadResponse.text();
+    console.error("R2 upload failed:", errorText);
+    throw new Error(errorText || "Failed to upload file to storage");
+  }
+}
+
 export type UploadCategory = "resume" | "video";
 export type BucketType = "resumes" | "videos";
 
