@@ -184,26 +184,58 @@ export default function Candidates() {
     return result;
   }, [candidates, search, stageFilter, jobFilter, dateFrom, dateTo, repeatOnly]);
 
-  const uploadResume = async (file: File): Promise<string | null> => {
-    const ext = file.name.split(".").pop();
-    const path = `${profile!.company_id}/${crypto.randomUUID()}.${ext}`;
-    const { error } = await supabase.storage.from("resumes").upload(path, file);
-    if (error) { toast.error("Upload failed"); return null; }
-    return path;
-  };
-
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile) return;
-    let resumeUrl = editCandidate?.resume_url ?? null;
-    if (resumeFile) resumeUrl = await uploadResume(resumeFile);
+
+    let resumeFields: {
+      resume_url?: string | null;
+      resume_bucket?: string | null;
+      resume_object_key?: string | null;
+      resume_filename?: string | null;
+      resume_content_type?: string | null;
+      resume_size_bytes?: number | null;
+    } = {};
+
+    if (resumeFile) {
+      try {
+        const candidateId = editCandidate?.id ?? email?.trim().toLowerCase() ?? crypto.randomUUID();
+        const result = await uploadResumeToR2({
+          file: resumeFile,
+          companyId: profile.company_id!,
+          candidateId,
+        });
+        resumeFields = {
+          resume_url: result.key,
+          resume_bucket: result.bucket,
+          resume_object_key: result.key,
+          resume_filename: result.filename,
+          resume_content_type: result.contentType,
+          resume_size_bytes: result.size,
+        };
+      } catch (err: any) {
+        toast.error(err.message || "Resume upload failed");
+        return;
+      }
+    }
 
     if (editCandidate) {
-      const { error } = await supabase.from("candidates").update({ name, email: email || null, phone: phone || null, resume_url: resumeUrl }).eq("id", editCandidate.id);
+      const { error } = await supabase.from("candidates").update({
+        name,
+        email: email || null,
+        phone: phone || null,
+        ...resumeFields,
+      }).eq("id", editCandidate.id);
       if (error) { toast.error(error.message); return; }
       toast.success("Candidate updated");
     } else {
-      const { error } = await supabase.from("candidates").insert({ company_id: profile.company_id, name, email: email || null, phone: phone || null, resume_url: resumeUrl });
+      const { error } = await supabase.from("candidates").insert({
+        company_id: profile.company_id!,
+        name,
+        email: email || null,
+        phone: phone || null,
+        ...resumeFields,
+      });
       if (error) { toast.error(error.message); return; }
       toast.success("Candidate added");
     }
