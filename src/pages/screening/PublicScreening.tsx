@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { uploadToStorage } from "@/lib/uploadToStorage";
+import { uploadScreeningVideoToR2 } from "@/lib/uploadScreeningVideoToR2";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
