@@ -138,6 +138,11 @@ export type Database = {
           id: string
           name: string
           phone: string | null
+          resume_bucket: string | null
+          resume_content_type: string | null
+          resume_filename: string | null
+          resume_object_key: string | null
+          resume_size_bytes: number | null
           resume_url: string | null
         }
         Insert: {
@@ -147,6 +152,11 @@ export type Database = {
           id?: string
           name: string
           phone?: string | null
+          resume_bucket?: string | null
+          resume_content_type?: string | null
+          resume_filename?: string | null
+          resume_object_key?: string | null
+          resume_size_bytes?: number | null
           resume_url?: string | null
         }
         Update: {
@@ -156,6 +166,11 @@ export type Database = {
           id?: string
           name?: string
           phone?: string | null
+          resume_bucket?: string | null
+          resume_content_type?: string | null
+          resume_filename?: string | null
+          resume_object_key?: string | null
+          resume_size_bytes?: number | null
           resume_url?: string | null
         }
         Relationships: [
