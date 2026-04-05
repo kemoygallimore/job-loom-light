@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+const WORKER_URL = "https://silverweb-ats.solutionssilverweb.workers.dev";
 
 function isFullUrl(value: string) {
   return /^https?:\/\//i.test(value);
@@ -13,14 +13,23 @@ export async function resolveVideoUrl(
     return videoUrlOrKey;
   }
 
-  // It's a storage path — create a signed URL from the screening-videos bucket
-  const { data, error } = await supabase.storage
-    .from("screening-videos")
-    .createSignedUrl(videoUrlOrKey, 3600);
+  // It's an R2 object key — request a signed/presigned URL from the Worker
+  const res = await fetch(`${WORKER_URL}/presign-download`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key: videoUrlOrKey }),
+  });
 
-  if (error || !data?.signedUrl) {
-    throw new Error("Failed to resolve video URL");
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error("Failed to resolve video URL: " + errorText);
   }
 
-  return data.signedUrl;
+  const { url } = await res.json();
+
+  if (!url) {
+    throw new Error("Invalid Worker response for video URL");
+  }
+
+  return url;
 }
