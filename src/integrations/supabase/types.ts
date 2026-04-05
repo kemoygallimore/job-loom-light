@@ -363,6 +363,7 @@ export type Database = {
       }
       screening_submissions: {
         Row: {
+          attempt_number: number | null
           candidate_email: string
           candidate_name: string
           company_id: string
@@ -373,9 +374,16 @@ export type Database = {
           rating: number | null
           screening_job_id: string
           status: string
+          upload_status: string | null
+          video_bucket: string | null
+          video_content_type: string | null
+          video_filename: string | null
+          video_object_key: string | null
+          video_size_bytes: number | null
           video_url: string
         }
         Insert: {
+          attempt_number?: number | null
           candidate_email: string
           candidate_name: string
           company_id: string
@@ -386,9 +394,16 @@ export type Database = {
           rating?: number | null
           screening_job_id: string
           status?: string
+          upload_status?: string | null
+          video_bucket?: string | null
+          video_content_type?: string | null
+          video_filename?: string | null
+          video_object_key?: string | null
+          video_size_bytes?: number | null
           video_url: string
         }
         Update: {
+          attempt_number?: number | null
           candidate_email?: string
           candidate_name?: string
           company_id?: string
@@ -399,6 +414,12 @@ export type Database = {
           rating?: number | null
           screening_job_id?: string
           status?: string
+          upload_status?: string | null
+          video_bucket?: string | null
+          video_content_type?: string | null
+          video_filename?: string | null
+          video_object_key?: string | null
+          video_size_bytes?: number | null
           video_url?: string
         }
         Relationships: [
