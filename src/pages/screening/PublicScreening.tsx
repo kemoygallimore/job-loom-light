@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { uploadToStorage } from "@/lib/uploadToStorage";
+import { uploadScreeningVideoToR2 } from "@/lib/uploadScreeningVideoToR2";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -237,36 +237,51 @@ export default function PublicScreening() {
     setSubmitting(true);
 
     try {
+      const normalizedName = name.trim();
+      const normalizedEmail = email.trim().toLowerCase();
+
       const fileExtension = videoBlob.type.includes("mp4") ? "mp4" : "webm";
 
-      const videoFile = new File([videoBlob], `${Date.now()}-${name.trim().replace(/\s+/g, "_")}.${fileExtension}`, {
-        type: videoBlob.type || "video/webm",
-      });
+      const safeName = normalizedName
+        .replace(/\s+/g, "_")
+        .replace(/[^a-zA-Z0-9_-]/g, "");
 
-      const uploadResult = await uploadToStorage({
+      const videoFile = new File(
+        [videoBlob],
+        `${Date.now()}-${safeName || "candidate"}.${fileExtension}`,
+        {
+          type: videoBlob.type || "video/webm",
+        }
+      );
+
+      const uploadResult = await uploadScreeningVideoToR2({
         file: videoFile,
         companyId: job.company_id,
         jobId: job.id,
-        candidateId: email.trim().toLowerCase(),
-        category: "video",
+        candidateEmail: normalizedEmail,
       });
 
-      const { error: submissionError } = await supabase.from("screening_submissions").insert({
-        screening_job_id: job.id,
-        company_id: job.company_id,
-        candidate_name: name.trim(),
-        candidate_email: email.trim().toLowerCase(),
-        video_url: uploadResult.path,
-        privacy_consent: true,
-      });
+      const { error: submissionError } = await supabase
+        .from("screening_submissions")
+        .insert({
+          screening_job_id: job.id,
+          company_id: job.company_id,
+          candidate_name: normalizedName,
+          candidate_email: normalizedEmail,
+          video_url: uploadResult.key,
+          video_bucket: uploadResult.bucket,
+          video_object_key: uploadResult.key,
+          video_filename: uploadResult.filename,
+          video_content_type: uploadResult.contentType,
+          video_size_bytes: uploadResult.size,
+          privacy_consent: true,
+          attempt_number: attempt,
+          upload_status: "uploaded",
+        });
 
       if (submissionError) {
         throw submissionError;
       }
-
-      // candidate_files requires a UUID candidate_id — screening submissions
-      // don't have a candidate record, so we skip this insert.
-      // The video path is already stored in screening_submissions.video_url.
 
       setStep("submitted");
       toast.success("Video submitted successfully");
