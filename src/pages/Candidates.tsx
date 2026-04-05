@@ -22,6 +22,11 @@ interface CandidateWithContext {
   email: string | null;
   phone: string | null;
   resume_url: string | null;
+  resume_bucket: string | null;
+  resume_object_key: string | null;
+  resume_filename: string | null;
+  resume_content_type: string | null;
+  resume_size_bytes: number | null;
   created_at: string;
   latest_app_id: string | null;
   latest_job_id: string | null;
