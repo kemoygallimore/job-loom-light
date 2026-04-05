@@ -7,9 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import {
-  ArrowLeft, Mail, Phone, FileText, Briefcase, Calendar, Clock, User, RotateCcw,
-} from "lucide-react";
+import { ArrowLeft, Mail, Phone, FileText, Briefcase, Calendar, Clock, User, RotateCcw } from "lucide-react";
 import CandidateNotes, { type NoteWithAuthor } from "@/components/candidate/CandidateNotes";
 import ActivityTimeline, { type TimelineEvent } from "@/components/candidate/ActivityTimeline";
 
@@ -59,7 +57,11 @@ export default function CandidateProfile() {
       setLoading(true);
       const [cRes, aRes, nRes] = await Promise.all([
         supabase.from("candidates").select("*").eq("id", id).single(),
-        supabase.from("applications").select("id, stage, updated_at, created_at, job_id, jobs(title)").eq("candidate_id", id).order("updated_at", { ascending: false }),
+        supabase
+          .from("applications")
+          .select("id, stage, updated_at, created_at, job_id, jobs(title)")
+          .eq("candidate_id", id)
+          .order("updated_at", { ascending: false }),
         supabase.from("notes").select("*").eq("candidate_id", id).order("created_at", { ascending: false }),
       ]);
 
@@ -75,11 +77,10 @@ export default function CandidateProfile() {
       const authorIds = [...new Set(rawNotes.map((n: any) => n.user_id))];
       let authorMap: Record<string, string> = {};
       if (authorIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("user_id, name")
-          .in("user_id", authorIds);
-        (profiles ?? []).forEach((p: any) => { authorMap[p.user_id] = p.name; });
+        const { data: profiles } = await supabase.from("profiles").select("user_id, name").in("user_id", authorIds);
+        (profiles ?? []).forEach((p: any) => {
+          authorMap[p.user_id] = p.name;
+        });
       }
 
       setCandidate(cRes.data as Candidate);
@@ -91,26 +92,34 @@ export default function CandidateProfile() {
           created_at: a.created_at,
           job_id: a.job_id,
           job_title: a.jobs?.title ?? "Unknown",
-        }))
+        })),
       );
-      setNotes(rawNotes.map((n: any) => ({
-        id: n.id,
-        content: n.content,
-        created_at: n.created_at,
-        user_id: n.user_id,
-        author_name: authorMap[n.user_id] ?? "Unknown",
-      })));
+      setNotes(
+        rawNotes.map((n: any) => ({
+          id: n.id,
+          content: n.content,
+          created_at: n.created_at,
+          user_id: n.user_id,
+          author_name: authorMap[n.user_id] ?? "Unknown",
+        })),
+      );
       setLoading(false);
     };
     load();
   }, [id, profile]);
 
   const handleStageChange = async (appId: string, newStage: string) => {
-    const { error } = await supabase.from("applications").update({ stage: newStage as any }).eq("id", appId);
-    if (error) { toast.error(error.message); return; }
+    const { error } = await supabase
+      .from("applications")
+      .update({ stage: newStage as any })
+      .eq("id", appId);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     toast.success(`Stage updated to ${newStage}`);
     setApplications((prev) =>
-      prev.map((a) => (a.id === appId ? { ...a, stage: newStage, updated_at: new Date().toISOString() } : a))
+      prev.map((a) => (a.id === appId ? { ...a, stage: newStage, updated_at: new Date().toISOString() } : a)),
     );
   };
 
@@ -190,7 +199,12 @@ export default function CandidateProfile() {
   return (
     <div className="space-y-6 max-w-3xl animate-fade-in">
       {/* Back */}
-      <Button variant="ghost" size="sm" onClick={() => navigate("/candidates")} className="gap-2 -ml-2 text-muted-foreground hover:text-foreground">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => navigate("/candidates")}
+        className="gap-2 -ml-2 text-muted-foreground hover:text-foreground"
+      >
         <ArrowLeft className="w-4 h-4" />
         Back to Candidates
       </Button>
@@ -207,19 +221,23 @@ export default function CandidateProfile() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-xl font-bold leading-tight">{candidate.name}</h1>
                   {isRepeatApplicant && (
-                    <Badge variant="outline" className="gap-1 text-xs font-medium border-amber-300 text-amber-700 dark:border-amber-600 dark:text-amber-400">
+                    <Badge
+                      variant="outline"
+                      className="gap-1 text-xs font-medium border-amber-300 text-amber-700 dark:border-amber-600 dark:text-amber-400"
+                    >
                       <RotateCcw className="w-3 h-3" />
                       Repeat Applicant
                     </Badge>
                   )}
                 </div>
-                {latestApp && (
-                  <p className="text-sm text-muted-foreground mt-0.5">{latestApp.job_title}</p>
-                )}
+                {latestApp && <p className="text-sm text-muted-foreground mt-0.5">{latestApp.job_title}</p>}
               </div>
             </div>
             {latestApp && (
-              <Badge variant="secondary" className={`capitalize text-xs font-medium ${STAGE_COLORS[latestApp.stage] ?? ""}`}>
+              <Badge
+                variant="secondary"
+                className={`capitalize text-xs font-medium ${STAGE_COLORS[latestApp.stage] ?? ""}`}
+              >
                 {latestApp.stage}
               </Badge>
             )}
@@ -229,7 +247,9 @@ export default function CandidateProfile() {
             {candidate.email && (
               <div className="flex items-center gap-2.5 text-sm">
                 <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                <a href={`mailto:${candidate.email}`} className="text-primary hover:underline truncate">{candidate.email}</a>
+                <a href={`mailto:${candidate.email}`} className="text-primary hover:underline truncate">
+                  {candidate.email}
+                </a>
               </div>
             )}
             {candidate.phone && (
@@ -257,14 +277,40 @@ export default function CandidateProfile() {
                 size="sm"
                 className="gap-2"
                 onClick={async () => {
-                  const { data, error } = await supabase.storage
-                    .from("resumes")
-                    .createSignedUrl(candidate.resume_url!, 3600);
-                  if (error || !data?.signedUrl) {
-                    toast.error("Failed to load resume");
-                    return;
+                  try {
+                    const bucket = candidate.resume_bucket ?? "silverweb-ats-resumes";
+                    const key = candidate.resume_object_key ?? candidate.resume_url;
+
+                    if (!key) {
+                      throw new Error("Resume not found");
+                    }
+
+                    const res = await fetch("https://YOUR-WORKER-URL.workers.dev/sign-view", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                      },
+                      body: JSON.stringify({
+                        bucket,
+                        key,
+                      }),
+                    });
+
+                    if (!res.ok) {
+                      throw new Error("Failed to get signed resume URL");
+                    }
+
+                    const data = await res.json();
+
+                    if (!data.viewUrl) {
+                      throw new Error("Invalid response from Worker");
+                    }
+
+                    window.open(data.viewUrl, "_blank", "noopener,noreferrer");
+                  } catch (err: any) {
+                    console.error(err);
+                    toast.error(err?.message || "Failed to load resume");
                   }
-                  window.open(data.signedUrl, "_blank");
                 }}
               >
                 <FileText className="w-4 h-4" />
@@ -279,42 +325,73 @@ export default function CandidateProfile() {
       {applications.length > 0 && (
         <div className="bg-card border rounded-xl p-6 space-y-4" style={{ boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.04)" }}>
           <div className="flex items-center justify-between">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Application History</h2>
-            <span className="text-xs text-muted-foreground tabular-nums">{applications.length} application{applications.length !== 1 ? "s" : ""}</span>
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Application History
+            </h2>
+            <span className="text-xs text-muted-foreground tabular-nums">
+              {applications.length} application{applications.length !== 1 ? "s" : ""}
+            </span>
           </div>
 
           <div className="relative">
-            {applications.length > 1 && (
-              <div className="absolute left-[15px] top-6 bottom-6 w-px bg-border" />
-            )}
+            {applications.length > 1 && <div className="absolute left-[15px] top-6 bottom-6 w-px bg-border" />}
             <div className="space-y-0">
               {applications.map((app, index) => {
                 const isLatest = index === 0;
                 return (
                   <div key={app.id} className="relative flex gap-4 py-3">
                     <div className="relative z-10 flex-shrink-0 mt-0.5">
-                      <div className={`w-[30px] h-[30px] rounded-full flex items-center justify-center ${isLatest ? "bg-primary/10 ring-2 ring-primary/20" : "bg-muted"}`}>
+                      <div
+                        className={`w-[30px] h-[30px] rounded-full flex items-center justify-center ${isLatest ? "bg-primary/10 ring-2 ring-primary/20" : "bg-muted"}`}
+                      >
                         <Briefcase className={`w-3.5 h-3.5 ${isLatest ? "text-primary" : "text-muted-foreground"}`} />
                       </div>
                     </div>
-                    <div className={`flex-1 rounded-lg p-3 ${isLatest ? "bg-primary/5 border border-primary/10" : "bg-muted/50"}`}>
+                    <div
+                      className={`flex-1 rounded-lg p-3 ${isLatest ? "bg-primary/5 border border-primary/10" : "bg-muted/50"}`}
+                    >
                       <div className="flex items-center justify-between gap-3 flex-wrap">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className={`text-sm font-medium truncate ${isLatest ? "text-foreground" : "text-foreground/80"}`}>{app.job_title}</span>
-                            {isLatest && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Latest</Badge>}
+                            <span
+                              className={`text-sm font-medium truncate ${isLatest ? "text-foreground" : "text-foreground/80"}`}
+                            >
+                              {app.job_title}
+                            </span>
+                            {isLatest && (
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                Latest
+                              </Badge>
+                            )}
                           </div>
                           <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />Applied {new Date(app.created_at).toLocaleDateString()}</span>
-                            <span className="flex items-center gap-1"><Clock className="w-3 h-3" />Updated {new Date(app.updated_at).toLocaleDateString()}</span>
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              Applied {new Date(app.created_at).toLocaleDateString()}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              Updated {new Date(app.updated_at).toLocaleDateString()}
+                            </span>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge variant="secondary" className={`capitalize text-xs font-medium ${STAGE_COLORS[app.stage] ?? ""}`}>{app.stage}</Badge>
+                          <Badge
+                            variant="secondary"
+                            className={`capitalize text-xs font-medium ${STAGE_COLORS[app.stage] ?? ""}`}
+                          >
+                            {app.stage}
+                          </Badge>
                           <Select value={app.stage} onValueChange={(v) => handleStageChange(app.id, v)}>
-                            <SelectTrigger className="w-[120px] h-7 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectTrigger className="w-[120px] h-7 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
                             <SelectContent>
-                              {STAGES.map((s) => (<SelectItem key={s} value={s} className="capitalize text-xs">{s}</SelectItem>))}
+                              {STAGES.map((s) => (
+                                <SelectItem key={s} value={s} className="capitalize text-xs">
+                                  {s}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </div>
