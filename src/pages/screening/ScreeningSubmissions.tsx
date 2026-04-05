@@ -2,20 +2,22 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { resolveVideoUrl } from "@/lib/videoUrl";
+import { getSignedVideoViewUrl } from "@/lib/getSignedVideoViewUrl";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { ArrowLeft, Play, Star, MessageSquare, Loader2 } from "lucide-react";
+import { ArrowLeft, Play, Star, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 
 interface Submission {
   id: string;
   candidate_name: string;
   candidate_email: string;
-  video_url: string;
+  video_url: string | null;
+  video_bucket: string | null;
+  video_object_key: string | null;
   rating: number | null;
   notes: string | null;
   status: string;
@@ -52,7 +54,7 @@ export default function ScreeningSubmissions() {
 
     const { data: subs } = await supabase
       .from("screening_submissions")
-      .select("*")
+      .select("id, candidate_name, candidate_email, video_url, video_bucket, video_object_key, rating, notes, status, created_at")
       .eq("screening_job_id", jobId)
       .order("created_at", { ascending: false });
     setSubmissions((subs as Submission[]) ?? []);
@@ -71,7 +73,10 @@ export default function ScreeningSubmissions() {
     setReviewOpen(true);
 
     try {
-      const url = await resolveVideoUrl(sub.video_url);
+      // Use video_object_key if available, fall back to video_url (legacy rows)
+      const key = sub.video_object_key ?? sub.video_url;
+      const bucket = sub.video_bucket; // helper defaults to "silverweb-ats-videos" if null
+      const url = await getSignedVideoViewUrl(bucket, key);
       setResolvedVideoUrl(url);
     } catch (err: any) {
       toast.error("Failed to load video: " + (err.message || "Unknown error"));
