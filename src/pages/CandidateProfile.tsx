@@ -28,6 +28,8 @@ interface Candidate {
   email: string | null;
   phone: string | null;
   resume_url: string | null;
+  resume_bucket: string | null;
+  resume_object_key: string | null;
   created_at: string;
   company_id: string;
 }
