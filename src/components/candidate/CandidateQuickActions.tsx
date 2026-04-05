@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { ArrowRightLeft, MessageSquarePlus, FileText, History } from "lucide-react";
+import { getSignedVideoViewUrl } from "@/lib/getSignedVideoViewUrl";
 import { useNavigate } from "react-router-dom";
 
 const STAGES = ["applied", "screening", "interview", "offer", "hired", "rejected"];
@@ -26,13 +27,15 @@ interface CandidateQuickActionsProps {
   latestAppId: string | null;
   latestStage: string | null;
   resumeUrl: string | null;
+  resumeBucket: string | null;
+  resumeObjectKey: string | null;
   onStageChanged: () => void;
   onNoteAdded: () => void;
 }
 
 export default function CandidateQuickActions({
   candidateId, companyId, userId, latestAppId, latestStage, resumeUrl,
-  onStageChanged, onNoteAdded,
+  resumeBucket, resumeObjectKey, onStageChanged, onNoteAdded,
 }: CandidateQuickActionsProps) {
   const navigate = useNavigate();
   const [noteOpen, setNoteOpen] = useState(false);
@@ -89,20 +92,20 @@ export default function CandidateQuickActions({
         </Button>
 
         {/* View resume */}
-        {resumeUrl && (
+        {(resumeObjectKey || resumeUrl) && (
           <Button
             variant="ghost"
             size="icon"
             className="h-8 w-8"
             onClick={async () => {
-              const { data, error } = await supabase.storage
-                .from("resumes")
-                .createSignedUrl(resumeUrl, 3600);
-              if (error || !data?.signedUrl) {
+              try {
+                const key = resumeObjectKey || resumeUrl!;
+                const bucket = resumeBucket || "silverweb-ats-resumes";
+                const viewUrl = await getSignedVideoViewUrl(bucket, key);
+                window.open(viewUrl, "_blank");
+              } catch {
                 toast.error("Failed to load resume");
-                return;
               }
-              window.open(data.signedUrl, "_blank");
             }}
           >
             <FileText className="w-3.5 h-3.5" />

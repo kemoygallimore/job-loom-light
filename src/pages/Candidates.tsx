@@ -415,6 +415,8 @@ export default function Candidates() {
                         latestAppId={c.latest_app_id}
                         latestStage={c.latest_stage}
                         resumeUrl={c.resume_url}
+                        resumeBucket={c.resume_bucket}
+                        resumeObjectKey={c.resume_object_key}
                         onStageChanged={load}
                         onNoteAdded={load}
                       />
