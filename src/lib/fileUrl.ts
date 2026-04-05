@@ -1,11 +1,12 @@
-import { supabase } from "@/integrations/supabase/client";
+import { getSignedVideoViewUrl } from "@/lib/getSignedVideoViewUrl";
 
 function isFullUrl(value: string) {
   return /^https?:\/\//i.test(value);
 }
 
 export async function resolveFileUrl(
-  fileUrlOrKey: string | null | undefined
+  fileUrlOrKey: string | null | undefined,
+  bucket?: string | null
 ): Promise<string | null> {
   if (!fileUrlOrKey) return null;
 
@@ -13,14 +14,7 @@ export async function resolveFileUrl(
     return fileUrlOrKey;
   }
 
-  // It's a storage path — create a signed URL from the resumes bucket
-  const { data, error } = await supabase.storage
-    .from("resumes")
-    .createSignedUrl(fileUrlOrKey, 3600);
-
-  if (error || !data?.signedUrl) {
-    throw new Error("Failed to resolve file URL");
-  }
-
-  return data.signedUrl;
+  // Use R2 Worker signed URL
+  const resolvedBucket = bucket || "silverweb-ats-resumes";
+  return getSignedVideoViewUrl(resolvedBucket, fileUrlOrKey);
 }
