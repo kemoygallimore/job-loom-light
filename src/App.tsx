@@ -71,7 +71,7 @@ function AuthRoute() {
   const { user, loading, profile, role } = useAuth();
   if (loading) return null;
   if (user && (profile || role === "super_admin")) {
-    const redirectTo = profile?.email === TEST_ADMIN_EMAIL ? "/" : "/screening";
+    const redirectTo = profile?.email === TEST_ADMIN_EMAIL ? "/dashboard" : "/screening";
     return <Navigate to={redirectTo} replace />;
   }
   return <Auth />;
