@@ -20,6 +20,7 @@ import ScreeningJobs from "./pages/screening/ScreeningJobs";
 import ScreeningSubmissions from "./pages/screening/ScreeningSubmissions";
 import PublicScreening from "./pages/screening/PublicScreening";
 import NotFound from "./pages/NotFound";
+import LandingPage from "./pages/LandingPage";
 
 const queryClient = new QueryClient();
 const TEST_ADMIN_EMAIL = "testadmin@email.com";
@@ -56,11 +57,21 @@ function DefaultRedirect() {
   return <Navigate to="/screening" replace />;
 }
 
+function LandingRoute() {
+  const { user, loading, profile } = useAuth();
+  if (loading) return null;
+  if (user && profile) {
+    const redirectTo = profile.email === TEST_ADMIN_EMAIL ? "/dashboard" : "/screening";
+    return <Navigate to={redirectTo} replace />;
+  }
+  return <LandingPage />;
+}
+
 function AuthRoute() {
   const { user, loading, profile, role } = useAuth();
   if (loading) return null;
   if (user && (profile || role === "super_admin")) {
-    const redirectTo = profile?.email === TEST_ADMIN_EMAIL ? "/" : "/screening";
+    const redirectTo = profile?.email === TEST_ADMIN_EMAIL ? "/dashboard" : "/screening";
     return <Navigate to={redirectTo} replace />;
   }
   return <Auth />;
@@ -74,12 +85,13 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
+            <Route path="/" element={<LandingRoute />} />
             <Route path="/auth" element={<AuthRoute />} />
             <Route path="/careers/:companySlug" element={<CareersPage />} />
             <Route path="/careers/:companySlug/:jobId" element={<JobDetailsPage />} />
             <Route path="/screen/:linkId" element={<PublicScreening />} />
             <Route element={<ProtectedRoutes />}>
-              <Route path="/" element={<DefaultRedirect />} />
+              <Route path="/dashboard" element={<DefaultRedirect />} />
               <Route path="/jobs" element={<ATSGuard><Jobs /></ATSGuard>} />
               <Route path="/candidates" element={<ATSGuard><Candidates /></ATSGuard>} />
               <Route path="/candidates/:id" element={<ATSGuard><CandidateProfile /></ATSGuard>} />
