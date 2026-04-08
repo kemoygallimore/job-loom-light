@@ -85,12 +85,13 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
+            <Route path="/" element={<LandingRoute />} />
             <Route path="/auth" element={<AuthRoute />} />
             <Route path="/careers/:companySlug" element={<CareersPage />} />
             <Route path="/careers/:companySlug/:jobId" element={<JobDetailsPage />} />
             <Route path="/screen/:linkId" element={<PublicScreening />} />
             <Route element={<ProtectedRoutes />}>
-              <Route path="/" element={<DefaultRedirect />} />
+              <Route path="/dashboard" element={<DefaultRedirect />} />
               <Route path="/jobs" element={<ATSGuard><Jobs /></ATSGuard>} />
               <Route path="/candidates" element={<ATSGuard><Candidates /></ATSGuard>} />
               <Route path="/candidates/:id" element={<ATSGuard><CandidateProfile /></ATSGuard>} />
