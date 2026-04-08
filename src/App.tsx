@@ -20,6 +20,7 @@ import ScreeningJobs from "./pages/screening/ScreeningJobs";
 import ScreeningSubmissions from "./pages/screening/ScreeningSubmissions";
 import PublicScreening from "./pages/screening/PublicScreening";
 import NotFound from "./pages/NotFound";
+import LandingPage from "./pages/LandingPage";
 
 const queryClient = new QueryClient();
 const TEST_ADMIN_EMAIL = "testadmin@email.com";
