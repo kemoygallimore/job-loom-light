@@ -57,6 +57,16 @@ function DefaultRedirect() {
   return <Navigate to="/screening" replace />;
 }
 
+function LandingRoute() {
+  const { user, loading, profile } = useAuth();
+  if (loading) return null;
+  if (user && profile) {
+    const redirectTo = profile.email === TEST_ADMIN_EMAIL ? "/dashboard" : "/screening";
+    return <Navigate to={redirectTo} replace />;
+  }
+  return <LandingPage />;
+}
+
 function AuthRoute() {
   const { user, loading, profile, role } = useAuth();
   if (loading) return null;
