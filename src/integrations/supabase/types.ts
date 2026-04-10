@@ -350,6 +350,7 @@ export type Database = {
           created_by: string
           expires_at: string
           id: string
+          job_id: string | null
           question: string
           title: string
           unique_link_id: string
@@ -360,6 +361,7 @@ export type Database = {
           created_by: string
           expires_at: string
           id?: string
+          job_id?: string | null
           question: string
           title: string
           unique_link_id?: string
@@ -370,11 +372,20 @@ export type Database = {
           created_by?: string
           expires_at?: string
           id?: string
+          job_id?: string | null
           question?: string
           title?: string
           unique_link_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "screening_jobs_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       screening_submissions: {
         Row: {

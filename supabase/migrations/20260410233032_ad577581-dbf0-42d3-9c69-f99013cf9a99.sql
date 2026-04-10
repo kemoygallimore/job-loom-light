@@ -1,0 +1,1 @@
+ALTER TABLE public.screening_jobs ADD COLUMN job_id uuid REFERENCES public.jobs(id) ON DELETE SET NULL;
