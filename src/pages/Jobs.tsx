@@ -21,7 +21,7 @@ interface Job {
 }
 
 export default function Jobs() {
-  const { profile, role } = useAuth();
+  const { profile, role, user } = useAuth();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [open, setOpen] = useState(false);
   const [editJob, setEditJob] = useState<Job | null>(null);
