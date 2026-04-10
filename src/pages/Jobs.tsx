@@ -63,8 +63,19 @@ export default function Jobs() {
       if (error) { toast.error(error.message); return; }
       toast.success("Job updated");
     } else {
-      const { error } = await supabase.from("jobs").insert({ company_id: profile.company_id, title, description, status: status as any });
+      const { data: newJob, error } = await supabase.from("jobs").insert({ company_id: profile.company_id, title, description, status: status as any }).select().single();
       if (error) { toast.error(error.message); return; }
+      // Auto-create a linked screening job with defaults
+      if (newJob && user) {
+        await supabase.from("screening_jobs").insert({
+          company_id: profile.company_id,
+          created_by: user.id,
+          title,
+          question: "Tell us about yourself and why you're interested in this role.",
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          job_id: newJob.id,
+        });
+      }
       toast.success("Job created");
     }
     resetForm();
