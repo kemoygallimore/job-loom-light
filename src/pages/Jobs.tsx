@@ -8,8 +8,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Search, Link2, Check } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Link2, Check, Video, ChevronDown, CalendarIcon } from "lucide-react";
+import { format, addDays } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface Job {
   id: string;
@@ -32,6 +37,11 @@ export default function Jobs() {
   const [companySlug, setCompanySlug] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Screening defaults
+  const [screeningOpen, setScreeningOpen] = useState(false);
+  const [screeningQuestion, setScreeningQuestion] = useState("Tell us about yourself and why you're interested in this role.");
+  const [screeningExpiry, setScreeningExpiry] = useState<Date | undefined>(addDays(new Date(), 7));
+
   const load = async () => {
     const { data } = await supabase.from("jobs").select("*").order("created_at", { ascending: false });
     setJobs((data as Job[]) ?? []);
@@ -40,7 +50,6 @@ export default function Jobs() {
   useEffect(() => {
     if (!profile) return;
     load();
-    // Fetch company slug
     supabase.from("companies").select("slug").eq("id", profile.company_id).maybeSingle()
       .then(({ data }) => { if (data) setCompanySlug(data.slug); });
   }, [profile]);
@@ -65,14 +74,13 @@ export default function Jobs() {
     } else {
       const { data: newJob, error } = await supabase.from("jobs").insert({ company_id: profile.company_id, title, description, status: status as any }).select().single();
       if (error) { toast.error(error.message); return; }
-      // Auto-create a linked screening job with defaults
       if (newJob && user) {
         await supabase.from("screening_jobs").insert({
           company_id: profile.company_id,
           created_by: user.id,
           title,
-          question: "Tell us about yourself and why you're interested in this role.",
-          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          question: screeningQuestion,
+          expires_at: (screeningExpiry ?? addDays(new Date(), 7)).toISOString(),
           job_id: newJob.id,
         });
       }
@@ -103,6 +111,9 @@ export default function Jobs() {
     setTitle("");
     setDescription("");
     setStatus("open");
+    setScreeningOpen(false);
+    setScreeningQuestion("Tell us about yourself and why you're interested in this role.");
+    setScreeningExpiry(addDays(new Date(), 7));
   };
 
   const filtered = jobs.filter(j => j.title.toLowerCase().includes(search.toLowerCase()));
@@ -122,7 +133,7 @@ export default function Jobs() {
             <DialogTrigger asChild>
               <Button><Plus className="w-4 h-4 mr-2" />Add Job</Button>
             </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[85vh] overflow-y-auto">
             <DialogHeader><DialogTitle>{editJob ? "Edit Job" : "New Job"}</DialogTitle></DialogHeader>
             <form onSubmit={handleSave} className="space-y-4">
               <div className="space-y-1.5">
@@ -143,6 +154,59 @@ export default function Jobs() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Screening settings - only for new jobs */}
+              {!editJob && (
+                <Collapsible open={screeningOpen} onOpenChange={setScreeningOpen}>
+                  <CollapsibleTrigger asChild>
+                    <Button type="button" variant="ghost" className="w-full justify-between px-3 py-2 h-auto text-sm font-medium text-muted-foreground hover:text-foreground">
+                      <span className="flex items-center gap-2">
+                        <Video className="w-4 h-4" />
+                        Video Screening Settings
+                      </span>
+                      <ChevronDown className={cn("w-4 h-4 transition-transform", screeningOpen && "rotate-180")} />
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-3 pt-2 border-t mt-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Screening Question</Label>
+                      <Textarea
+                        value={screeningQuestion}
+                        onChange={e => setScreeningQuestion(e.target.value)}
+                        rows={2}
+                        placeholder="e.g. Tell us about your experience with React"
+                        className="text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Expiration Date (max 30 days)</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className={cn("w-full justify-start text-left font-normal text-sm", !screeningExpiry && "text-muted-foreground")}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {screeningExpiry ? format(screeningExpiry, "PPP") : "Pick a date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={screeningExpiry}
+                            onSelect={setScreeningExpiry}
+                            disabled={(date) => date < new Date() || date > addDays(new Date(), 30)}
+                            initialFocus
+                            className={cn("p-3 pointer-events-auto")}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
+
               <Button type="submit" className="w-full">Save</Button>
             </form>
           </DialogContent>
