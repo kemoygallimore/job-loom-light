@@ -78,12 +78,26 @@ export default function ScreeningJobs() {
       return;
     }
 
+    // First create the regular job
+    const { data: newJob, error: jobError } = await supabase.from("jobs").insert({
+      company_id: profile.company_id,
+      title,
+      status: "open" as any,
+    }).select().single();
+
+    if (jobError) {
+      toast.error(jobError.message);
+      return;
+    }
+
+    // Then create the screening job linked to it
     const { error } = await supabase.from("screening_jobs").insert({
       company_id: profile.company_id,
       created_by: user.id,
       title,
       question,
       expires_at: expiresAt.toISOString(),
+      job_id: newJob.id,
     });
 
     if (error) {
