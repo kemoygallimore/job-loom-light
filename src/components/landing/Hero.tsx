@@ -139,7 +139,7 @@ export default function Hero() {
                 </div>
                 <div className="flex-1 flex justify-center">
                   <div className="px-4 py-1 rounded-md bg-muted/50 text-xs text-muted-foreground">
-                    app.silverweb-ats.com
+                    app.rizonhire.com
                   </div>
                 </div>
               </div>

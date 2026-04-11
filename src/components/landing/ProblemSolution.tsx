@@ -36,7 +36,7 @@ export default function ProblemSolution() {
           <div className="bg-card rounded-2xl border p-6 md:p-8 space-y-5">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-destructive/10 text-destructive text-xs font-semibold">
               <XCircle className="w-3.5 h-3.5" />
-              Without Silverweb ATS
+              Without RizonHire
             </div>
             <ul className="space-y-4">
               {problems.map((p) => (
@@ -59,7 +59,7 @@ export default function ProblemSolution() {
             <div className="relative z-10">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-success/10 text-success text-xs font-semibold">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                With Silverweb ATS
+                With RizonHire
               </div>
               <ul className="space-y-4 mt-5">
                 {solutions.map((s) => (
