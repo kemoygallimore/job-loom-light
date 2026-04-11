@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Briefcase, ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
+import rizonhireLogo from "@/assets/rizonhire-logo.png";
 
 export default function Auth() {
   const [isRegister, setIsRegister] = useState(false);
@@ -88,10 +89,7 @@ export default function Auth() {
       {/* Left panel — branding */}
       <div className="hidden lg:flex lg:w-[45%] bg-sidebar text-sidebar-foreground flex-col justify-between p-10">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-lg bg-sidebar-primary flex items-center justify-center">
-            <Briefcase className="w-5 h-5 text-sidebar-primary-foreground" />
-          </div>
-          <span className="font-semibold text-lg tracking-tight">HireFlow</span>
+          <img src={rizonhireLogo} alt="RizonHire" className="h-9 w-auto brightness-0 invert" />
         </div>
         <div className="animate-fade-in-up">
           <h1 className="text-3xl font-bold leading-tight" style={{ lineHeight: "1.15" }}>
@@ -101,7 +99,7 @@ export default function Auth() {
             Track candidates, manage pipelines, and collaborate with your team — all in one place.
           </p>
         </div>
-        <p className="text-xs text-sidebar-foreground/30">© {new Date().getFullYear()} HireFlow</p>
+        <p className="text-xs text-sidebar-foreground/30">© {new Date().getFullYear()} RizonHire</p>
       </div>
 
       {/* Right panel — form */}
@@ -109,10 +107,7 @@ export default function Auth() {
         <div className="w-full max-w-sm animate-fade-in">
           {/* Mobile logo */}
           <div className="flex items-center gap-2 mb-10 lg:hidden">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <Briefcase className="w-4 h-4 text-primary-foreground" />
-            </div>
-            <span className="font-semibold text-lg tracking-tight">HireFlow</span>
+            <img src={rizonhireLogo} alt="RizonHire" className="h-8 w-auto" />
           </div>
 
           <h2 className="text-2xl font-bold">

@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Briefcase, Users, FolderKanban, LayoutDashboard, LogOut, Menu, Shield, X, ChevronLeft, Building2, Video } from "lucide-react";
 import { useState } from "react";
+import rizonhireLogo from "@/assets/rizonhire-logo.png";
 
 const TEST_ADMIN_EMAIL = "testadmin@email.com";
 
@@ -51,10 +52,13 @@ export default function AppLayout() {
       >
         {/* Logo */}
         <div className={`flex items-center gap-2.5 border-b border-sidebar-border h-14 ${collapsed ? "justify-center px-2" : "px-5"}`}>
-          <div className="w-8 h-8 rounded-lg bg-sidebar-primary flex items-center justify-center flex-shrink-0">
-            <Briefcase className="w-4 h-4 text-sidebar-primary-foreground" />
-          </div>
-          {!collapsed && <span className="font-semibold text-base tracking-tight">{isSuperAdmin ? "HireFlow Admin" : "HireFlow"}</span>}
+          {collapsed ? (
+            <div className="w-8 h-8 rounded-lg bg-sidebar-primary flex items-center justify-center flex-shrink-0">
+              <Briefcase className="w-4 h-4 text-sidebar-primary-foreground" />
+            </div>
+          ) : (
+            <img src={rizonhireLogo} alt="RizonHire" className="h-7 w-auto" />
+          )}
           <button
             onClick={() => setMobileOpen(false)}
             className="ml-auto lg:hidden text-sidebar-foreground/60 hover:text-sidebar-foreground"
@@ -144,7 +148,7 @@ export default function AppLayout() {
           <button onClick={() => setMobileOpen(true)} className="active:scale-95 transition-transform">
             <Menu className="w-5 h-5" />
           </button>
-          <span className="ml-3 font-semibold tracking-tight">HireFlow</span>
+          <img src={rizonhireLogo} alt="RizonHire" className="ml-3 h-6 w-auto" />
         </header>
         <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-auto">
           <Outlet />

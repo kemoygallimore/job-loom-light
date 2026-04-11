@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, X, Zap } from "lucide-react";
+import rizonhireLogo from "@/assets/rizonhire-logo.png";
 
 const navLinks = [
   { label: "Features", href: "#features" },
@@ -49,12 +50,7 @@ export default function Navbar() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14 md:h-16">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-sm">S</span>
-              </div>
-              <span className="font-semibold text-lg tracking-tight text-foreground">
-                Silverweb <span className="text-muted-foreground font-normal">ATS</span>
-              </span>
+              <img src={rizonhireLogo} alt="RizonHire" className="h-8 w-auto" />
             </div>
 
             <nav className="hidden md:flex items-center gap-1">

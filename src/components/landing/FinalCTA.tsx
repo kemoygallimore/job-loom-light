@@ -20,7 +20,7 @@ export default function FinalCTA() {
             ))}
           </div>
           <p className="text-sm text-foreground italic leading-relaxed">
-            "We replaced 3 different tools with Silverweb ATS. Our time-to-hire dropped from 3 weeks to 5 days. The video screening alone saved us 20 hours a week."
+            "We replaced 3 different tools with RizonHire. Our time-to-hire dropped from 3 weeks to 5 days. The video screening alone saved us 20 hours a week."
           </p>
           <div className="mt-4 flex items-center justify-center gap-3">
             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
@@ -38,7 +38,7 @@ export default function FinalCTA() {
           <span className="text-primary">Today</span>
         </h2>
         <p className="mt-5 text-lg text-muted-foreground max-w-xl mx-auto">
-          Join hundreds of teams already using Silverweb ATS to find better candidates, faster. Your next great hire is one link away.
+          Join hundreds of teams already using RizonHire to find better candidates, faster. Your next great hire is one link away.
         </p>
 
         <div className="mt-8 flex flex-wrap justify-center gap-3">

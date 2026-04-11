@@ -1,4 +1,5 @@
 import { Github, Twitter, Linkedin } from "lucide-react";
+import rizonhireLogo from "@/assets/rizonhire-logo.png";
 
 export default function Footer() {
   const scrollTo = (href: string) => {
@@ -13,13 +14,10 @@ export default function Footer() {
           {/* Brand */}
           <div className="sm:col-span-2 lg:col-span-1">
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-xs">S</span>
-              </div>
-              <span className="font-semibold text-foreground">Silverweb ATS</span>
+              <img src={rizonhireLogo} alt="RizonHire" className="h-7 w-auto" />
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">
-              Modern applicant tracking and video screening built by Silverweb Solutions.
+              Modern applicant tracking and video screening powered by RizonHire.
             </p>
           </div>
 
@@ -71,7 +69,7 @@ export default function Footer() {
 
         <div className="mt-10 pt-6 border-t flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} Silverweb Solutions. All rights reserved.
+            © {new Date().getFullYear()} RizonHire. All rights reserved.
           </p>
           <div className="flex gap-4 text-xs text-muted-foreground">
             <span className="hover:text-foreground cursor-pointer transition-colors">Privacy</span>
