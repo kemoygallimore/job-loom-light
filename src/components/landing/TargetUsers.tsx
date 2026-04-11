@@ -38,7 +38,7 @@ export default function TargetUsers() {
             Built for teams like yours
           </h2>
           <p className="mt-4 text-muted-foreground max-w-xl mx-auto">
-            Whether you're a solo recruiter or a growing HR department, Silverweb ATS scales with you.
+            Whether you're a solo recruiter or a growing HR department, RizonHire scales with you.
           </p>
         </div>
 
@@ -62,7 +62,7 @@ export default function TargetUsers() {
 
         <div className="text-center mt-10">
           <Link to="/auth" className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline underline-offset-4">
-            See how teams use Silverweb ATS <ArrowRight className="w-3.5 h-3.5" />
+            See how teams use RizonHire <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
       </div>
