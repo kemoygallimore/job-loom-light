@@ -1,4 +1,4 @@
-const WORKER_URL = ""https://api.rizonhire.com/presign-upload"";
+const WORKER_URL = https://api.rizonhire.com/presign-upload";
 
 function isFullUrl(value: string) {
   return /^https?:\/\//i.test(value);
