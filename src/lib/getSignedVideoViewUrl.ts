@@ -1,9 +1,9 @@
-const WORKER_URL = "https://silverweb-ats.solutionssilverweb.workers.dev";
+const WORKER_URL = "https://api.silverwebsolutions.com/presign-upload";
 const DEFAULT_BUCKET = "silverweb-ats-videos";
 
 export async function getSignedVideoViewUrl(
   bucket: string | null | undefined,
-  key: string | null | undefined
+  key: string | null | undefined,
 ): Promise<string> {
   const resolvedKey = key ?? "";
   const resolvedBucket = bucket ?? DEFAULT_BUCKET;
