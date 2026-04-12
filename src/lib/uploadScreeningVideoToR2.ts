@@ -13,7 +13,7 @@ export interface UploadScreeningVideoResult {
   size: number;
 }
 
-const WORKER_URL = "https://silverweb-ats.solutionssilverweb.workers.dev";
+const WORKER_URL = "https://api.rizonhire.com/presign-upload";
 
 export async function uploadScreeningVideoToR2({
   file,
