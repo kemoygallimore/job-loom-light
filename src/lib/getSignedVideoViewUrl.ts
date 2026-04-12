@@ -1,4 +1,4 @@
-const WORKER_URL = "https://api.rizonhire.com/presign-upload";
+const WORKER_URL = "https://api.rizonhire.com";
 const DEFAULT_BUCKET = "silverweb-ats-videos";
 
 export async function getSignedVideoViewUrl(

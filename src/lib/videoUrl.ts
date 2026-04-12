@@ -1,12 +1,10 @@
-const WORKER_URL = "https://api.rizonhire.com/presign-upload";
+const WORKER_URL = "https://api.rizonhire.com";
 
 function isFullUrl(value: string) {
   return /^https?:\/\//i.test(value);
 }
 
-export async function resolveVideoUrl(
-  videoUrlOrKey: string | null | undefined
-): Promise<string | null> {
+export async function resolveVideoUrl(videoUrlOrKey: string | null | undefined): Promise<string | null> {
   if (!videoUrlOrKey) return null;
 
   if (isFullUrl(videoUrlOrKey)) {

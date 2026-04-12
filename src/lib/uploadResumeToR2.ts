@@ -1,4 +1,4 @@
-const WORKER_URL = "https://api.rizonhire.com/presign-upload";
+const WORKER_URL = "https://api.rizonhire.com";
 
 export interface UploadResumeToR2Params {
   file: File;
