@@ -1,4 +1,4 @@
-const WORKER_URL = "https://silverweb-ats.solutionssilverweb.workers.dev";
+const WORKER_URL = "https://api.rizonhire.com/presign-upload";
 
 export interface UploadResumeToR2Params {
   file: File;
