@@ -80,6 +80,8 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Navigate to="/auth" replace />} />
             <Route path="/auth" element={<AuthRoute />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/careers/:companySlug" element={<CareersPage />} />
             <Route path="/careers/:companySlug/:jobId" element={<JobDetailsPage />} />
             <Route path="/screen/:linkId" element={<PublicScreening />} />
