@@ -32,14 +32,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initialSessionChecked, setInitialSessionChecked] = useState(false);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // First, restore session from storage before subscribing to changes
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      setInitialSessionChecked(true);
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Subscribe to subsequent auth changes (sign in, sign out, token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
     });
@@ -48,6 +52,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // Don't do anything until the initial session check is done
+    if (!initialSessionChecked) return;
+
     if (!user) {
       setProfile(null);
       setRole(null);
@@ -56,17 +63,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const fetchProfile = async () => {
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      
-      const { data: roleData } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      const [{ data: profileData }, { data: roleData }] = await Promise.all([
+        supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
+        supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle(),
+      ]);
 
       setProfile(profileData as Profile | null);
       setRole(roleData?.role ?? null);
@@ -74,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     fetchProfile();
-  }, [user]);
+  }, [user, initialSessionChecked]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
