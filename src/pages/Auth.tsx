@@ -9,14 +9,11 @@ import { ArrowRight, Loader2 } from "lucide-react";
 import rizonhireLogo from "@/assets/rizonhire-logo.png";
 
 export default function Auth() {
-  const [isRegister, setIsRegister] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [companyName, setCompanyName] = useState("");
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,60 +25,6 @@ export default function Auth() {
     } else {
       navigate("/");
     }
-  };
-
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim() || !companyName.trim()) {
-      toast.error("All fields are required");
-      return;
-    }
-    setLoading(true);
-
-    const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
-    if (authError || !authData.user) {
-      toast.error(authError?.message ?? "Registration failed");
-      setLoading(false);
-      return;
-    }
-
-    const userId = authData.user.id;
-
-    const { data: company, error: companyError } = await supabase
-      .from("companies")
-      .insert({ name: companyName.trim() } as any)
-      .select()
-      .single();
-
-    if (companyError || !company) {
-      toast.error("Failed to create company");
-      setLoading(false);
-      return;
-    }
-
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .insert({ user_id: userId, company_id: company.id, name: name.trim(), email });
-
-    if (profileError) {
-      toast.error("Failed to create profile");
-      setLoading(false);
-      return;
-    }
-
-    const { error: roleError } = await supabase
-      .from("user_roles")
-      .insert({ user_id: userId, role: "admin" });
-
-    if (roleError) {
-      toast.error("Failed to assign role");
-      setLoading(false);
-      return;
-    }
-
-    setLoading(false);
-    toast.success("Account created! You're now logged in.");
-    navigate("/");
   };
 
   return (
@@ -110,26 +53,12 @@ export default function Auth() {
             <img src={rizonhireLogo} alt="RizonHire" className="h-8 w-auto" />
           </div>
 
-          <h2 className="text-2xl font-bold">
-            {isRegister ? "Create your account" : "Welcome back"}
-          </h2>
+          <h2 className="text-2xl font-bold">Welcome back</h2>
           <p className="text-muted-foreground mt-1.5 text-sm">
-            {isRegister ? "Set up your company and start hiring" : "Sign in to your dashboard"}
+            Sign in to your dashboard
           </p>
 
-          <form onSubmit={isRegister ? handleRegister : handleLogin} className="mt-8 space-y-4">
-            {isRegister && (
-              <>
-                <div className="space-y-1.5">
-                  <Label htmlFor="company" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Company Name</Label>
-                  <Input id="company" value={companyName} onChange={e => setCompanyName(e.target.value)} required placeholder="Acme Inc." />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="name" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Your Name</Label>
-                  <Input id="name" value={name} onChange={e => setName(e.target.value)} required placeholder="Jane Cooper" />
-                </div>
-              </>
-            )}
+          <form onSubmit={handleLogin} className="mt-8 space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="email" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Email</Label>
               <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="you@company.com" />
@@ -143,22 +72,12 @@ export default function Auth() {
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <>
-                  {isRegister ? "Create Account" : "Sign In"}
+                  Sign In
                   <ArrowRight className="w-4 h-4 ml-1" />
                 </>
               )}
             </Button>
           </form>
-
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            {isRegister ? "Already have an account?" : "Don't have an account?"}{" "}
-            <button
-              onClick={() => setIsRegister(!isRegister)}
-              className="text-primary font-medium hover:underline underline-offset-4"
-            >
-              {isRegister ? "Sign in" : "Register"}
-            </button>
-          </p>
         </div>
       </div>
     </div>
