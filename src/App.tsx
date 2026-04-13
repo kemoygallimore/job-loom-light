@@ -20,7 +20,7 @@ import ScreeningJobs from "./pages/screening/ScreeningJobs";
 import ScreeningSubmissions from "./pages/screening/ScreeningSubmissions";
 import PublicScreening from "./pages/screening/PublicScreening";
 import NotFound from "./pages/NotFound";
-import LandingPage from "./pages/LandingPage";
+
 
 const queryClient = new QueryClient();
 const TEST_ADMIN_EMAIL = "testadmin@email.com";
@@ -57,15 +57,6 @@ function DefaultRedirect() {
   return <Navigate to="/screening" replace />;
 }
 
-function LandingRoute() {
-  const { user, loading, profile } = useAuth();
-  if (loading) return null;
-  if (user && profile) {
-    const redirectTo = profile.email === TEST_ADMIN_EMAIL ? "/dashboard" : "/screening";
-    return <Navigate to={redirectTo} replace />;
-  }
-  return <LandingPage />;
-}
 
 function AuthRoute() {
   const { user, loading, profile, role } = useAuth();
@@ -85,7 +76,7 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
-            <Route path="/" element={<LandingRoute />} />
+            <Route path="/" element={<Navigate to="/auth" replace />} />
             <Route path="/auth" element={<AuthRoute />} />
             <Route path="/careers/:companySlug" element={<CareersPage />} />
             <Route path="/careers/:companySlug/:jobId" element={<JobDetailsPage />} />
