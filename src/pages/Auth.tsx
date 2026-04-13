@@ -67,6 +67,11 @@ export default function Auth() {
               <Label htmlFor="password" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Password</Label>
               <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} placeholder="••••••••" />
             </div>
+            <div className="flex justify-end">
+              <button type="button" onClick={() => navigate("/forgot-password")} className="text-xs text-muted-foreground hover:text-primary transition-colors">
+                Forgot password?
+              </button>
+            </div>
             <Button type="submit" className="w-full h-11 mt-2" disabled={loading}>
               {loading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
