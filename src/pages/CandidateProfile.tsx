@@ -287,7 +287,7 @@ export default function CandidateProfile() {
                       throw new Error("Resume not found");
                     }
 
-                    const res = await fetch("https://silverweb-ats.solutionssilverweb.workers.dev/sign-view", {
+                    const res = await fetch("https://api.rizonhire.com/sign-view", {
                       method: "POST",
                       headers: {
                         "Content-Type": "application/json",
