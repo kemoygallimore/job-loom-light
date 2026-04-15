@@ -15,7 +15,7 @@ const atsNavItems = [
 ];
 
 const screeningNavItems = [
-  { to: "/screening", label: "Screening", icon: Video },
+  { to: "/screening", label: "Video Screening", icon: Video },
 ];
 
 const superAdminNav = [
