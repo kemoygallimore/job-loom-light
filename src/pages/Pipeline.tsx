@@ -160,7 +160,7 @@ export default function Pipeline() {
 
       {/* Kanban */}
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex gap-3 overflow-x-auto pb-4 animate-fade-in" style={{ animationDelay: "100ms" }}>
+        <div className="flex gap-3 overflow-x-auto pb-4 animate-opacity-in" style={{ animationDelay: "100ms" }}>
           {STAGES.map(stage => {
             const stageApps = filtered.filter(a => a.stage === stage);
             return (
