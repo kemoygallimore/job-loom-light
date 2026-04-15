@@ -95,17 +95,13 @@
   .kanban-card {
     @apply bg-card rounded-lg border p-3 cursor-grab active:cursor-grabbing;
     box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.04);
-    transition: box-shadow 0.15s ease-out, transform 0.1s ease-out;
+    transition: box-shadow 0.15s ease-out;
   }
   .kanban-card:hover {
     box-shadow: 0 4px 12px -2px rgb(0 0 0 / 0.08), 0 1px 3px -1px rgb(0 0 0 / 0.06);
   }
-  .kanban-card:active {
-    transform: scale(0.97);
-  }
   .kanban-card.dragging {
     box-shadow: 0 12px 24px -4px rgb(0 0 0 / 0.12), 0 4px 8px -2px rgb(0 0 0 / 0.06);
-    transform: rotate(2deg);
   }
 
   /* Stat cards */
