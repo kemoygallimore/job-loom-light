@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import {
   CheckCircle2, FileText, Loader2, AlertCircle, Upload, X, Building2,
 } from "lucide-react";
-
+import { uploadResumeToR2 } from "@/lib/uploadResumeToR2";
 const EDUCATION_LEVELS = [
   "Primary Level Education",
   "Trade Certificate",
@@ -141,16 +141,7 @@ export default function PublicJobApplication() {
     setSubmitting(true);
 
     try {
-      // Upload resume
-      const ext = resumeFile!.name.split(".").pop();
-      const filePath = `${company.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from("resumes")
-        .upload(filePath, resumeFile!);
-
-      if (uploadError) throw new Error("Failed to upload resume");
-
-      // Create candidate
+      // Create candidate first to get ID
       const { data: candidate, error: candidateError } = await supabase
         .from("candidates")
         .insert({
@@ -158,7 +149,6 @@ export default function PublicJobApplication() {
           name: name.trim(),
           email: email.trim(),
           phone: phone.trim(),
-          resume_url: filePath,
           country,
           street_address: streetAddress.trim(),
           parish_state: parishState,
