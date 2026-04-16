@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ArrowLeft, Mail, Phone, FileText, Briefcase, Calendar, Clock, User, RotateCcw } from "lucide-react";
+import { ArrowLeft, Mail, Phone, FileText, Briefcase, Calendar, Clock, User, RotateCcw, MapPin, GraduationCap } from "lucide-react";
 import CandidateNotes, { type NoteWithAuthor } from "@/components/candidate/CandidateNotes";
 import ActivityTimeline, { type TimelineEvent } from "@/components/candidate/ActivityTimeline";
 
@@ -32,6 +32,10 @@ interface Candidate {
   resume_object_key: string | null;
   created_at: string;
   company_id: string;
+  country: string | null;
+  street_address: string | null;
+  parish_state: string | null;
+  education_level: string | null;
 }
 
 interface ApplicationWithJob {
@@ -258,6 +262,20 @@ export default function CandidateProfile() {
               <div className="flex items-center gap-2.5 text-sm">
                 <Phone className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                 <span className="text-foreground">{candidate.phone}</span>
+              </div>
+            )}
+            {(candidate.street_address || candidate.parish_state || candidate.country) && (
+              <div className="flex items-center gap-2.5 text-sm sm:col-span-2">
+                <MapPin className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                <span className="text-foreground">
+                  {[candidate.street_address, candidate.parish_state, candidate.country].filter(Boolean).join(", ")}
+                </span>
+              </div>
+            )}
+            {candidate.education_level && (
+              <div className="flex items-center gap-2.5 text-sm">
+                <GraduationCap className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                <span className="text-foreground">{candidate.education_level}</span>
               </div>
             )}
             <div className="flex items-center gap-2.5 text-sm">

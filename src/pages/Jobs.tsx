@@ -12,7 +12,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Search, Link2, Check, Video, ChevronDown, CalendarIcon } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Link2, Check, Video, ChevronDown, CalendarIcon, Copy } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +36,7 @@ export default function Jobs() {
   const [search, setSearch] = useState("");
   const [companySlug, setCompanySlug] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copiedJobId, setCopiedJobId] = useState<string | null>(null);
 
   // Screening defaults
   const [screeningOpen, setScreeningOpen] = useState(false);
@@ -252,6 +253,21 @@ export default function Jobs() {
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      title="Copy apply link"
+                      onClick={async () => {
+                        const link = `${window.location.origin}/apply/${job.id}`;
+                        await navigator.clipboard.writeText(link);
+                        setCopiedJobId(job.id);
+                        toast.success("Application link copied!");
+                        setTimeout(() => setCopiedJobId(null), 2000);
+                      }}
+                    >
+                      {copiedJobId === job.id ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(job)}>
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>
