@@ -159,13 +159,34 @@ export default function PublicJobApplication() {
 
       if (candidateError || !candidate) throw new Error("Failed to create candidate");
 
+      const candidateId = (candidate as any).id;
+
+      // Upload resume to R2
+      const resumeResult = await uploadResumeToR2({
+        file: resumeFile!,
+        companyId: company.id,
+        candidateId,
+      });
+
+      // Update candidate with resume metadata
+      await supabase
+        .from("candidates")
+        .update({
+          resume_bucket: resumeResult.bucket,
+          resume_object_key: resumeResult.key,
+          resume_filename: resumeResult.filename,
+          resume_content_type: resumeResult.contentType,
+          resume_size_bytes: resumeResult.size,
+        } as any)
+        .eq("id", candidateId);
+
       // Create application
       const { error: appError } = await supabase
         .from("applications")
         .insert({
           company_id: company.id,
           job_id: job.id,
-          candidate_id: (candidate as any).id,
+          candidate_id: candidateId,
           stage: "applied",
         });
 
