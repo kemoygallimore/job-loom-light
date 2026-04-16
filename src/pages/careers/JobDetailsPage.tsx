@@ -11,6 +11,7 @@ import {
   ArrowLeft, Building2, Upload, CheckCircle2, FileText,
   Loader2, AlertCircle, X,
 } from "lucide-react";
+import { uploadResumeToR2 } from "@/lib/uploadResumeToR2";
 
 interface Job {
   id: string;
@@ -88,16 +89,7 @@ export default function JobDetailsPage() {
     setSubmitting(true);
 
     try {
-      // Upload resume
-      const ext = resumeFile!.name.split(".").pop();
-      const filePath = `${company.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from("resumes")
-        .upload(filePath, resumeFile!);
-
-      if (uploadError) throw new Error("Failed to upload resume");
-
-      // Create candidate with file path (not public URL)
+      // Create candidate first
       const { data: candidate, error: candidateError } = await supabase
         .from("candidates")
         .insert({
@@ -105,12 +97,30 @@ export default function JobDetailsPage() {
           name: name.trim(),
           email: email.trim(),
           phone: phone.trim(),
-          resume_url: filePath,
         })
         .select()
         .single();
 
       if (candidateError || !candidate) throw new Error("Failed to create candidate");
+
+      // Upload resume to R2
+      const resumeResult = await uploadResumeToR2({
+        file: resumeFile!,
+        companyId: company.id,
+        candidateId: candidate.id,
+      });
+
+      // Update candidate with resume metadata
+      await supabase
+        .from("candidates")
+        .update({
+          resume_bucket: resumeResult.bucket,
+          resume_object_key: resumeResult.key,
+          resume_filename: resumeResult.filename,
+          resume_content_type: resumeResult.contentType,
+          resume_size_bytes: resumeResult.size,
+        })
+        .eq("id", candidate.id);
 
       // Create application
       const { error: appError } = await supabase
