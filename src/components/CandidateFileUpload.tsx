@@ -69,7 +69,7 @@ export default function CandidateFileUpload({
         candidate_id: candidateId,
         category,
         bucket: result.bucket,
-        file_key: result.path,
+        file_key: result.key,
         file_name: result.fileName,
         file_type: result.fileType,
         file_size: result.fileSize,
