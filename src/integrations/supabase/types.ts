@@ -133,10 +133,13 @@ export type Database = {
       candidates: {
         Row: {
           company_id: string
+          country: string | null
           created_at: string
+          education_level: string | null
           email: string | null
           id: string
           name: string
+          parish_state: string | null
           phone: string | null
           resume_bucket: string | null
           resume_content_type: string | null
@@ -144,13 +147,17 @@ export type Database = {
           resume_object_key: string | null
           resume_size_bytes: number | null
           resume_url: string | null
+          street_address: string | null
         }
         Insert: {
           company_id: string
+          country?: string | null
           created_at?: string
+          education_level?: string | null
           email?: string | null
           id?: string
           name: string
+          parish_state?: string | null
           phone?: string | null
           resume_bucket?: string | null
           resume_content_type?: string | null
@@ -158,13 +165,17 @@ export type Database = {
           resume_object_key?: string | null
           resume_size_bytes?: number | null
           resume_url?: string | null
+          street_address?: string | null
         }
         Update: {
           company_id?: string
+          country?: string | null
           created_at?: string
+          education_level?: string | null
           email?: string | null
           id?: string
           name?: string
+          parish_state?: string | null
           phone?: string | null
           resume_bucket?: string | null
           resume_content_type?: string | null
@@ -172,6 +183,7 @@ export type Database = {
           resume_object_key?: string | null
           resume_size_bytes?: number | null
           resume_url?: string | null
+          street_address?: string | null
         }
         Relationships: [
           {
