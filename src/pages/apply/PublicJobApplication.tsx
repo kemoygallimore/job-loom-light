@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import {
   CheckCircle2, FileText, Loader2, AlertCircle, Upload, X, Building2,
 } from "lucide-react";
-
+import { uploadResumeToR2 } from "@/lib/uploadResumeToR2";
 const EDUCATION_LEVELS = [
   "Primary Level Education",
   "Trade Certificate",
@@ -141,16 +141,7 @@ export default function PublicJobApplication() {
     setSubmitting(true);
 
     try {
-      // Upload resume
-      const ext = resumeFile!.name.split(".").pop();
-      const filePath = `${company.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from("resumes")
-        .upload(filePath, resumeFile!);
-
-      if (uploadError) throw new Error("Failed to upload resume");
-
-      // Create candidate
+      // Create candidate first to get ID
       const { data: candidate, error: candidateError } = await supabase
         .from("candidates")
         .insert({
@@ -158,7 +149,6 @@ export default function PublicJobApplication() {
           name: name.trim(),
           email: email.trim(),
           phone: phone.trim(),
-          resume_url: filePath,
           country,
           street_address: streetAddress.trim(),
           parish_state: parishState,
@@ -169,13 +159,34 @@ export default function PublicJobApplication() {
 
       if (candidateError || !candidate) throw new Error("Failed to create candidate");
 
+      const candidateId = (candidate as any).id;
+
+      // Upload resume to R2
+      const resumeResult = await uploadResumeToR2({
+        file: resumeFile!,
+        companyId: company.id,
+        candidateId,
+      });
+
+      // Update candidate with resume metadata
+      await supabase
+        .from("candidates")
+        .update({
+          resume_bucket: resumeResult.bucket,
+          resume_object_key: resumeResult.key,
+          resume_filename: resumeResult.filename,
+          resume_content_type: resumeResult.contentType,
+          resume_size_bytes: resumeResult.size,
+        } as any)
+        .eq("id", candidateId);
+
       // Create application
       const { error: appError } = await supabase
         .from("applications")
         .insert({
           company_id: company.id,
           job_id: job.id,
-          candidate_id: (candidate as any).id,
+          candidate_id: candidateId,
           stage: "applied",
         });
 
