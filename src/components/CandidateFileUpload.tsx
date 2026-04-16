@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { uploadToStorage, UploadCategory } from "@/lib/uploadToStorage";
+import { uploadToStorage, type UploadCategory } from "@/lib/uploadToStorage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
