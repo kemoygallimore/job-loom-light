@@ -141,10 +141,21 @@ export default function PublicJobApplication() {
     setSubmitting(true);
 
     try {
-      // Create candidate first to get ID
-      const { data: candidate, error: candidateError } = await supabase
+      // Generate a candidate ID upfront so we can use it for the R2 upload path
+      const candidateId = crypto.randomUUID();
+
+      // Upload resume to R2 first
+      const resumeResult = await uploadResumeToR2({
+        file: resumeFile!,
+        companyId: company.id,
+        candidateId,
+      });
+
+      // Create candidate with all data in a single INSERT (anon can INSERT but not UPDATE)
+      const { error: candidateError } = await supabase
         .from("candidates")
         .insert({
+          id: candidateId,
           company_id: company.id,
           name: name.trim(),
           email: email.trim(),
@@ -153,32 +164,14 @@ export default function PublicJobApplication() {
           street_address: streetAddress.trim(),
           parish_state: parishState,
           education_level: educationLevel,
-        } as any)
-        .select()
-        .single();
-
-      if (candidateError || !candidate) throw new Error("Failed to create candidate");
-
-      const candidateId = (candidate as any).id;
-
-      // Upload resume to R2
-      const resumeResult = await uploadResumeToR2({
-        file: resumeFile!,
-        companyId: company.id,
-        candidateId,
-      });
-
-      // Update candidate with resume metadata
-      await supabase
-        .from("candidates")
-        .update({
           resume_bucket: resumeResult.bucket,
           resume_object_key: resumeResult.key,
           resume_filename: resumeResult.filename,
           resume_content_type: resumeResult.contentType,
           resume_size_bytes: resumeResult.size,
-        } as any)
-        .eq("id", candidateId);
+        } as any);
+
+      if (candidateError) throw new Error("Failed to create candidate");
 
       // Create application
       const { error: appError } = await supabase
