@@ -1,7 +1,6 @@
-import { supabase } from "@/integrations/supabase/client";
+const WORKER_URL = "https://api.rizonhire.com";
 
 export type UploadCategory = "resume" | "video";
-export type BucketName = "resumes" | "screening-videos";
 
 export interface UploadToStorageParams {
   file: File;
@@ -12,15 +11,15 @@ export interface UploadToStorageParams {
 }
 
 export interface UploadToStorageResult {
-  path: string;
-  bucket: BucketName;
+  bucket: string;
+  key: string;
   fileName: string;
   fileType: string;
   fileSize: number;
 }
 
-function getBucket(category: UploadCategory): BucketName {
-  return category === "video" ? "screening-videos" : "resumes";
+function getFolder(category: UploadCategory): string {
+  return category === "video" ? "videos" : "resumes";
 }
 
 export async function uploadToStorage({
@@ -30,25 +29,46 @@ export async function uploadToStorage({
   candidateId,
   category,
 }: UploadToStorageParams): Promise<UploadToStorageResult> {
-  const bucket = getBucket(category);
-  const timestamp = Date.now();
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const path = `${companyId}/${jobId}/${candidateId}/${timestamp}-${safeName}`;
+  const folder = getFolder(category);
 
-  const { error } = await supabase.storage
-    .from(bucket)
-    .upload(path, file, {
+  const presignRes = await fetch(`${WORKER_URL}/presign-upload`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      filename: file.name,
       contentType: file.type || "application/octet-stream",
-      upsert: false,
-    });
+      folder,
+      companyId,
+      jobId,
+      candidateId,
+    }),
+  });
 
-  if (error) {
-    throw new Error(`Upload failed: ${error.message}`);
+  if (!presignRes.ok) {
+    const errorText = await presignRes.text();
+    throw new Error(`Failed to get upload URL: ${errorText}`);
+  }
+
+  const { uploadUrl, key, bucket } = await presignRes.json();
+
+  if (!uploadUrl || !key || !bucket) {
+    throw new Error("Invalid Worker response");
+  }
+
+  const uploadRes = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": file.type || "application/octet-stream" },
+    body: file,
+  });
+
+  if (!uploadRes.ok) {
+    const errorText = await uploadRes.text();
+    throw new Error(`Failed to upload file: ${errorText}`);
   }
 
   return {
-    path,
     bucket,
+    key,
     fileName: file.name,
     fileType: file.type || "application/octet-stream",
     fileSize: file.size,
