@@ -251,7 +251,14 @@ export default function PublicJobApplication() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validate() || !job || !company) return;
+    if (!validate()) {
+      toast.error("Please complete all required fields");
+      return;
+    }
+    if (!job || !company) {
+      toast.error("Job information missing. Please refresh the page.");
+      return;
+    }
     setSubmitting(true);
 
     try {
@@ -284,7 +291,10 @@ export default function PublicJobApplication() {
         resume_size_bytes: resumeResult.size,
       } as any);
 
-      if (candidateError) throw new Error("Failed to create candidate");
+      if (candidateError) {
+        console.error("Candidate insert error:", candidateError);
+        throw new Error(candidateError.message || "Failed to create candidate");
+      }
 
       // Create application
       const { error: appError } = await supabase.from("applications").insert({
@@ -294,10 +304,14 @@ export default function PublicJobApplication() {
         stage: "applied",
       });
 
-      if (appError) throw new Error("Failed to submit application");
+      if (appError) {
+        console.error("Application insert error:", appError);
+        throw new Error(appError.message || "Failed to submit application");
+      }
 
       setSubmitted(true);
     } catch (err: any) {
+      console.error("Application submission failed:", err);
       toast.error(err.message || "Something went wrong");
     } finally {
       setSubmitting(false);
