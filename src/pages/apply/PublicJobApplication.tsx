@@ -202,30 +202,37 @@ export default function PublicJobApplication() {
 
   useEffect(() => {
     if (!jobId) return;
+
     const load = async () => {
-      const { data: jobData } = await supabase
+      const { data: jobData, error: jobError } = await supabase
         .from("jobs")
         .select("id, title, description, company_id")
         .eq("id", jobId)
         .eq("status", "open")
         .maybeSingle();
 
+      console.log("jobData:", jobData, "jobError:", jobError);
+
       if (!jobData) {
         setNotFound(true);
         setLoading(false);
         return;
       }
+
       setJob(jobData);
 
-      const { data: companyData } = await supabase
+      const { data: companyData, error: companyError } = await supabase
         .from("companies")
         .select("id, name")
         .eq("id", jobData.company_id)
         .maybeSingle();
 
+      console.log("companyData:", companyData, "companyError:", companyError);
+
       setCompany(companyData);
       setLoading(false);
     };
+
     load();
   }, [jobId]);
 
