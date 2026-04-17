@@ -251,21 +251,46 @@ export default function PublicJobApplication() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validate() || !job || !company) return;
+
+    console.log("Submit clicked", {
+      job,
+      company,
+      name,
+      email,
+      phone,
+      country,
+      streetAddress,
+      parishState,
+      educationLevel,
+      resumeFile,
+    });
+
+    const isValid = validate();
+    console.log("Validation result:", isValid);
+
+    if (!isValid) {
+      console.log("Validation errors:", errors);
+      toast.error("Please complete all required fields.");
+      return;
+    }
+
+    if (!job || !company) {
+      console.log("Missing job or company", { job, company });
+      toast.error("Job details are still loading. Please try again.");
+      return;
+    }
+
     setSubmitting(true);
 
     try {
-      // Generate a candidate ID upfront so we can use it for the R2 upload path
       const candidateId = crypto.randomUUID();
 
-      // Upload resume to R2 first
       const resumeResult = await uploadResumeToR2({
         file: resumeFile!,
         companyId: company.id,
         candidateId,
       });
 
-      // Create candidate with all data in a single INSERT (anon can INSERT but not UPDATE)
       const { error: candidateError } = await supabase.from("candidates").insert({
         id: candidateId,
         company_id: company.id,
@@ -286,7 +311,6 @@ export default function PublicJobApplication() {
 
       if (candidateError) throw candidateError;
 
-      // Create application
       const { error: appError } = await supabase.from("applications").insert({
         company_id: company.id,
         job_id: job.id,
@@ -298,6 +322,7 @@ export default function PublicJobApplication() {
 
       setSubmitted(true);
     } catch (err: any) {
+      console.error("Submit error:", err);
       toast.error(err.message || "Something went wrong");
     } finally {
       setSubmitting(false);
