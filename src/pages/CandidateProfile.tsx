@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import { ArrowLeft, Mail, Phone, FileText, Briefcase, Calendar, Clock, User, RotateCcw, MapPin, GraduationCap } from "lucide-react";
 import CandidateNotes, { type NoteWithAuthor } from "@/components/candidate/CandidateNotes";
 import ActivityTimeline, { type TimelineEvent } from "@/components/candidate/ActivityTimeline";
+import InterviewFeedback from "@/components/candidate/InterviewFeedback";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const STAGES = ["applied", "screening", "interview", "offer", "hired", "rejected"] as const;
 
