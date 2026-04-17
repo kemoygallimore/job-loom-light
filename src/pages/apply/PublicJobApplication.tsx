@@ -217,13 +217,19 @@ export default function PublicJobApplication() {
       }
       setJob(jobData);
 
-      const { data: companyData } = await supabase
+      const { data: companyData, error: companyError } = await supabase
         .from("companies")
         .select("id, name")
         .eq("id", jobData.company_id)
         .maybeSingle();
 
-      setCompany(companyData);
+      if (companyError) {
+        console.warn("Company fetch error (likely RLS for anon):", companyError);
+      }
+
+      // Fallback: even if RLS hides company name from anon users, we still have
+      // the company_id from the job, which is all we need to submit the application.
+      setCompany(companyData ?? { id: jobData.company_id, name: "" });
       setLoading(false);
     };
     load();
