@@ -217,19 +217,13 @@ export default function PublicJobApplication() {
       }
       setJob(jobData);
 
-      const { data: companyData, error: companyError } = await supabase
+      const { data: companyData } = await supabase
         .from("companies")
         .select("id, name")
         .eq("id", jobData.company_id)
         .maybeSingle();
 
-      if (companyError) {
-        console.warn("Company fetch error (likely RLS for anon):", companyError);
-      }
-
-      // Fallback: even if RLS hides company name from anon users, we still have
-      // the company_id from the job, which is all we need to submit the application.
-      setCompany(companyData ?? { id: jobData.company_id, name: "" });
+      setCompany(companyData);
       setLoading(false);
     };
     load();
@@ -257,19 +251,21 @@ export default function PublicJobApplication() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validate()) {
-      toast.error("Please complete all required fields");
-      return;
-    }
-    if (!job || !company) {
-      toast.error("Job information missing. Please refresh the page.");
-      return;
-    }
+    if (!validate() || !job || !company) return;
     setSubmitting(true);
 
     try {
+      // Generate a candidate ID upfront so we can use it for the R2 upload path
       const candidateId = crypto.randomUUID();
 
+      // Upload resume to R2 first
+      const resumeResult = await uploadResumeToR2({
+        file: resumeFile!,
+        companyId: company.id,
+        candidateId,
+      });
+
+      // Create candidate with all data in a single INSERT (anon can INSERT but not UPDATE)
       const { error: candidateError } = await supabase.from("candidates").insert({
         id: candidateId,
         company_id: company.id,
@@ -280,35 +276,15 @@ export default function PublicJobApplication() {
         street_address: streetAddress.trim(),
         parish_state: parishState,
         education_level: educationLevel,
+        resume_url: resumeResult.key,
+        resume_bucket: resumeResult.bucket,
+        resume_object_key: resumeResult.key,
+        resume_filename: resumeResult.filename,
+        resume_content_type: resumeResult.contentType,
+        resume_size_bytes: resumeResult.size,
       } as any);
 
-      if (candidateError) {
-        console.error("Candidate insert error:", candidateError);
-        throw new Error(candidateError.message || "Failed to create candidate");
-      }
-
-      const resumeResult = await uploadResumeToR2({
-        file: resumeFile!,
-        companyId: company.id,
-        candidateId,
-      });
-
-      const { error: resumeMetadataError } = await supabase
-        .from("candidates")
-        .update({
-          resume_url: resumeResult.key,
-          resume_bucket: resumeResult.bucket,
-          resume_object_key: resumeResult.key,
-          resume_filename: resumeResult.filename,
-          resume_content_type: resumeResult.contentType,
-          resume_size_bytes: resumeResult.size,
-        } as any)
-        .eq("id", candidateId);
-
-      if (resumeMetadataError) {
-        console.error("Candidate resume update error:", resumeMetadataError);
-        throw new Error(resumeMetadataError.message || "Failed to attach the resume to the candidate");
-      }
+      if (candidateError) throw candidateError;
 
       // Create application
       const { error: appError } = await supabase.from("applications").insert({
@@ -318,14 +294,10 @@ export default function PublicJobApplication() {
         stage: "applied",
       });
 
-      if (appError) {
-        console.error("Application insert error:", appError);
-        throw new Error(appError.message || "Failed to submit application");
-      }
+      if (appError) throw appError;
 
       setSubmitted(true);
     } catch (err: any) {
-      console.error("Application submission failed:", err);
       toast.error(err.message || "Something went wrong");
     } finally {
       setSubmitting(false);
