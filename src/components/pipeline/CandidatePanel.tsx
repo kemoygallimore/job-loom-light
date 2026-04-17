@@ -5,8 +5,10 @@ import type { Application } from "@/pages/Pipeline";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { X, Mail, User, Briefcase, Clock } from "lucide-react";
 import { toast } from "sonner";
+import InterviewFeedback from "@/components/candidate/InterviewFeedback";
 
 const STAGES = ["applied", "screening", "interview", "offer", "hired", "rejected"] as const;
 
