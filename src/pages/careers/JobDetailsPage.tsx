@@ -89,29 +89,29 @@ export default function JobDetailsPage() {
     setSubmitting(true);
 
     try {
-      // Create candidate first
-      const { data: candidate, error: candidateError } = await supabase
+      const candidateId = crypto.randomUUID();
+
+      const { error: candidateError } = await supabase
         .from("candidates")
         .insert({
+          id: candidateId,
           company_id: company.id,
           name: name.trim(),
           email: email.trim(),
           phone: phone.trim(),
-        })
-        .select()
-        .single();
+        });
 
-      if (candidateError || !candidate) throw new Error("Failed to create candidate");
+      if (candidateError) throw new Error(candidateError.message || "Failed to create candidate");
 
       // Upload resume to R2
       const resumeResult = await uploadResumeToR2({
         file: resumeFile!,
         companyId: company.id,
-        candidateId: candidate.id,
+        candidateId,
       });
 
       // Update candidate with resume metadata
-      await supabase
+      const { error: resumeMetadataError } = await supabase
         .from("candidates")
         .update({
           resume_bucket: resumeResult.bucket,
@@ -120,7 +120,11 @@ export default function JobDetailsPage() {
           resume_content_type: resumeResult.contentType,
           resume_size_bytes: resumeResult.size,
         })
-        .eq("id", candidate.id);
+        .eq("id", candidateId);
+
+      if (resumeMetadataError) {
+        throw new Error(resumeMetadataError.message || "Failed to attach the resume to the candidate");
+      }
 
       // Create application
       const { error: appError } = await supabase
@@ -128,7 +132,7 @@ export default function JobDetailsPage() {
         .insert({
           company_id: company.id,
           job_id: job.id,
-          candidate_id: candidate.id,
+          candidate_id: candidateId,
           stage: "applied",
         });
 
