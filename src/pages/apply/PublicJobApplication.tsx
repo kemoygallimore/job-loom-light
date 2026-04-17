@@ -6,9 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import {
-  CheckCircle2, FileText, Loader2, AlertCircle, Upload, X, Building2,
-} from "lucide-react";
+import { CheckCircle2, FileText, Loader2, AlertCircle, Upload, X, Building2 } from "lucide-react";
 import { uploadResumeToR2 } from "@/lib/uploadResumeToR2";
 const EDUCATION_LEVELS = [
   "Primary Level Education",
@@ -24,54 +22,164 @@ const EDUCATION_LEVELS = [
 ];
 
 const COUNTRIES = [
-  "Jamaica", "Trinidad and Tobago", "Barbados", "Bahamas", "Guyana",
-  "Belize", "Antigua and Barbuda", "Dominica", "Grenada", "Saint Kitts and Nevis",
-  "Saint Lucia", "Saint Vincent and the Grenadines", "Suriname", "Haiti",
-  "United States", "Canada", "United Kingdom", "Australia", "Nigeria", "Ghana", "India",
+  "Jamaica",
+  "Trinidad and Tobago",
+  "Barbados",
+  "Bahamas",
+  "Guyana",
+  "Belize",
+  "Antigua and Barbuda",
+  "Dominica",
+  "Grenada",
+  "Saint Kitts and Nevis",
+  "Saint Lucia",
+  "Saint Vincent and the Grenadines",
+  "Suriname",
+  "Haiti",
+  "United States",
+  "Canada",
+  "United Kingdom",
+  "Australia",
+  "Nigeria",
+  "Ghana",
+  "India",
 ];
 
 const PARISHES_BY_COUNTRY: Record<string, string[]> = {
   Jamaica: [
-    "Kingston", "St. Andrew", "St. Thomas", "Portland", "St. Mary",
-    "St. Ann", "Trelawny", "St. James", "Hanover", "Westmoreland",
-    "St. Elizabeth", "Manchester", "Clarendon", "St. Catherine",
+    "Kingston",
+    "St. Andrew",
+    "St. Thomas",
+    "Portland",
+    "St. Mary",
+    "St. Ann",
+    "Trelawny",
+    "St. James",
+    "Hanover",
+    "Westmoreland",
+    "St. Elizabeth",
+    "Manchester",
+    "Clarendon",
+    "St. Catherine",
   ],
   "Trinidad and Tobago": [
-    "Port of Spain", "San Fernando", "Chaguanas", "Arima", "Point Fortin",
-    "Diego Martin", "Tunapuna/Piarco", "San Juan/Laventille", "Couva-Tabaquite-Talparo",
-    "Sangre Grande", "Siparia", "Penal-Debe", "Princes Town", "Mayaro/Rio Claro", "Tobago",
+    "Port of Spain",
+    "San Fernando",
+    "Chaguanas",
+    "Arima",
+    "Point Fortin",
+    "Diego Martin",
+    "Tunapuna/Piarco",
+    "San Juan/Laventille",
+    "Couva-Tabaquite-Talparo",
+    "Sangre Grande",
+    "Siparia",
+    "Penal-Debe",
+    "Princes Town",
+    "Mayaro/Rio Claro",
+    "Tobago",
   ],
   Barbados: [
-    "Christ Church", "St. Andrew", "St. George", "St. James", "St. John",
-    "St. Joseph", "St. Lucy", "St. Michael", "St. Peter", "St. Philip", "St. Thomas",
+    "Christ Church",
+    "St. Andrew",
+    "St. George",
+    "St. James",
+    "St. John",
+    "St. Joseph",
+    "St. Lucy",
+    "St. Michael",
+    "St. Peter",
+    "St. Philip",
+    "St. Thomas",
   ],
   Bahamas: ["New Providence", "Grand Bahama", "Abaco", "Andros", "Eleuthera", "Exuma", "Long Island"],
   Guyana: [
-    "Barima-Waini", "Pomeroon-Supenaam", "Essequibo Islands-West Demerara",
-    "Demerara-Mahaica", "Mahaica-Berbice", "East Berbice-Corentyne",
-    "Cuyuni-Mazaruni", "Potaro-Siparuni", "Upper Takutu-Upper Essequibo", "Upper Demerara-Berbice",
+    "Barima-Waini",
+    "Pomeroon-Supenaam",
+    "Essequibo Islands-West Demerara",
+    "Demerara-Mahaica",
+    "Mahaica-Berbice",
+    "East Berbice-Corentyne",
+    "Cuyuni-Mazaruni",
+    "Potaro-Siparuni",
+    "Upper Takutu-Upper Essequibo",
+    "Upper Demerara-Berbice",
   ],
   "United States": [
-    "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado", "Connecticut",
-    "Delaware", "Florida", "Georgia", "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa",
-    "Kansas", "Kentucky", "Louisiana", "Maine", "Maryland", "Massachusetts", "Michigan",
-    "Minnesota", "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire",
-    "New Jersey", "New Mexico", "New York", "North Carolina", "North Dakota", "Ohio",
-    "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina", "South Dakota",
-    "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington", "West Virginia",
-    "Wisconsin", "Wyoming",
+    "Alabama",
+    "Alaska",
+    "Arizona",
+    "Arkansas",
+    "California",
+    "Colorado",
+    "Connecticut",
+    "Delaware",
+    "Florida",
+    "Georgia",
+    "Hawaii",
+    "Idaho",
+    "Illinois",
+    "Indiana",
+    "Iowa",
+    "Kansas",
+    "Kentucky",
+    "Louisiana",
+    "Maine",
+    "Maryland",
+    "Massachusetts",
+    "Michigan",
+    "Minnesota",
+    "Mississippi",
+    "Missouri",
+    "Montana",
+    "Nebraska",
+    "Nevada",
+    "New Hampshire",
+    "New Jersey",
+    "New Mexico",
+    "New York",
+    "North Carolina",
+    "North Dakota",
+    "Ohio",
+    "Oklahoma",
+    "Oregon",
+    "Pennsylvania",
+    "Rhode Island",
+    "South Carolina",
+    "South Dakota",
+    "Tennessee",
+    "Texas",
+    "Utah",
+    "Vermont",
+    "Virginia",
+    "Washington",
+    "West Virginia",
+    "Wisconsin",
+    "Wyoming",
   ],
   Canada: [
-    "Alberta", "British Columbia", "Manitoba", "New Brunswick", "Newfoundland and Labrador",
-    "Nova Scotia", "Ontario", "Prince Edward Island", "Quebec", "Saskatchewan",
-    "Northwest Territories", "Nunavut", "Yukon",
+    "Alberta",
+    "British Columbia",
+    "Manitoba",
+    "New Brunswick",
+    "Newfoundland and Labrador",
+    "Nova Scotia",
+    "Ontario",
+    "Prince Edward Island",
+    "Quebec",
+    "Saskatchewan",
+    "Northwest Territories",
+    "Nunavut",
+    "Yukon",
   ],
   "United Kingdom": ["England", "Scotland", "Wales", "Northern Ireland"],
 };
 
 export default function PublicJobApplication() {
   const { jobId } = useParams<{ jobId: string }>();
-  const [job, setJob] = useState<{ id: string; title: string; description: string | null; company_id: string } | null>(null);
+  const [job, setJob] = useState<{ id: string; title: string; description: string | null; company_id: string } | null>(
+    null,
+  );
   const [company, setCompany] = useState<{ id: string; name: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -102,7 +210,11 @@ export default function PublicJobApplication() {
         .eq("status", "open")
         .maybeSingle();
 
-      if (!jobData) { setNotFound(true); setLoading(false); return; }
+      if (!jobData) {
+        setNotFound(true);
+        setLoading(false);
+        return;
+      }
       setJob(jobData);
 
       const { data: companyData } = await supabase
@@ -118,7 +230,9 @@ export default function PublicJobApplication() {
   }, [jobId]);
 
   // Reset parish when country changes
-  useEffect(() => { setParishState(""); }, [country]);
+  useEffect(() => {
+    setParishState("");
+  }, [country]);
 
   const validate = () => {
     const e: Record<string, string> = {};
@@ -152,36 +266,33 @@ export default function PublicJobApplication() {
       });
 
       // Create candidate with all data in a single INSERT (anon can INSERT but not UPDATE)
-      const { error: candidateError } = await supabase
-        .from("candidates")
-        .insert({
-          id: candidateId,
-          company_id: company.id,
-          name: name.trim(),
-          email: email.trim(),
-          phone: phone.trim(),
-          country,
-          street_address: streetAddress.trim(),
-          parish_state: parishState,
-          education_level: educationLevel,
-          resume_bucket: resumeResult.bucket,
-          resume_object_key: resumeResult.key,
-          resume_filename: resumeResult.filename,
-          resume_content_type: resumeResult.contentType,
-          resume_size_bytes: resumeResult.size,
-        } as any);
+      const { error: candidateError } = await supabase.from("candidates").insert({
+        id: candidateId,
+        company_id: company.id,
+        name: name.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        country,
+        street_address: streetAddress.trim(),
+        parish_state: parishState,
+        education_level: educationLevel,
+        resume_url: resumeResult.key,
+        resume_bucket: resumeResult.bucket,
+        resume_object_key: resumeResult.key,
+        resume_filename: resumeResult.filename,
+        resume_content_type: resumeResult.contentType,
+        resume_size_bytes: resumeResult.size,
+      } as any);
 
       if (candidateError) throw new Error("Failed to create candidate");
 
       // Create application
-      const { error: appError } = await supabase
-        .from("applications")
-        .insert({
-          company_id: company.id,
-          job_id: job.id,
-          candidate_id: candidateId,
-          stage: "applied",
-        });
+      const { error: appError } = await supabase.from("applications").insert({
+        company_id: company.id,
+        job_id: job.id,
+        candidate_id: candidateId,
+        stage: "applied",
+      });
 
       if (appError) throw new Error("Failed to submit application");
 
@@ -228,7 +339,8 @@ export default function PublicJobApplication() {
           <CheckCircle2 className="w-16 h-16 text-emerald-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold">Application Submitted!</h1>
           <p className="text-muted-foreground text-sm mt-2 max-w-sm mx-auto">
-            Thank you for applying to <span className="font-medium text-foreground">{job?.title}</span>. We'll review your application and get back to you soon.
+            Thank you for applying to <span className="font-medium text-foreground">{job?.title}</span>. We'll review
+            your application and get back to you soon.
           </p>
         </div>
       </div>
@@ -257,11 +369,16 @@ export default function PublicJobApplication() {
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Name */}
           <div className="space-y-1.5">
-            <Label htmlFor="name" className="text-sm">Full Name <span className="text-destructive">*</span></Label>
+            <Label htmlFor="name" className="text-sm">
+              Full Name <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="name"
               value={name}
-              onChange={e => { setName(e.target.value); setErrors(p => ({ ...p, name: "" })); }}
+              onChange={(e) => {
+                setName(e.target.value);
+                setErrors((p) => ({ ...p, name: "" }));
+              }}
               placeholder="Jane Cooper"
               className={errors.name ? "border-destructive" : ""}
             />
@@ -270,12 +387,17 @@ export default function PublicJobApplication() {
 
           {/* Email */}
           <div className="space-y-1.5">
-            <Label htmlFor="email" className="text-sm">Email Address <span className="text-destructive">*</span></Label>
+            <Label htmlFor="email" className="text-sm">
+              Email Address <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="email"
               type="email"
               value={email}
-              onChange={e => { setEmail(e.target.value); setErrors(p => ({ ...p, email: "" })); }}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setErrors((p) => ({ ...p, email: "" }));
+              }}
               placeholder="jane@email.com"
               className={errors.email ? "border-destructive" : ""}
             />
@@ -284,12 +406,17 @@ export default function PublicJobApplication() {
 
           {/* Phone */}
           <div className="space-y-1.5">
-            <Label htmlFor="phone" className="text-sm">Phone Number <span className="text-destructive">*</span></Label>
+            <Label htmlFor="phone" className="text-sm">
+              Phone Number <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="phone"
               type="tel"
               value={phone}
-              onChange={e => { setPhone(e.target.value); setErrors(p => ({ ...p, phone: "" })); }}
+              onChange={(e) => {
+                setPhone(e.target.value);
+                setErrors((p) => ({ ...p, phone: "" }));
+              }}
               placeholder="+1 (555) 000-0000"
               className={errors.phone ? "border-destructive" : ""}
             />
@@ -303,14 +430,24 @@ export default function PublicJobApplication() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Country */}
               <div className="space-y-1.5">
-                <Label className="text-sm">Country <span className="text-destructive">*</span></Label>
-                <Select value={country} onValueChange={v => { setCountry(v); setErrors(p => ({ ...p, country: "" })); }}>
+                <Label className="text-sm">
+                  Country <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                  value={country}
+                  onValueChange={(v) => {
+                    setCountry(v);
+                    setErrors((p) => ({ ...p, country: "" }));
+                  }}
+                >
                   <SelectTrigger className={errors.country ? "border-destructive" : ""}>
                     <SelectValue placeholder="Select country" />
                   </SelectTrigger>
                   <SelectContent>
-                    {COUNTRIES.map(c => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    {COUNTRIES.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -319,22 +456,35 @@ export default function PublicJobApplication() {
 
               {/* Parish/State */}
               <div className="space-y-1.5">
-                <Label className="text-sm">Parish / State <span className="text-destructive">*</span></Label>
+                <Label className="text-sm">
+                  Parish / State <span className="text-destructive">*</span>
+                </Label>
                 {parishOptions.length > 0 ? (
-                  <Select value={parishState} onValueChange={v => { setParishState(v); setErrors(p => ({ ...p, parishState: "" })); }}>
+                  <Select
+                    value={parishState}
+                    onValueChange={(v) => {
+                      setParishState(v);
+                      setErrors((p) => ({ ...p, parishState: "" }));
+                    }}
+                  >
                     <SelectTrigger className={errors.parishState ? "border-destructive" : ""}>
                       <SelectValue placeholder="Select parish/state" />
                     </SelectTrigger>
                     <SelectContent>
-                      {parishOptions.map(p => (
-                        <SelectItem key={p} value={p}>{p}</SelectItem>
+                      {parishOptions.map((p) => (
+                        <SelectItem key={p} value={p}>
+                          {p}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 ) : (
                   <Input
                     value={parishState}
-                    onChange={e => { setParishState(e.target.value); setErrors(p => ({ ...p, parishState: "" })); }}
+                    onChange={(e) => {
+                      setParishState(e.target.value);
+                      setErrors((p) => ({ ...p, parishState: "" }));
+                    }}
                     placeholder="Enter parish or state"
                     className={errors.parishState ? "border-destructive" : ""}
                   />
@@ -345,10 +495,15 @@ export default function PublicJobApplication() {
 
             {/* Street Address */}
             <div className="space-y-1.5">
-              <Label className="text-sm">Street Address <span className="text-destructive">*</span></Label>
+              <Label className="text-sm">
+                Street Address <span className="text-destructive">*</span>
+              </Label>
               <Input
                 value={streetAddress}
-                onChange={e => { setStreetAddress(e.target.value); setErrors(p => ({ ...p, streetAddress: "" })); }}
+                onChange={(e) => {
+                  setStreetAddress(e.target.value);
+                  setErrors((p) => ({ ...p, streetAddress: "" }));
+                }}
                 placeholder="123 Main Street"
                 className={errors.streetAddress ? "border-destructive" : ""}
               />
@@ -358,14 +513,24 @@ export default function PublicJobApplication() {
 
           {/* Education Level */}
           <div className="space-y-1.5">
-            <Label className="text-sm">Education Level <span className="text-destructive">*</span></Label>
-            <Select value={educationLevel} onValueChange={v => { setEducationLevel(v); setErrors(p => ({ ...p, educationLevel: "" })); }}>
+            <Label className="text-sm">
+              Education Level <span className="text-destructive">*</span>
+            </Label>
+            <Select
+              value={educationLevel}
+              onValueChange={(v) => {
+                setEducationLevel(v);
+                setErrors((p) => ({ ...p, educationLevel: "" }));
+              }}
+            >
               <SelectTrigger className={errors.educationLevel ? "border-destructive" : ""}>
                 <SelectValue placeholder="Select education level" />
               </SelectTrigger>
               <SelectContent>
-                {EDUCATION_LEVELS.map(level => (
-                  <SelectItem key={level} value={level}>{level}</SelectItem>
+                {EDUCATION_LEVELS.map((level) => (
+                  <SelectItem key={level} value={level}>
+                    {level}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -374,15 +539,17 @@ export default function PublicJobApplication() {
 
           {/* Resume */}
           <div className="space-y-1.5">
-            <Label className="text-sm">Resume <span className="text-destructive">*</span></Label>
+            <Label className="text-sm">
+              Resume <span className="text-destructive">*</span>
+            </Label>
             <input
               ref={fileInputRef}
               type="file"
               accept=".pdf,.doc,.docx"
               className="hidden"
-              onChange={e => {
+              onChange={(e) => {
                 setResumeFile(e.target.files?.[0] ?? null);
-                setErrors(p => ({ ...p, resume: "" }));
+                setErrors((p) => ({ ...p, resume: "" }));
               }}
             />
             {resumeFile ? (
@@ -391,7 +558,10 @@ export default function PublicJobApplication() {
                 <span className="text-sm truncate flex-1">{resumeFile.name}</span>
                 <button
                   type="button"
-                  onClick={() => { setResumeFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                  onClick={() => {
+                    setResumeFile(null);
+                    if (fileInputRef.current) fileInputRef.current.value = "";
+                  }}
                   className="text-muted-foreground hover:text-foreground"
                 >
                   <X className="w-4 h-4" />
@@ -410,11 +580,7 @@ export default function PublicJobApplication() {
             {errors.resume && <p className="text-xs text-destructive">{errors.resume}</p>}
           </div>
 
-          <Button
-            type="submit"
-            className="w-full h-11 active:scale-[0.97] transition-transform"
-            disabled={submitting}
-          >
+          <Button type="submit" className="w-full h-11 active:scale-[0.97] transition-transform" disabled={submitting}>
             {submitting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin mr-2" /> Submitting...
