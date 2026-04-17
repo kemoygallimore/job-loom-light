@@ -427,17 +427,38 @@ export default function CandidateProfile() {
         </div>
       )}
 
-      {/* Notes */}
-      <CandidateNotes
-        candidateId={candidate.id}
-        companyId={candidate.company_id}
-        userId={profile!.user_id}
-        notes={notes}
-        onNotesChange={setNotes}
-      />
+      {/* Tabs: Notes / Interview Feedback / Activity */}
+      <Tabs defaultValue="notes" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 max-w-md">
+          <TabsTrigger value="notes">Notes</TabsTrigger>
+          <TabsTrigger value="feedback">Interview Feedback</TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger>
+        </TabsList>
 
-      {/* Activity Timeline */}
-      <ActivityTimeline events={buildTimeline()} />
+        <TabsContent value="notes" className="mt-4">
+          <CandidateNotes
+            candidateId={candidate.id}
+            companyId={candidate.company_id}
+            userId={profile!.user_id}
+            notes={notes}
+            onNotesChange={setNotes}
+          />
+        </TabsContent>
+
+        <TabsContent value="feedback" className="mt-4">
+          <InterviewFeedback
+            candidateId={candidate.id}
+            companyId={candidate.company_id}
+            userId={profile!.user_id}
+            jobs={applications.map((a) => ({ id: a.job_id, title: a.job_title }))}
+            defaultJobId={latestApp?.job_id}
+          />
+        </TabsContent>
+
+        <TabsContent value="activity" className="mt-4">
+          <ActivityTimeline events={buildTimeline()} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
