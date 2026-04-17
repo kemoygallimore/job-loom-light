@@ -268,17 +268,8 @@ export default function PublicJobApplication() {
     setSubmitting(true);
 
     try {
-      // Generate a candidate ID upfront so we can use it for the R2 upload path
       const candidateId = crypto.randomUUID();
 
-      // Upload resume to R2 first
-      const resumeResult = await uploadResumeToR2({
-        file: resumeFile!,
-        companyId: company.id,
-        candidateId,
-      });
-
-      // Create candidate with all data in a single INSERT (anon can INSERT but not UPDATE)
       const { error: candidateError } = await supabase.from("candidates").insert({
         id: candidateId,
         company_id: company.id,
@@ -289,17 +280,34 @@ export default function PublicJobApplication() {
         street_address: streetAddress.trim(),
         parish_state: parishState,
         education_level: educationLevel,
-        resume_url: resumeResult.key,
-        resume_bucket: resumeResult.bucket,
-        resume_object_key: resumeResult.key,
-        resume_filename: resumeResult.filename,
-        resume_content_type: resumeResult.contentType,
-        resume_size_bytes: resumeResult.size,
       } as any);
 
       if (candidateError) {
         console.error("Candidate insert error:", candidateError);
         throw new Error(candidateError.message || "Failed to create candidate");
+      }
+
+      const resumeResult = await uploadResumeToR2({
+        file: resumeFile!,
+        companyId: company.id,
+        candidateId,
+      });
+
+      const { error: resumeMetadataError } = await supabase
+        .from("candidates")
+        .update({
+          resume_url: resumeResult.key,
+          resume_bucket: resumeResult.bucket,
+          resume_object_key: resumeResult.key,
+          resume_filename: resumeResult.filename,
+          resume_content_type: resumeResult.contentType,
+          resume_size_bytes: resumeResult.size,
+        } as any)
+        .eq("id", candidateId);
+
+      if (resumeMetadataError) {
+        console.error("Candidate resume update error:", resumeMetadataError);
+        throw new Error(resumeMetadataError.message || "Failed to attach the resume to the candidate");
       }
 
       // Create application
