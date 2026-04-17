@@ -106,36 +106,54 @@ export default function CandidatePanel({ app, onClose, onStageChange }: Props) {
             </Select>
           </div>
 
-          {/* Notes */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Notes</h3>
-            <div className="flex gap-2">
-              <Textarea
-                value={newNote}
-                onChange={e => setNewNote(e.target.value)}
-                placeholder="Add a note..."
-                rows={2}
-                className="flex-1 text-sm"
-              />
-              <Button onClick={addNote} disabled={!newNote.trim()} size="sm" className="self-end">
-                Add
-              </Button>
-            </div>
-            <div className="space-y-2">
-              {notes.map(n => (
-                <div key={n.id} className="bg-muted rounded-lg p-3">
-                  <div className="text-sm">{n.content}</div>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1.5">
-                    <Clock className="w-3 h-3" />
-                    {new Date(n.created_at).toLocaleString()}
+          {/* Tabs: Notes / Interview Feedback */}
+          <Tabs defaultValue="notes" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="notes">Notes</TabsTrigger>
+              <TabsTrigger value="feedback">Interview Feedback</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="notes" className="space-y-3 mt-4">
+              <div className="flex gap-2">
+                <Textarea
+                  value={newNote}
+                  onChange={e => setNewNote(e.target.value)}
+                  placeholder="Add a note..."
+                  rows={2}
+                  className="flex-1 text-sm"
+                />
+                <Button onClick={addNote} disabled={!newNote.trim()} size="sm" className="self-end">
+                  Add
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {notes.map(n => (
+                  <div key={n.id} className="bg-muted rounded-lg p-3">
+                    <div className="text-sm">{n.content}</div>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1.5">
+                      <Clock className="w-3 h-3" />
+                      {new Date(n.created_at).toLocaleString()}
+                    </div>
                   </div>
-                </div>
-              ))}
-              {notes.length === 0 && (
-                <p className="text-xs text-muted-foreground text-center py-4">No notes yet</p>
+                ))}
+                {notes.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-4">No notes yet</p>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="feedback" className="mt-4">
+              {profile && (
+                <InterviewFeedback
+                  candidateId={app.candidate_id}
+                  companyId={profile.company_id}
+                  userId={profile.user_id}
+                  jobs={app.job ? [{ id: app.job_id, title: app.job.title }] : []}
+                  defaultJobId={app.job_id}
+                />
               )}
-            </div>
-          </div>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
 
