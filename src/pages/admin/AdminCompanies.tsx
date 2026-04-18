@@ -7,14 +7,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Building2, Search, Users, Briefcase } from "lucide-react";
+import { Plus, Building2, Search, Users, Briefcase, Check, X, Pencil } from "lucide-react";
 
 interface CompanyRow {
   id: string;
   name: string;
   created_at: string;
+  max_open_jobs: number;
   userCount: number;
   jobCount: number;
+  openJobCount: number;
 }
 
 export default function AdminCompanies() {
