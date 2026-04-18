@@ -290,34 +290,105 @@ export default function PublicJobApplication() {
     setSubmitting(true);
 
     try {
-      const candidateId = crypto.randomUUID();
+      const normalizedEmail = email.trim().toLowerCase();
 
-      const resumeResult = await uploadResumeToR2({
-        file: resumeFile!,
-        companyId: company.id,
-        candidateId,
-      });
+      // 1. Check if candidate already exists for this company + email
+      const { data: existingCandidate, error: lookupError } = await supabase
+        .from("candidates")
+        .select("id")
+        .eq("company_id", company.id)
+        .ilike("email", normalizedEmail)
+        .maybeSingle();
 
-      const { error: candidateError } = await supabase.from("candidates").insert({
-        id: candidateId,
-        company_id: company.id,
-        name: name.trim(),
-        email: email.trim(),
-        phone: phone.trim(),
-        country,
-        street_address: streetAddress.trim(),
-        parish_state: parishState,
-        education_level: educationLevel,
-        resume_url: resumeResult.key,
-        resume_bucket: resumeResult.bucket,
-        resume_object_key: resumeResult.key,
-        resume_filename: resumeResult.filename,
-        resume_content_type: resumeResult.contentType,
-        resume_size_bytes: resumeResult.size,
-      } as any);
+      if (lookupError) throw lookupError;
 
-      if (candidateError) throw candidateError;
+      let candidateId: string;
 
+      if (existingCandidate) {
+        // 2a. Existing candidate — check for duplicate application BEFORE uploading
+        candidateId = existingCandidate.id;
+
+        const { data: existingApp, error: appLookupError } = await supabase
+          .from("applications")
+          .select("id")
+          .eq("job_id", job.id)
+          .eq("candidate_id", candidateId)
+          .maybeSingle();
+
+        if (appLookupError) throw appLookupError;
+
+        if (existingApp) {
+          toast.error("You've already submitted an application for this job.");
+          setSubmitting(false);
+          return;
+        }
+
+        // Upload new resume and update candidate
+        const resumeResult = await uploadResumeToR2({
+          file: resumeFile!,
+          companyId: company.id,
+          candidateId,
+        });
+
+        const { error: updateError } = await supabase
+          .from("candidates")
+          .update({
+            name: name.trim(),
+            phone: phone.trim(),
+            country,
+            street_address: streetAddress.trim(),
+            parish_state: parishState,
+            education_level: educationLevel,
+            resume_url: resumeResult.key,
+            resume_bucket: resumeResult.bucket,
+            resume_object_key: resumeResult.key,
+            resume_filename: resumeResult.filename,
+            resume_content_type: resumeResult.contentType,
+            resume_size_bytes: resumeResult.size,
+          } as any)
+          .eq("id", candidateId);
+
+        if (updateError) throw updateError;
+      } else {
+        // 2b. New candidate — insert first, then upload, then patch
+        candidateId = crypto.randomUUID();
+
+        const { error: candidateError } = await supabase.from("candidates").insert({
+          id: candidateId,
+          company_id: company.id,
+          name: name.trim(),
+          email: normalizedEmail,
+          phone: phone.trim(),
+          country,
+          street_address: streetAddress.trim(),
+          parish_state: parishState,
+          education_level: educationLevel,
+        } as any);
+
+        if (candidateError) throw candidateError;
+
+        const resumeResult = await uploadResumeToR2({
+          file: resumeFile!,
+          companyId: company.id,
+          candidateId,
+        });
+
+        const { error: resumeUpdateError } = await supabase
+          .from("candidates")
+          .update({
+            resume_url: resumeResult.key,
+            resume_bucket: resumeResult.bucket,
+            resume_object_key: resumeResult.key,
+            resume_filename: resumeResult.filename,
+            resume_content_type: resumeResult.contentType,
+            resume_size_bytes: resumeResult.size,
+          } as any)
+          .eq("id", candidateId);
+
+        if (resumeUpdateError) throw resumeUpdateError;
+      }
+
+      // 3. Create application
       const { error: appError } = await supabase.from("applications").insert({
         company_id: company.id,
         job_id: job.id,
