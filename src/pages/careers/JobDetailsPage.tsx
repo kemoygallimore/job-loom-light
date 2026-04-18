@@ -89,44 +89,97 @@ export default function JobDetailsPage() {
     setSubmitting(true);
 
     try {
-      const candidateId = crypto.randomUUID();
+      const normalizedEmail = email.trim().toLowerCase();
 
-      const { error: candidateError } = await supabase
+      // 1. Look up existing candidate by company + email
+      const { data: existingCandidate, error: lookupError } = await supabase
         .from("candidates")
-        .insert({
+        .select("id")
+        .eq("company_id", company.id)
+        .ilike("email", normalizedEmail)
+        .maybeSingle();
+
+      if (lookupError) throw new Error(lookupError.message);
+
+      let candidateId: string;
+
+      if (existingCandidate) {
+        candidateId = existingCandidate.id;
+
+        // Check duplicate application before doing any upload
+        const { data: existingApp, error: appLookupError } = await supabase
+          .from("applications")
+          .select("id")
+          .eq("job_id", job.id)
+          .eq("candidate_id", candidateId)
+          .maybeSingle();
+
+        if (appLookupError) throw new Error(appLookupError.message);
+
+        if (existingApp) {
+          toast.error("You've already submitted an application for this job.");
+          setSubmitting(false);
+          return;
+        }
+
+        // Upload new resume and update candidate basics
+        const resumeResult = await uploadResumeToR2({
+          file: resumeFile!,
+          companyId: company.id,
+          candidateId,
+        });
+
+        const { error: updateError } = await supabase
+          .from("candidates")
+          .update({
+            name: name.trim(),
+            phone: phone.trim(),
+            resume_bucket: resumeResult.bucket,
+            resume_object_key: resumeResult.key,
+            resume_filename: resumeResult.filename,
+            resume_content_type: resumeResult.contentType,
+            resume_size_bytes: resumeResult.size,
+          })
+          .eq("id", candidateId);
+
+        if (updateError) throw new Error(updateError.message || "Failed to update candidate");
+      } else {
+        // New candidate
+        candidateId = crypto.randomUUID();
+
+        const { error: candidateError } = await supabase.from("candidates").insert({
           id: candidateId,
           company_id: company.id,
           name: name.trim(),
-          email: email.trim(),
+          email: normalizedEmail,
           phone: phone.trim(),
         });
 
-      if (candidateError) throw new Error(candidateError.message || "Failed to create candidate");
+        if (candidateError) throw new Error(candidateError.message || "Failed to create candidate");
 
-      // Upload resume to R2
-      const resumeResult = await uploadResumeToR2({
-        file: resumeFile!,
-        companyId: company.id,
-        candidateId,
-      });
+        const resumeResult = await uploadResumeToR2({
+          file: resumeFile!,
+          companyId: company.id,
+          candidateId,
+        });
 
-      // Update candidate with resume metadata
-      const { error: resumeMetadataError } = await supabase
-        .from("candidates")
-        .update({
-          resume_bucket: resumeResult.bucket,
-          resume_object_key: resumeResult.key,
-          resume_filename: resumeResult.filename,
-          resume_content_type: resumeResult.contentType,
-          resume_size_bytes: resumeResult.size,
-        })
-        .eq("id", candidateId);
+        const { error: resumeMetadataError } = await supabase
+          .from("candidates")
+          .update({
+            resume_bucket: resumeResult.bucket,
+            resume_object_key: resumeResult.key,
+            resume_filename: resumeResult.filename,
+            resume_content_type: resumeResult.contentType,
+            resume_size_bytes: resumeResult.size,
+          })
+          .eq("id", candidateId);
 
-      if (resumeMetadataError) {
-        throw new Error(resumeMetadataError.message || "Failed to attach the resume to the candidate");
+        if (resumeMetadataError) {
+          throw new Error(resumeMetadataError.message || "Failed to attach the resume to the candidate");
+        }
       }
 
-      // Create application
+      // 2. Create application
       const { error: appError } = await supabase
         .from("applications")
         .insert({
