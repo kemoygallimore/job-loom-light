@@ -24,6 +24,8 @@ export default function AdminCompanies() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const [editingLimitId, setEditingLimitId] = useState<string | null>(null);
+  const [editingLimitValue, setEditingLimitValue] = useState<string>("");
 
   // form
   const [companyName, setCompanyName] = useState("");
@@ -43,22 +45,30 @@ export default function AdminCompanies() {
     // Get counts per company
     const [profilesRes, jobsRes] = await Promise.all([
       supabase.from("profiles").select("company_id"),
-      supabase.from("jobs").select("company_id"),
+      supabase.from("jobs").select("company_id, status"),
     ]);
 
     const userCounts: Record<string, number> = {};
     const jobCounts: Record<string, number> = {};
+    const openJobCounts: Record<string, number> = {};
     (profilesRes.data ?? []).forEach(p => {
       if (p.company_id) userCounts[p.company_id] = (userCounts[p.company_id] || 0) + 1;
     });
-    (jobsRes.data ?? []).forEach(j => {
-      if (j.company_id) jobCounts[j.company_id] = (jobCounts[j.company_id] || 0) + 1;
+    (jobsRes.data ?? []).forEach((j: any) => {
+      if (j.company_id) {
+        jobCounts[j.company_id] = (jobCounts[j.company_id] || 0) + 1;
+        if (j.status === "open") openJobCounts[j.company_id] = (openJobCounts[j.company_id] || 0) + 1;
+      }
     });
 
-    setCompanies(companiesData.map(c => ({
-      ...c,
+    setCompanies(companiesData.map((c: any) => ({
+      id: c.id,
+      name: c.name,
+      created_at: c.created_at,
+      max_open_jobs: c.max_open_jobs ?? 5,
       userCount: userCounts[c.id] || 0,
       jobCount: jobCounts[c.id] || 0,
+      openJobCount: openJobCounts[c.id] || 0,
     })));
     setLoading(false);
   }, []);
