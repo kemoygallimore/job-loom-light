@@ -120,6 +120,32 @@ export default function AdminCompanies() {
     fetchCompanies();
   };
 
+  const startEditLimit = (c: CompanyRow) => {
+    setEditingLimitId(c.id);
+    setEditingLimitValue(String(c.max_open_jobs));
+  };
+
+  const cancelEditLimit = () => {
+    setEditingLimitId(null);
+    setEditingLimitValue("");
+  };
+
+  const saveLimit = async (companyId: string) => {
+    const n = parseInt(editingLimitValue, 10);
+    if (isNaN(n) || n < 0 || n > 1000) {
+      toast.error("Enter a number between 0 and 1000");
+      return;
+    }
+    const { error } = await supabase
+      .from("companies")
+      .update({ max_open_jobs: n } as any)
+      .eq("id", companyId);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Open job limit updated");
+    setEditingLimitId(null);
+    fetchCompanies();
+  };
+
   const filtered = companies.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase())
   );
