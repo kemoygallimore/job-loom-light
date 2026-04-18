@@ -226,6 +226,7 @@ export default function AdminCompanies() {
                 <TableHead>Company</TableHead>
                 <TableHead className="text-center">Users</TableHead>
                 <TableHead className="text-center">Jobs</TableHead>
+                <TableHead className="text-center">Open / Limit</TableHead>
                 <TableHead className="text-right">Created</TableHead>
               </TableRow>
             </TableHeader>
@@ -249,6 +250,41 @@ export default function AdminCompanies() {
                     <Badge variant="secondary" className="gap-1 tabular-nums">
                       <Briefcase className="w-3 h-3" /> {company.jobCount}
                     </Badge>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {editingLimitId === company.id ? (
+                      <div className="flex items-center justify-center gap-1">
+                        <span className="text-sm tabular-nums text-muted-foreground">{company.openJobCount} /</span>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={1000}
+                          value={editingLimitValue}
+                          onChange={e => setEditingLimitValue(e.target.value)}
+                          className="h-7 w-16 text-sm text-center"
+                          autoFocus
+                        />
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => saveLimit(company.id)}>
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={cancelEditLimit}>
+                          <X className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => startEditLimit(company)}
+                        className="inline-flex items-center gap-1.5 text-sm tabular-nums hover:text-primary transition-colors group"
+                        title="Click to edit limit"
+                      >
+                        <span className={company.openJobCount >= company.max_open_jobs ? "text-destructive font-medium" : ""}>
+                          {company.openJobCount}
+                        </span>
+                        <span className="text-muted-foreground">/</span>
+                        <span>{company.max_open_jobs}</span>
+                        <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-60 transition-opacity" />
+                      </button>
+                    )}
                   </TableCell>
                   <TableCell className="text-right text-sm text-muted-foreground tabular-nums">
                     {new Date(company.created_at).toLocaleDateString("en-US", {
