@@ -36,8 +36,11 @@ export default function Jobs() {
   const [status, setStatus] = useState("open");
   const [search, setSearch] = useState("");
   const [companySlug, setCompanySlug] = useState<string | null>(null);
+  const [maxOpenJobs, setMaxOpenJobs] = useState<number>(5);
   const [copied, setCopied] = useState(false);
   const [copiedJobId, setCopiedJobId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"open" | "closed">("open");
+  const [limitDialogOpen, setLimitDialogOpen] = useState(false);
 
   // Screening defaults
   const [screeningOpen, setScreeningOpen] = useState(false);
