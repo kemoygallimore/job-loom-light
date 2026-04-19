@@ -261,15 +261,29 @@ export default function Jobs() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-xs animate-fade-in" style={{ animationDelay: "80ms" }}>
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search jobs..."
-          className="pl-9"
-        />
+      {/* Tabs + Search */}
+      <div className="flex items-center justify-between flex-wrap gap-3 animate-fade-in" style={{ animationDelay: "80ms" }}>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "open" | "closed")}>
+          <TabsList>
+            <TabsTrigger value="open">
+              Active
+              <span className="ml-2 text-xs tabular-nums opacity-70">{jobs.filter(j => j.status === "open").length}</span>
+            </TabsTrigger>
+            <TabsTrigger value="closed">
+              Closed
+              <span className="ml-2 text-xs tabular-nums opacity-70">{jobs.filter(j => j.status === "closed").length}</span>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <div className="relative max-w-xs w-full sm:w-auto">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search jobs..."
+            className="pl-9"
+          />
+        </div>
       </div>
 
       {/* Table */}
