@@ -199,18 +199,21 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          max_open_jobs: number
           name: string
           slug: string
         }
         Insert: {
           created_at?: string
           id?: string
+          max_open_jobs?: number
           name: string
           slug: string
         }
         Update: {
           created_at?: string
           id?: string
+          max_open_jobs?: number
           name?: string
           slug?: string
         }

@@ -7,14 +7,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Building2, Search, Users, Briefcase } from "lucide-react";
+import { Plus, Building2, Search, Users, Briefcase, Check, X, Pencil } from "lucide-react";
 
 interface CompanyRow {
   id: string;
   name: string;
   created_at: string;
+  max_open_jobs: number;
   userCount: number;
   jobCount: number;
+  openJobCount: number;
 }
 
 export default function AdminCompanies() {
@@ -22,6 +24,8 @@ export default function AdminCompanies() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const [editingLimitId, setEditingLimitId] = useState<string | null>(null);
+  const [editingLimitValue, setEditingLimitValue] = useState<string>("");
 
   // form
   const [companyName, setCompanyName] = useState("");
@@ -41,22 +45,30 @@ export default function AdminCompanies() {
     // Get counts per company
     const [profilesRes, jobsRes] = await Promise.all([
       supabase.from("profiles").select("company_id"),
-      supabase.from("jobs").select("company_id"),
+      supabase.from("jobs").select("company_id, status"),
     ]);
 
     const userCounts: Record<string, number> = {};
     const jobCounts: Record<string, number> = {};
+    const openJobCounts: Record<string, number> = {};
     (profilesRes.data ?? []).forEach(p => {
       if (p.company_id) userCounts[p.company_id] = (userCounts[p.company_id] || 0) + 1;
     });
-    (jobsRes.data ?? []).forEach(j => {
-      if (j.company_id) jobCounts[j.company_id] = (jobCounts[j.company_id] || 0) + 1;
+    (jobsRes.data ?? []).forEach((j: any) => {
+      if (j.company_id) {
+        jobCounts[j.company_id] = (jobCounts[j.company_id] || 0) + 1;
+        if (j.status === "open") openJobCounts[j.company_id] = (openJobCounts[j.company_id] || 0) + 1;
+      }
     });
 
-    setCompanies(companiesData.map(c => ({
-      ...c,
+    setCompanies(companiesData.map((c: any) => ({
+      id: c.id,
+      name: c.name,
+      created_at: c.created_at,
+      max_open_jobs: c.max_open_jobs ?? 5,
       userCount: userCounts[c.id] || 0,
       jobCount: jobCounts[c.id] || 0,
+      openJobCount: openJobCounts[c.id] || 0,
     })));
     setLoading(false);
   }, []);
@@ -105,6 +117,32 @@ export default function AdminCompanies() {
     setAdminName("");
     setAdminEmail("");
     setAdminPassword("");
+    fetchCompanies();
+  };
+
+  const startEditLimit = (c: CompanyRow) => {
+    setEditingLimitId(c.id);
+    setEditingLimitValue(String(c.max_open_jobs));
+  };
+
+  const cancelEditLimit = () => {
+    setEditingLimitId(null);
+    setEditingLimitValue("");
+  };
+
+  const saveLimit = async (companyId: string) => {
+    const n = parseInt(editingLimitValue, 10);
+    if (isNaN(n) || n < 0 || n > 1000) {
+      toast.error("Enter a number between 0 and 1000");
+      return;
+    }
+    const { error } = await supabase
+      .from("companies")
+      .update({ max_open_jobs: n } as any)
+      .eq("id", companyId);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Open job limit updated");
+    setEditingLimitId(null);
     fetchCompanies();
   };
 
@@ -188,6 +226,7 @@ export default function AdminCompanies() {
                 <TableHead>Company</TableHead>
                 <TableHead className="text-center">Users</TableHead>
                 <TableHead className="text-center">Jobs</TableHead>
+                <TableHead className="text-center">Open / Limit</TableHead>
                 <TableHead className="text-right">Created</TableHead>
               </TableRow>
             </TableHeader>
@@ -211,6 +250,41 @@ export default function AdminCompanies() {
                     <Badge variant="secondary" className="gap-1 tabular-nums">
                       <Briefcase className="w-3 h-3" /> {company.jobCount}
                     </Badge>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {editingLimitId === company.id ? (
+                      <div className="flex items-center justify-center gap-1">
+                        <span className="text-sm tabular-nums text-muted-foreground">{company.openJobCount} /</span>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={1000}
+                          value={editingLimitValue}
+                          onChange={e => setEditingLimitValue(e.target.value)}
+                          className="h-7 w-16 text-sm text-center"
+                          autoFocus
+                        />
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => saveLimit(company.id)}>
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={cancelEditLimit}>
+                          <X className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => startEditLimit(company)}
+                        className="inline-flex items-center gap-1.5 text-sm tabular-nums hover:text-primary transition-colors group"
+                        title="Click to edit limit"
+                      >
+                        <span className={company.openJobCount >= company.max_open_jobs ? "text-destructive font-medium" : ""}>
+                          {company.openJobCount}
+                        </span>
+                        <span className="text-muted-foreground">/</span>
+                        <span>{company.max_open_jobs}</span>
+                        <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-60 transition-opacity" />
+                      </button>
+                    )}
                   </TableCell>
                   <TableCell className="text-right text-sm text-muted-foreground tabular-nums">
                     {new Date(company.created_at).toLocaleDateString("en-US", {

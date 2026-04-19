@@ -8,11 +8,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Search, Link2, Check, Video, ChevronDown, CalendarIcon, Copy } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Link2, Check, Video, ChevronDown, CalendarIcon, Copy, AlertCircle } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -35,8 +36,11 @@ export default function Jobs() {
   const [status, setStatus] = useState("open");
   const [search, setSearch] = useState("");
   const [companySlug, setCompanySlug] = useState<string | null>(null);
+  const [maxOpenJobs, setMaxOpenJobs] = useState<number>(5);
   const [copied, setCopied] = useState(false);
   const [copiedJobId, setCopiedJobId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"open" | "closed">("open");
+  const [limitDialogOpen, setLimitDialogOpen] = useState(false);
 
   // Screening defaults
   const [screeningOpen, setScreeningOpen] = useState(false);
@@ -51,9 +55,17 @@ export default function Jobs() {
   useEffect(() => {
     if (!profile) return;
     load();
-    supabase.from("companies").select("slug").eq("id", profile.company_id).maybeSingle()
-      .then(({ data }) => { if (data) setCompanySlug(data.slug); });
+    supabase.from("companies").select("slug, max_open_jobs").eq("id", profile.company_id).maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setCompanySlug((data as any).slug);
+          setMaxOpenJobs((data as any).max_open_jobs ?? 5);
+        }
+      });
   }, [profile]);
+
+  const openJobsCount = jobs.filter(j => j.status === "open").length;
+  const atLimit = openJobsCount >= maxOpenJobs;
 
   const careersUrl = companySlug ? `${window.location.origin}/careers/${companySlug}` : null;
 
@@ -68,6 +80,16 @@ export default function Jobs() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile) return;
+
+    // Limit check: only when creating a new open job, or reopening an existing one
+    const willBeOpen = status === "open";
+    const wasOpen = editJob?.status === "open";
+    const wouldAddOpenJob = willBeOpen && (!editJob || !wasOpen);
+    if (wouldAddOpenJob && openJobsCount >= maxOpenJobs) {
+      setLimitDialogOpen(true);
+      return;
+    }
+
     if (editJob) {
       const { error } = await supabase.from("jobs").update({ title, description, status: status as any }).eq("id", editJob.id);
       if (error) { toast.error(error.message); return; }
@@ -88,6 +110,13 @@ export default function Jobs() {
       toast.success("Job created");
     }
     resetForm();
+    load();
+  };
+
+  const handleCloseJob = async (id: string) => {
+    const { error } = await supabase.from("jobs").update({ status: "closed" as any }).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Job closed");
     load();
   };
 
@@ -117,12 +146,22 @@ export default function Jobs() {
     setScreeningExpiry(addDays(new Date(), 7));
   };
 
-  const filtered = jobs.filter(j => j.title.toLowerCase().includes(search.toLowerCase()));
+  const filtered = jobs
+    .filter(j => j.status === activeTab)
+    .filter(j => j.title.toLowerCase().includes(search.toLowerCase()));
+
+  const openJobsList = jobs.filter(j => j.status === "open");
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3 animate-fade-in">
-        <h1 className="text-2xl font-bold">Jobs</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Jobs</h1>
+          <p className="text-sm text-muted-foreground mt-1 tabular-nums">
+            <span className={atLimit ? "text-destructive font-medium" : ""}>{openJobsCount}</span>
+            {" / "}{maxOpenJobs} open jobs used
+          </p>
+        </div>
         <div className="flex items-center gap-2">
           {careersUrl && (
             <Button variant="outline" onClick={handleCopyLink} className="gap-2">
@@ -130,7 +169,14 @@ export default function Jobs() {
               {copied ? "Copied!" : "Copy Careers Link"}
             </Button>
           )}
-          <Dialog open={open} onOpenChange={v => { if (!v) resetForm(); else setOpen(true); }}>
+          <Dialog
+            open={open}
+            onOpenChange={v => {
+              if (!v) { resetForm(); return; }
+              if (atLimit) { setLimitDialogOpen(true); return; }
+              setOpen(true);
+            }}
+          >
             <DialogTrigger asChild>
               <Button><Plus className="w-4 h-4 mr-2" />Add Job</Button>
             </DialogTrigger>
@@ -215,15 +261,29 @@ export default function Jobs() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-xs animate-fade-in" style={{ animationDelay: "80ms" }}>
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search jobs..."
-          className="pl-9"
-        />
+      {/* Tabs + Search */}
+      <div className="flex items-center justify-between flex-wrap gap-3 animate-fade-in" style={{ animationDelay: "80ms" }}>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "open" | "closed")}>
+          <TabsList>
+            <TabsTrigger value="open">
+              Active
+              <span className="ml-2 text-xs tabular-nums opacity-70">{jobs.filter(j => j.status === "open").length}</span>
+            </TabsTrigger>
+            <TabsTrigger value="closed">
+              Closed
+              <span className="ml-2 text-xs tabular-nums opacity-70">{jobs.filter(j => j.status === "closed").length}</span>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <div className="relative max-w-xs w-full sm:w-auto">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search jobs..."
+            className="pl-9"
+          />
+        </div>
       </div>
 
       {/* Table */}
@@ -283,13 +343,54 @@ export default function Jobs() {
             {filtered.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
-                  {search ? "No jobs match your search" : "No jobs yet. Create your first job posting."}
+                  {search
+                    ? "No jobs match your search"
+                    : activeTab === "open"
+                      ? "No active jobs. Create your first job posting."
+                      : "No closed jobs yet."}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
+
+      {/* Limit reached dialog */}
+      <Dialog open={limitDialogOpen} onOpenChange={setLimitDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-destructive" />
+              Open job limit reached
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Your company has reached its limit of <span className="font-semibold text-foreground tabular-nums">{maxOpenJobs}</span> open jobs.
+              Close one of the jobs below before posting a new one, or contact your platform administrator to increase the limit.
+            </p>
+            <div className="rounded-lg border divide-y max-h-64 overflow-y-auto">
+              {openJobsList.map(job => (
+                <div key={job.id} className="flex items-center justify-between gap-3 p-3">
+                  <span className="text-sm font-medium truncate">{job.title}</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      await handleCloseJob(job.id);
+                    }}
+                  >
+                    Close
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <Button className="w-full" variant="secondary" onClick={() => setLimitDialogOpen(false)}>
+              Got it
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
