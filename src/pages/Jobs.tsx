@@ -80,6 +80,16 @@ export default function Jobs() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile) return;
+
+    // Limit check: only when creating a new open job, or reopening an existing one
+    const willBeOpen = status === "open";
+    const wasOpen = editJob?.status === "open";
+    const wouldAddOpenJob = willBeOpen && (!editJob || !wasOpen);
+    if (wouldAddOpenJob && openJobsCount >= maxOpenJobs) {
+      setLimitDialogOpen(true);
+      return;
+    }
+
     if (editJob) {
       const { error } = await supabase.from("jobs").update({ title, description, status: status as any }).eq("id", editJob.id);
       if (error) { toast.error(error.message); return; }
@@ -100,6 +110,13 @@ export default function Jobs() {
       toast.success("Job created");
     }
     resetForm();
+    load();
+  };
+
+  const handleCloseJob = async (id: string) => {
+    const { error } = await supabase.from("jobs").update({ status: "closed" as any }).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Job closed");
     load();
   };
 
