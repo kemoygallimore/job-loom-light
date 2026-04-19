@@ -22,6 +22,7 @@ interface Job {
   company_id: string;
   title: string;
   description: string | null;
+  hiring_manager: string | null;
   status: string;
   created_at: string;
 }
@@ -33,6 +34,7 @@ export default function Jobs() {
   const [editJob, setEditJob] = useState<Job | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [hiringManager, setHiringManager] = useState("");
   const [status, setStatus] = useState("open");
   const [search, setSearch] = useState("");
   const [companySlug, setCompanySlug] = useState<string | null>(null);
@@ -91,11 +93,11 @@ export default function Jobs() {
     }
 
     if (editJob) {
-      const { error } = await supabase.from("jobs").update({ title, description, status: status as any }).eq("id", editJob.id);
+      const { error } = await supabase.from("jobs").update({ title, description, hiring_manager: hiringManager || null, status: status as any } as any).eq("id", editJob.id);
       if (error) { toast.error(error.message); return; }
       toast.success("Job updated");
     } else {
-      const { data: newJob, error } = await supabase.from("jobs").insert({ company_id: profile.company_id, title, description, status: status as any }).select().single();
+      const { data: newJob, error } = await supabase.from("jobs").insert({ company_id: profile.company_id, title, description, hiring_manager: hiringManager || null, status: status as any } as any).select().single();
       if (error) { toast.error(error.message); return; }
       if (newJob && user) {
         await supabase.from("screening_jobs").insert({
@@ -131,6 +133,7 @@ export default function Jobs() {
     setEditJob(job);
     setTitle(job.title);
     setDescription(job.description ?? "");
+    setHiringManager(job.hiring_manager ?? "");
     setStatus(job.status);
     setOpen(true);
   };
@@ -140,6 +143,7 @@ export default function Jobs() {
     setEditJob(null);
     setTitle("");
     setDescription("");
+    setHiringManager("");
     setStatus("open");
     setScreeningOpen(false);
     setScreeningQuestion("Tell us about yourself and why you're interested in this role.");
@@ -190,6 +194,14 @@ export default function Jobs() {
               <div className="space-y-1.5">
                 <Label>Description</Label>
                 <Textarea value={description} onChange={e => setDescription(e.target.value)} rows={4} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Hiring Manager <span className="text-xs text-muted-foreground font-normal">(internal only)</span></Label>
+                <Input
+                  value={hiringManager}
+                  onChange={e => setHiringManager(e.target.value)}
+                  placeholder="e.g. Jane Smith"
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>Status</Label>
