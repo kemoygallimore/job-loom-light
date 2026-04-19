@@ -343,13 +343,54 @@ export default function Jobs() {
             {filtered.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
-                  {search ? "No jobs match your search" : "No jobs yet. Create your first job posting."}
+                  {search
+                    ? "No jobs match your search"
+                    : activeTab === "open"
+                      ? "No active jobs. Create your first job posting."
+                      : "No closed jobs yet."}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
+
+      {/* Limit reached dialog */}
+      <Dialog open={limitDialogOpen} onOpenChange={setLimitDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-destructive" />
+              Open job limit reached
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Your company has reached its limit of <span className="font-semibold text-foreground tabular-nums">{maxOpenJobs}</span> open jobs.
+              Close one of the jobs below before posting a new one, or contact your platform administrator to increase the limit.
+            </p>
+            <div className="rounded-lg border divide-y max-h-64 overflow-y-auto">
+              {openJobsList.map(job => (
+                <div key={job.id} className="flex items-center justify-between gap-3 p-3">
+                  <span className="text-sm font-medium truncate">{job.title}</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      await handleCloseJob(job.id);
+                    }}
+                  >
+                    Close
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <Button className="w-full" variant="secondary" onClick={() => setLimitDialogOpen(false)}>
+              Got it
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
