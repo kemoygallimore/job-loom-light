@@ -55,9 +55,17 @@ export default function Jobs() {
   useEffect(() => {
     if (!profile) return;
     load();
-    supabase.from("companies").select("slug").eq("id", profile.company_id).maybeSingle()
-      .then(({ data }) => { if (data) setCompanySlug(data.slug); });
+    supabase.from("companies").select("slug, max_open_jobs").eq("id", profile.company_id).maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setCompanySlug((data as any).slug);
+          setMaxOpenJobs((data as any).max_open_jobs ?? 5);
+        }
+      });
   }, [profile]);
+
+  const openJobsCount = jobs.filter(j => j.status === "open").length;
+  const atLimit = openJobsCount >= maxOpenJobs;
 
   const careersUrl = companySlug ? `${window.location.origin}/careers/${companySlug}` : null;
 
