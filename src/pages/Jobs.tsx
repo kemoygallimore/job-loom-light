@@ -146,12 +146,22 @@ export default function Jobs() {
     setScreeningExpiry(addDays(new Date(), 7));
   };
 
-  const filtered = jobs.filter(j => j.title.toLowerCase().includes(search.toLowerCase()));
+  const filtered = jobs
+    .filter(j => j.status === activeTab)
+    .filter(j => j.title.toLowerCase().includes(search.toLowerCase()));
+
+  const openJobsList = jobs.filter(j => j.status === "open");
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3 animate-fade-in">
-        <h1 className="text-2xl font-bold">Jobs</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Jobs</h1>
+          <p className="text-sm text-muted-foreground mt-1 tabular-nums">
+            <span className={atLimit ? "text-destructive font-medium" : ""}>{openJobsCount}</span>
+            {" / "}{maxOpenJobs} open jobs used
+          </p>
+        </div>
         <div className="flex items-center gap-2">
           {careersUrl && (
             <Button variant="outline" onClick={handleCopyLink} className="gap-2">
@@ -159,7 +169,14 @@ export default function Jobs() {
               {copied ? "Copied!" : "Copy Careers Link"}
             </Button>
           )}
-          <Dialog open={open} onOpenChange={v => { if (!v) resetForm(); else setOpen(true); }}>
+          <Dialog
+            open={open}
+            onOpenChange={v => {
+              if (!v) { resetForm(); return; }
+              if (atLimit) { setLimitDialogOpen(true); return; }
+              setOpen(true);
+            }}
+          >
             <DialogTrigger asChild>
               <Button><Plus className="w-4 h-4 mr-2" />Add Job</Button>
             </DialogTrigger>
