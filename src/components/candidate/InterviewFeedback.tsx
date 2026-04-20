@@ -3,7 +3,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Clock, Plus, User, Briefcase, UserCheck, Calendar } from "lucide-react";
+import { Clock, Plus, User, Briefcase, UserCheck, Calendar, Pencil, Trash2, X, Check } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
 export interface FeedbackEntry {
