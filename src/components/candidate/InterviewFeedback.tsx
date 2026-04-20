@@ -63,6 +63,74 @@ export default function InterviewFeedback({
   const [feedbackDate, setFeedbackDate] = useState(todayISO());
   const [saving, setSaving] = useState(false);
 
+  // Edit/delete state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState({
+    feedback_text: "",
+    feedback_by: "",
+    recruiter_name: "",
+    feedback_date: "",
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const startEdit = (f: FeedbackEntry) => {
+    setEditingId(f.id);
+    setEditDraft({
+      feedback_text: f.feedback_text,
+      feedback_by: f.feedback_by ?? "",
+      recruiter_name: f.recruiter_name ?? "",
+      feedback_date: f.feedback_date ?? todayISO(),
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+  };
+
+  const saveEdit = async (id: string) => {
+    if (!editDraft.feedback_text.trim()) {
+      toast.error("Feedback cannot be empty");
+      return;
+    }
+    setSavingEdit(true);
+    const { error } = await (supabase as any)
+      .from("interview_feedback")
+      .update({
+        feedback_text: editDraft.feedback_text.trim(),
+        feedback_by: editDraft.feedback_by.trim() || null,
+        recruiter_name: editDraft.recruiter_name.trim() || null,
+        feedback_date: editDraft.feedback_date || null,
+      })
+      .eq("id", id);
+    setSavingEdit(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Feedback updated");
+    setEditingId(null);
+    await fetchFeedback();
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteId) return;
+    setDeleting(true);
+    const { error } = await (supabase as any)
+      .from("interview_feedback")
+      .delete()
+      .eq("id", deleteId);
+    setDeleting(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Feedback deleted");
+    setDeleteId(null);
+    await fetchFeedback();
+  };
+
   // Auto-populated from latest job
   const activeJob = jobs.find((j) => j.id === defaultJobId) ?? jobs[0];
   const position = activeJob?.title ?? "—";
