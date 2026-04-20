@@ -131,7 +131,7 @@ export default function CareersPage() {
                     </h3>
                     {job.description && (
                       <p className="text-sm text-muted-foreground mt-1.5 line-clamp-2 leading-relaxed">
-                        {job.description}
+                        {job.description.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()}
                       </p>
                     )}
                   </div>

@@ -266,9 +266,10 @@ export default function JobDetailsPage() {
         ) : (
           <div className="animate-fade-in">
             {job?.description && (
-              <div className="prose prose-sm sm:prose-base max-w-none text-foreground leading-relaxed whitespace-pre-wrap">
-                {job.description}
-              </div>
+              <div
+                className="prose prose-sm sm:prose-base max-w-none text-foreground leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: job.description }}
+              />
             )}
 
             <div className="mt-10 pt-8 border-t">

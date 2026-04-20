@@ -461,7 +461,10 @@ export default function PublicJobApplication() {
             {company?.name}
           </div>
           {job?.description && (
-            <p className="text-sm text-muted-foreground mt-3 whitespace-pre-wrap leading-relaxed">{job.description}</p>
+            <div
+              className="prose prose-sm max-w-none text-muted-foreground mt-3 leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: job.description }}
+            />
           )}
         </div>
       </header>
