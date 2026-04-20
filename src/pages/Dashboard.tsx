@@ -8,10 +8,24 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 const STAGE_COLORS: Record<string, string> = {
   applied: "hsl(220, 70%, 52%)",
   screening: "hsl(38, 92%, 50%)",
+  scheduling: "hsl(190, 70%, 45%)",
+  "1st_interview": "hsl(270, 50%, 52%)",
+  "2nd_interview": "hsl(290, 55%, 50%)",
   interview: "hsl(270, 50%, 52%)",
   offer: "hsl(152, 55%, 42%)",
   hired: "hsl(142, 60%, 42%)",
   rejected: "hsl(4, 68%, 48%)",
+};
+
+const STAGE_LABELS: Record<string, string> = {
+  applied: "Applied",
+  screening: "Screening",
+  scheduling: "Scheduling",
+  "1st_interview": "1st Interview",
+  "2nd_interview": "2nd Interview",
+  offer: "Offer",
+  hired: "Hired",
+  rejected: "Rejected",
 };
 
 export default function Dashboard() {
@@ -41,7 +55,7 @@ export default function Dashboard() {
       (appRows.data ?? []).forEach((a: any) => {
         counts[a.stage] = (counts[a.stage] || 0) + 1;
       });
-      const stageOrder = ["applied", "screening", "interview", "offer", "hired", "rejected"];
+      const stageOrder = ["applied", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"];
       setStageCounts(stageOrder.map(s => ({ stage: s, count: counts[s] || 0 })));
     };
     load();
@@ -91,7 +105,7 @@ export default function Dashboard() {
                 tickLine={false}
                 axisLine={false}
                 tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
-                tickFormatter={(v: string) => v.charAt(0).toUpperCase() + v.slice(1)}
+                tickFormatter={(v: string) => STAGE_LABELS[v] ?? v}
               />
               <YAxis
                 tickLine={false}
@@ -108,7 +122,7 @@ export default function Dashboard() {
                   fontSize: 12,
                   boxShadow: "0 4px 12px -2px rgb(0 0 0 / 0.1)",
                 }}
-                labelFormatter={(v: string) => v.charAt(0).toUpperCase() + v.slice(1)}
+                labelFormatter={(v: string) => STAGE_LABELS[v] ?? v}
               />
               <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={48}>
                 {stageCounts.map((entry) => (
