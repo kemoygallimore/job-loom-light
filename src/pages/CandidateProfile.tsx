@@ -12,6 +12,7 @@ import CandidateNotes, { type NoteWithAuthor } from "@/components/candidate/Cand
 import ActivityTimeline, { type TimelineEvent } from "@/components/candidate/ActivityTimeline";
 import InterviewFeedback from "@/components/candidate/InterviewFeedback";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ResumeHistory from "@/components/candidate/ResumeHistory";
 
 const STAGES = ["applied", "screening", "interview", "offer", "hired", "rejected"] as const;
 
