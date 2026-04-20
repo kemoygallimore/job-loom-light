@@ -513,6 +513,9 @@ export type Database = {
       application_stage:
         | "applied"
         | "screening"
+        | "scheduling"
+        | "1st_interview"
+        | "2nd_interview"
         | "interview"
         | "offer"
         | "hired"
@@ -649,6 +652,9 @@ export const Constants = {
       application_stage: [
         "applied",
         "screening",
+        "scheduling",
+        "1st_interview",
+        "2nd_interview",
         "interview",
         "offer",
         "hired",
