@@ -1,9 +1,21 @@
 import { Link, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Briefcase, Users, FolderKanban, LayoutDashboard, LogOut, Menu, Shield, X, ChevronLeft, Building2, Video } from "lucide-react";
+import {
+  Briefcase,
+  Users,
+  FolderKanban,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Shield,
+  X,
+  ChevronLeft,
+  Building2,
+  Video,
+} from "lucide-react";
 import { useState } from "react";
-import rizonhireLogo from "@/assets/rizonhire-logo.png";
+import rizonhireLogo from "@/assets/RH logo white.png";
 
 const TEST_ADMIN_EMAIL = "testadmin@email.com";
 
@@ -14,9 +26,7 @@ const atsNavItems = [
   { to: "/pipeline", label: "Pipeline", icon: FolderKanban },
 ];
 
-const screeningNavItems = [
-  { to: "/screening", label: "Video Screening", icon: Video },
-];
+const screeningNavItems = [{ to: "/screening", label: "Video Screening", icon: Video }];
 
 const superAdminNav = [
   { to: "/admin", label: "Overview", icon: LayoutDashboard },
@@ -31,11 +41,7 @@ export default function AppLayout() {
 
   const isTestAdmin = profile?.email === TEST_ADMIN_EMAIL;
   const isSuperAdmin = role === "super_admin";
-  const links = isSuperAdmin
-    ? superAdminNav
-    : isTestAdmin
-      ? [...atsNavItems, ...screeningNavItems]
-      : screeningNavItems;
+  const links = isSuperAdmin ? superAdminNav : isTestAdmin ? [...atsNavItems, ...screeningNavItems] : screeningNavItems;
 
   return (
     <div className="min-h-screen flex w-full">
@@ -51,7 +57,9 @@ export default function AppLayout() {
         `}
       >
         {/* Logo */}
-        <div className={`flex items-center gap-2.5 border-b border-sidebar-border h-14 ${collapsed ? "justify-center px-2" : "px-5"}`}>
+        <div
+          className={`flex items-center gap-2.5 border-b border-sidebar-border h-14 ${collapsed ? "justify-center px-2" : "px-5"}`}
+        >
           {collapsed ? (
             <div className="w-8 h-8 rounded-lg bg-sidebar-primary flex items-center justify-center flex-shrink-0">
               <Briefcase className="w-4 h-4 text-sidebar-primary-foreground" />
@@ -71,11 +79,14 @@ export default function AppLayout() {
         <nav className="flex-1 px-2 py-3 space-y-0.5">
           {isSuperAdmin && !collapsed && (
             <div className="px-3 mb-2">
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/30">Platform</span>
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/30">
+                Platform
+              </span>
             </div>
           )}
-          {links.map(item => {
-            const active = location.pathname === item.to || (item.to !== "/admin" && location.pathname.startsWith(item.to));
+          {links.map((item) => {
+            const active =
+              location.pathname === item.to || (item.to !== "/admin" && location.pathname.startsWith(item.to));
             return (
               <Link
                 key={item.to}
@@ -85,9 +96,10 @@ export default function AppLayout() {
                   flex items-center gap-3 rounded-lg text-sm font-medium
                   transition-colors duration-150
                   ${collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"}
-                  ${active
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                  ${
+                    active
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                   }
                 `}
                 title={collapsed ? item.label : undefined}
