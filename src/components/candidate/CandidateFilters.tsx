@@ -7,7 +7,18 @@ import { CalendarIcon, Filter, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 
-const STAGES = ["applied", "screening", "interview", "offer", "hired", "rejected"];
+const STAGES = ["applied", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"];
+
+const STAGE_LABELS: Record<string, string> = {
+  applied: "Applied",
+  screening: "Screening",
+  scheduling: "Scheduling",
+  "1st_interview": "1st Interview",
+  "2nd_interview": "2nd Interview",
+  offer: "Offer",
+  hired: "Hired",
+  rejected: "Rejected",
+};
 
 interface Job {
   id: string;
@@ -51,7 +62,7 @@ export default function CandidateFilters({
           <SelectContent>
             <SelectItem value="all" className="text-xs">All stages</SelectItem>
             {STAGES.map((s) => (
-              <SelectItem key={s} value={s} className="capitalize text-xs">{s}</SelectItem>
+              <SelectItem key={s} value={s} className="text-xs">{STAGE_LABELS[s] ?? s}</SelectItem>
             ))}
           </SelectContent>
         </Select>
