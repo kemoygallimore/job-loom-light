@@ -219,6 +219,8 @@ export default function Candidates() {
       }
     }
 
+    let savedCandidateId: string | null = null;
+
     if (editCandidate) {
       const { error } = await supabase.from("candidates").update({
         name,
@@ -227,17 +229,34 @@ export default function Candidates() {
         ...resumeFields,
       }).eq("id", editCandidate.id);
       if (error) { toast.error(error.message); return; }
+      savedCandidateId = editCandidate.id;
       toast.success("Candidate updated");
     } else {
-      const { error } = await supabase.from("candidates").insert({
+      const { data: inserted, error } = await supabase.from("candidates").insert({
         company_id: profile.company_id!,
         name,
         email: email || null,
         phone: phone || null,
         ...resumeFields,
-      });
+      }).select("id").single();
       if (error) { toast.error(error.message); return; }
+      savedCandidateId = inserted?.id ?? null;
       toast.success("Candidate added");
+    }
+
+    // Archive resume version into candidate_files history
+    if (resumeFile && savedCandidateId && resumeFields.resume_object_key) {
+      await supabase.from("candidate_files").insert({
+        company_id: profile.company_id!,
+        candidate_id: savedCandidateId,
+        job_id: null,
+        category: "resume",
+        bucket: resumeFields.resume_bucket!,
+        file_key: resumeFields.resume_object_key!,
+        file_name: resumeFields.resume_filename ?? resumeFile.name,
+        file_type: resumeFields.resume_content_type ?? resumeFile.type,
+        file_size: resumeFields.resume_size_bytes ?? resumeFile.size,
+      });
     }
     resetForm();
     load();
