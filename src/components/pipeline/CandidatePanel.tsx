@@ -10,7 +10,18 @@ import { X, Mail, User, Briefcase, Clock } from "lucide-react";
 import { toast } from "sonner";
 import InterviewFeedback from "@/components/candidate/InterviewFeedback";
 
-const STAGES = ["applied", "screening", "interview", "offer", "hired", "rejected"] as const;
+const STAGES = ["applied", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"] as const;
+
+const STAGE_LABELS: Record<string, string> = {
+  applied: "Applied",
+  screening: "Screening",
+  scheduling: "Scheduling",
+  "1st_interview": "1st Interview",
+  "2nd_interview": "2nd Interview",
+  offer: "Offer",
+  hired: "Hired",
+  rejected: "Rejected",
+};
 
 interface Note {
   id: string;
@@ -100,7 +111,7 @@ export default function CandidatePanel({ app, onClose, onStageChange }: Props) {
               </SelectTrigger>
               <SelectContent>
                 {STAGES.map(s => (
-                  <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>
+                  <SelectItem key={s} value={s}>{STAGE_LABELS[s] ?? s}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

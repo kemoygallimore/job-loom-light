@@ -82,7 +82,10 @@
   }
   .badge-applied { @apply bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-600/20; }
   .badge-screening { @apply bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20; }
+  .badge-scheduling { @apply bg-cyan-50 text-cyan-700 ring-1 ring-inset ring-cyan-600/20; }
   .badge-interview { @apply bg-violet-50 text-violet-700 ring-1 ring-inset ring-violet-600/20; }
+  .badge-1st_interview { @apply bg-violet-50 text-violet-700 ring-1 ring-inset ring-violet-600/20; }
+  .badge-2nd_interview { @apply bg-fuchsia-50 text-fuchsia-700 ring-1 ring-inset ring-fuchsia-600/20; }
   .badge-offer { @apply bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20; }
   .badge-hired { @apply bg-green-50 text-green-700 ring-1 ring-inset ring-green-600/20; }
   .badge-rejected { @apply bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/20; }

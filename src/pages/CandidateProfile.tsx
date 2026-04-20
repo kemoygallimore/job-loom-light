@@ -14,11 +14,25 @@ import InterviewFeedback from "@/components/candidate/InterviewFeedback";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ResumeHistory from "@/components/candidate/ResumeHistory";
 
-const STAGES = ["applied", "screening", "interview", "offer", "hired", "rejected"] as const;
+const STAGES = ["applied", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"] as const;
+
+const STAGE_LABELS: Record<string, string> = {
+  applied: "Applied",
+  screening: "Screening",
+  scheduling: "Scheduling",
+  "1st_interview": "1st Interview",
+  "2nd_interview": "2nd Interview",
+  offer: "Offer",
+  hired: "Hired",
+  rejected: "Rejected",
+};
 
 const STAGE_COLORS: Record<string, string> = {
   applied: "bg-muted text-muted-foreground",
   screening: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  scheduling: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400",
+  "1st_interview": "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
+  "2nd_interview": "bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-400",
   interview: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
   offer: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
   hired: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
