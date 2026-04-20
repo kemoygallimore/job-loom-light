@@ -191,6 +191,20 @@ export default function JobDetailsPage() {
         if (resumeMetadataError) {
           throw new Error(resumeMetadataError.message || "Failed to attach the resume to the candidate");
         }
+
+        // Archive this resume version in candidate_files for history
+        const { error: fileHistoryError } = await supabase.from("candidate_files").insert({
+          company_id: company.id,
+          job_id: job.id,
+          candidate_id: candidateId,
+          category: "resume",
+          bucket: resumeResult.bucket,
+          file_key: resumeResult.key,
+          file_name: resumeResult.filename,
+          file_type: resumeResult.contentType,
+          file_size: resumeResult.size,
+        });
+        if (fileHistoryError) console.warn("Failed to archive resume version:", fileHistoryError.message);
       }
 
       // 2. Create application
