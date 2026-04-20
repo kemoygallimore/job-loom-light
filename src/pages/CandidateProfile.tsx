@@ -430,9 +430,10 @@ export default function CandidateProfile() {
 
       {/* Tabs: Notes / Interview Feedback / Activity */}
       <Tabs defaultValue="notes" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 max-w-md">
+        <TabsList className="grid w-full grid-cols-4 max-w-xl">
           <TabsTrigger value="notes">Notes</TabsTrigger>
           <TabsTrigger value="feedback">Interview Feedback</TabsTrigger>
+          <TabsTrigger value="resumes">Resume History</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
 
@@ -454,6 +455,15 @@ export default function CandidateProfile() {
             jobs={applications.map((a) => ({ id: a.job_id, title: a.job_title }))}
             defaultJobId={latestApp?.job_id}
           />
+        </TabsContent>
+
+        <TabsContent value="resumes" className="mt-4">
+          <div className="bg-card border rounded-xl p-6" style={{ boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.04)" }}>
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">
+              Resume History
+            </h2>
+            <ResumeHistory candidateId={candidate.id} />
+          </div>
         </TabsContent>
 
         <TabsContent value="activity" className="mt-4">
