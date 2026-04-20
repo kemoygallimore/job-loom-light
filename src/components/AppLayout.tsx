@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   Building2,
   Video,
+  ClipboardCheck,
 } from "lucide-react";
 import { useState } from "react";
 import rizonhireLogo from "@/assets/RH logo white.png";
@@ -28,6 +29,8 @@ const atsNavItems = [
 
 const screeningNavItems = [{ to: "/screening", label: "Video Screening", icon: Video }];
 
+const assessmentNavItem = { to: "/assessment", label: "Assessment", icon: ClipboardCheck };
+
 const superAdminNav = [
   { to: "/admin", label: "Overview", icon: LayoutDashboard },
   { to: "/admin/companies", label: "Companies", icon: Building2 },
@@ -41,7 +44,12 @@ export default function AppLayout() {
 
   const isTestAdmin = profile?.email === TEST_ADMIN_EMAIL;
   const isSuperAdmin = role === "super_admin";
-  const links = isSuperAdmin ? superAdminNav : isTestAdmin ? [...atsNavItems, ...screeningNavItems] : screeningNavItems;
+  const topLinks = isSuperAdmin
+    ? superAdminNav
+    : isTestAdmin
+      ? [...atsNavItems, ...screeningNavItems]
+      : screeningNavItems;
+  const bottomLinks = isSuperAdmin ? [] : [assessmentNavItem];
 
   return (
     <div className="min-h-screen flex w-full">
@@ -84,7 +92,7 @@ export default function AppLayout() {
               </span>
             </div>
           )}
-          {links.map((item) => {
+          {topLinks.map((item) => {
             const active =
               location.pathname === item.to || (item.to !== "/admin" && location.pathname.startsWith(item.to));
             return (
@@ -109,6 +117,35 @@ export default function AppLayout() {
               </Link>
             );
           })}
+
+          {bottomLinks.length > 0 && (
+            <div className="pt-2 mt-2 border-t border-sidebar-border/50 space-y-0.5">
+              {bottomLinks.map((item) => {
+                const active = location.pathname === item.to || location.pathname.startsWith(item.to);
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    onClick={() => setMobileOpen(false)}
+                    className={`
+                      flex items-center gap-3 rounded-lg text-sm font-medium
+                      transition-colors duration-150
+                      ${collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"}
+                      ${
+                        active
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                          : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                      }
+                    `}
+                    title={collapsed ? item.label : undefined}
+                  >
+                    <item.icon className="w-[18px] h-[18px] flex-shrink-0" />
+                    {!collapsed && <span>{item.label}</span>}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </nav>
 
         {/* Collapse toggle (desktop) */}
