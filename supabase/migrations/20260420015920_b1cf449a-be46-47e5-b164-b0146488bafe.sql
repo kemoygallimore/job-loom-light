@@ -1,0 +1,1 @@
+ALTER TABLE public.candidate_files ALTER COLUMN job_id DROP NOT NULL;

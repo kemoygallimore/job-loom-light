@@ -77,7 +77,7 @@ export type Database = {
           file_size: number
           file_type: string
           id: string
-          job_id: string
+          job_id: string | null
           uploaded_at: string
         }
         Insert: {
@@ -90,7 +90,7 @@ export type Database = {
           file_size?: number
           file_type: string
           id?: string
-          job_id: string
+          job_id?: string | null
           uploaded_at?: string
         }
         Update: {
@@ -103,7 +103,7 @@ export type Database = {
           file_size?: number
           file_type?: string
           id?: string
-          job_id?: string
+          job_id?: string | null
           uploaded_at?: string
         }
         Relationships: [
