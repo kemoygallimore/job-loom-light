@@ -117,10 +117,7 @@ export default function InterviewFeedback({
   const confirmDelete = async () => {
     if (!deleteId) return;
     setDeleting(true);
-    const { error } = await (supabase as any)
-      .from("interview_feedback")
-      .delete()
-      .eq("id", deleteId);
+    const { error } = await (supabase as any).from("interview_feedback").delete().eq("id", deleteId);
     setDeleting(false);
     if (error) {
       toast.error(error.message);
@@ -170,9 +167,7 @@ export default function InterviewFeedback({
     const authorMap: Record<string, string> = {};
     (profilesRes.data ?? []).forEach((p: any) => (authorMap[p.user_id] = p.name));
     const jobMap: Record<string, { title: string; hiring_manager: string | null }> = {};
-    (jobsRes.data ?? []).forEach(
-      (j: any) => (jobMap[j.id] = { title: j.title, hiring_manager: j.hiring_manager }),
-    );
+    (jobsRes.data ?? []).forEach((j: any) => (jobMap[j.id] = { title: j.title, hiring_manager: j.hiring_manager }));
 
     setFeedback(
       rows.map((r) => ({
@@ -233,14 +228,9 @@ export default function InterviewFeedback({
   };
 
   return (
-    <div
-      className="bg-card border rounded-xl p-6 space-y-5"
-      style={{ boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.04)" }}
-    >
+    <div className="bg-card border rounded-xl p-6 space-y-5" style={{ boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.04)" }}>
       <div className="flex items-center justify-between">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Interview Feedback
-        </h2>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Interview Feedback</h2>
         <span className="text-xs text-muted-foreground tabular-nums">
           {feedback.length} {feedback.length === 1 ? "entry" : "entries"}
         </span>
@@ -250,7 +240,7 @@ export default function InterviewFeedback({
       <div className="space-y-3 border rounded-lg p-4 bg-muted/30">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Feedback by</label>
+            <label className="text-xs font-medium text-muted-foreground">Feedback from</label>
             <Input
               value={feedbackBy}
               onChange={(e) => setFeedbackBy(e.target.value)}
@@ -268,7 +258,7 @@ export default function InterviewFeedback({
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Date</label>
+            <label className="text-xs font-medium text-muted-foreground">Interview Date</label>
             <Input
               type="date"
               value={feedbackDate}
@@ -319,7 +309,7 @@ export default function InterviewFeedback({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <User className="w-3.5 h-3.5" />
-                  <span className="font-medium text-foreground">Feedback by:</span>
+                  <span className="font-medium text-foreground">Feedback From:</span>
                   <span>{f.feedback_by ?? f.author_name}</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -329,7 +319,7 @@ export default function InterviewFeedback({
                 </div>
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <Calendar className="w-3.5 h-3.5" />
-                  <span className="font-medium text-foreground">Date:</span>
+                  <span className="font-medium text-foreground"> Interview Date:</span>
                   <span>
                     {f.feedback_date
                       ? new Date(f.feedback_date).toLocaleDateString()
@@ -347,9 +337,7 @@ export default function InterviewFeedback({
                   <span>{f.job_title}</span>
                 </div>
               </div>
-              <p className="text-sm whitespace-pre-wrap leading-relaxed pt-1 border-t">
-                {f.feedback_text}
-              </p>
+              <p className="text-sm whitespace-pre-wrap leading-relaxed pt-1 border-t">{f.feedback_text}</p>
               <div className="flex items-center gap-1 text-[11px] text-muted-foreground pt-1">
                 <Clock className="w-3 h-3" />
                 Submitted {new Date(f.submitted_at).toLocaleString()}
