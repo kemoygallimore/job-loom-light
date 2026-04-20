@@ -246,7 +246,11 @@ export default function Candidates() {
 
     // Archive resume version into candidate_files history
     if (resumeFile && savedCandidateId && resumeFields.resume_object_key) {
-      await supabase.from("candidate_files").insert({
+      const fileType =
+        resumeFields.resume_content_type ||
+        resumeFile.type ||
+        "application/octet-stream";
+      const { error: archiveError } = await supabase.from("candidate_files").insert({
         company_id: profile.company_id!,
         candidate_id: savedCandidateId,
         job_id: null,
@@ -254,9 +258,13 @@ export default function Candidates() {
         bucket: resumeFields.resume_bucket!,
         file_key: resumeFields.resume_object_key!,
         file_name: resumeFields.resume_filename ?? resumeFile.name,
-        file_type: resumeFields.resume_content_type ?? resumeFile.type,
+        file_type: fileType,
         file_size: resumeFields.resume_size_bytes ?? resumeFile.size,
       });
+      if (archiveError) {
+        console.error("candidate_files archive failed:", archiveError);
+        toast.error(`Resume saved but history archive failed: ${archiveError.message}`);
+      }
     }
     resetForm();
     load();
