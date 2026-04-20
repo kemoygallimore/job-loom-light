@@ -148,8 +148,13 @@ export default function CandidatePanel({ app, onClose, onStageChange }: Props) {
                   candidateId={app.candidate_id}
                   companyId={profile.company_id}
                   userId={profile.user_id}
-                  jobs={app.job ? [{ id: app.job_id, title: app.job.title }] : []}
+                  jobs={
+                    app.job
+                      ? [{ id: app.job_id, title: app.job.title, hiring_manager: app.job.hiring_manager }]
+                      : []
+                  }
                   defaultJobId={app.job_id}
+                  currentUserName={profile.name}
                 />
               )}
             </TabsContent>
