@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { ArrowRight, Loader2 } from "lucide-react";
-import rizonhireLogo from "@/assets/rizonhire-logo.png";
+import rizonhireLogo from "@/assets/RH logo white.png";
 
 export default function Auth() {
   const [loading, setLoading] = useState(false);
@@ -36,7 +36,9 @@ export default function Auth() {
         </div>
         <div className="animate-fade-in-up">
           <h1 className="text-3xl font-bold leading-tight" style={{ lineHeight: "1.15" }}>
-            Hire smarter,<br />not harder.
+            Hire smarter,
+            <br />
+            not harder.
           </h1>
           <p className="mt-4 text-sidebar-foreground/60 max-w-sm leading-relaxed">
             Track candidates, manage pipelines, and collaborate with your team — all in one place.
@@ -54,21 +56,42 @@ export default function Auth() {
           </div>
 
           <h2 className="text-2xl font-bold">Welcome back</h2>
-          <p className="text-muted-foreground mt-1.5 text-sm">
-            Sign in to your dashboard
-          </p>
+          <p className="text-muted-foreground mt-1.5 text-sm">Sign in to your dashboard</p>
 
           <form onSubmit={handleLogin} className="mt-8 space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Email</Label>
-              <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="you@company.com" />
+              <Label htmlFor="email" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Email
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                placeholder="you@company.com"
+              />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="password" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Password</Label>
-              <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} placeholder="••••••••" />
+              <Label htmlFor="password" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Password
+              </Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+                placeholder="••••••••"
+              />
             </div>
             <div className="flex justify-end">
-              <button type="button" onClick={() => navigate("/forgot-password")} className="text-xs text-muted-foreground hover:text-primary transition-colors">
+              <button
+                type="button"
+                onClick={() => navigate("/forgot-password")}
+                className="text-xs text-muted-foreground hover:text-primary transition-colors"
+              >
                 Forgot password?
               </button>
             </div>
