@@ -65,7 +65,7 @@ export default function AppLayout() {
               <Briefcase className="w-4 h-4 text-sidebar-primary-foreground" />
             </div>
           ) : (
-            <img src={rizonhireLogo} alt="RizonHire" className="h-7 w-auto" />
+            <img src={rizonhireLogo} alt="RizonHire" className="h-12 w-auto" />
           )}
           <button
             onClick={() => setMobileOpen(false)}

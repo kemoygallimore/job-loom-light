@@ -52,7 +52,7 @@ export default function Auth() {
         <div className="w-full max-w-sm animate-fade-in">
           {/* Mobile logo */}
           <div className="flex items-center gap-2 mb-10 lg:hidden">
-            <img src={rizonhireLogo} alt="RizonHire" className="h-8 w-auto" />
+            <img src={rizonhireLogo} alt="RizonHire" className="h-12 w-auto" />
           </div>
 
           <h2 className="text-2xl font-bold">Welcome back</h2>
