@@ -407,7 +407,7 @@ export default function Candidates() {
                     {new Date(c.latest_updated_at ?? c.created_at).toLocaleDateString()}
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-0.5">
                       <CandidateQuickActions
                         candidateId={c.id}
                         companyId={c.company_id}
