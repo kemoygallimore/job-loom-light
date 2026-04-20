@@ -246,6 +246,20 @@ export default function Candidates() {
 
     // Archive resume version into candidate_files history
     if (resumeFile && savedCandidateId && resumeFields.resume_object_key) {
+      let archiveJobId = editCandidate?.latest_job_id ?? null;
+
+      if (editCandidate && !archiveJobId) {
+        const { data: latestApplication } = await supabase
+          .from("applications")
+          .select("job_id")
+          .eq("candidate_id", savedCandidateId)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        archiveJobId = latestApplication?.job_id ?? null;
+      }
+
       const fileType =
         resumeFields.resume_content_type ||
         resumeFile.type ||
@@ -253,7 +267,7 @@ export default function Candidates() {
       const { error: archiveError } = await supabase.from("candidate_files").insert({
         company_id: profile.company_id!,
         candidate_id: savedCandidateId,
-        job_id: null,
+        job_id: archiveJobId,
         category: "resume",
         bucket: resumeFields.resume_bucket!,
         file_key: resumeFields.resume_object_key!,
