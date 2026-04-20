@@ -143,6 +143,20 @@ export default function JobDetailsPage() {
           .eq("id", candidateId);
 
         if (updateError) throw new Error(updateError.message || "Failed to update candidate");
+
+        // Archive this resume version in candidate_files for history
+        const { error: fileHistoryError } = await supabase.from("candidate_files").insert({
+          company_id: company.id,
+          job_id: job.id,
+          candidate_id: candidateId,
+          category: "resume",
+          bucket: resumeResult.bucket,
+          file_key: resumeResult.key,
+          file_name: resumeResult.filename,
+          file_type: resumeResult.contentType,
+          file_size: resumeResult.size,
+        });
+        if (fileHistoryError) console.warn("Failed to archive resume version:", fileHistoryError.message);
       } else {
         // New candidate
         candidateId = crypto.randomUUID();
