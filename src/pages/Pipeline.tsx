@@ -21,7 +21,7 @@ export interface Application {
   stage: Stage;
   company_id: string;
   candidate: { name: string; email: string | null };
-  job: { title: string };
+  job: { title: string; hiring_manager: string | null };
 }
 
 export default function Pipeline() {
@@ -38,7 +38,7 @@ export default function Pipeline() {
   const load = useCallback(async () => {
     const { data } = await supabase
       .from("applications")
-      .select("id, job_id, candidate_id, stage, company_id, candidates(name, email), jobs(title)")
+      .select("id, job_id, candidate_id, stage, company_id, candidates(name, email), jobs(title, hiring_manager)")
       .order("created_at", { ascending: false });
 
     const mapped = (data ?? []).map((d: any) => ({
