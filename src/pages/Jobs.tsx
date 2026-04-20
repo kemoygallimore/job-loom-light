@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/RichTextEditor";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -193,7 +194,7 @@ export default function Jobs() {
               </div>
               <div className="space-y-1.5">
                 <Label>Description</Label>
-                <Textarea value={description} onChange={e => setDescription(e.target.value)} rows={4} />
+                <RichTextEditor value={description} onChange={setDescription} placeholder="Describe the role, responsibilities, and requirements..." />
               </div>
               <div className="space-y-1.5">
                 <Label>Hiring Manager <span className="text-xs text-muted-foreground font-normal">(internal only)</span></Label>
