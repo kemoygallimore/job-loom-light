@@ -11,6 +11,7 @@ import Jobs from "./pages/Jobs";
 import Candidates from "./pages/Candidates";
 import CandidateProfile from "./pages/CandidateProfile";
 import Pipeline from "./pages/Pipeline";
+import Assessment from "./pages/Assessment";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminOverview from "./pages/admin/AdminOverview";
 import AdminCompanies from "./pages/admin/AdminCompanies";
@@ -101,6 +102,7 @@ const App = () => (
               <Route path="/pipeline" element={<ATSGuard><Pipeline /></ATSGuard>} />
               <Route path="/screening" element={<ScreeningJobs />} />
               <Route path="/screening/:jobId/submissions" element={<ScreeningSubmissions />} />
+              <Route path="/assessment" element={<Assessment />} />
               <Route path="/admin" element={<AdminDashboard />}>
                 <Route index element={<AdminOverview />} />
                 <Route path="companies" element={<AdminCompanies />} />
