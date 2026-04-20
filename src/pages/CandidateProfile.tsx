@@ -48,6 +48,7 @@ interface ApplicationWithJob {
   created_at: string;
   job_id: string;
   job_title: string;
+  hiring_manager: string | null;
 }
 
 export default function CandidateProfile() {
