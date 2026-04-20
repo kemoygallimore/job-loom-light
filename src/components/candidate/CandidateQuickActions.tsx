@@ -31,11 +31,12 @@ interface CandidateQuickActionsProps {
   resumeObjectKey: string | null;
   onStageChanged: () => void;
   onNoteAdded: () => void;
+  hideStageChange?: boolean;
 }
 
 export default function CandidateQuickActions({
   candidateId, companyId, userId, latestAppId, latestStage, resumeUrl,
-  resumeBucket, resumeObjectKey, onStageChanged, onNoteAdded,
+  resumeBucket, resumeObjectKey, onStageChanged, onNoteAdded, hideStageChange,
 }: CandidateQuickActionsProps) {
   const navigate = useNavigate();
   const [noteOpen, setNoteOpen] = useState(false);
@@ -71,7 +72,7 @@ export default function CandidateQuickActions({
     <>
       <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
         {/* Move stage */}
-        {latestAppId && (
+        {!hideStageChange && latestAppId && (
           <Select value={latestStage ?? undefined} onValueChange={handleStageChange}>
             <SelectTrigger className="w-8 h-8 p-0 border-none shadow-none [&>svg]:hidden [&>span]:hidden">
               <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
