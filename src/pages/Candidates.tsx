@@ -441,7 +441,7 @@ export default function Candidates() {
                   <TableCell className="hidden sm:table-cell">
                     {c.latest_stage ? (
                       <Badge variant="secondary" className={`capitalize text-xs font-medium ${STAGE_COLORS[c.latest_stage] ?? ""}`}>
-                        {c.latest_stage}
+                        {c.latest_stage.replace(/_/g, " ")}
                       </Badge>
                     ) : (
                       <span className="text-muted-foreground text-sm">—</span>

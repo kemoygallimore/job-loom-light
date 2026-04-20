@@ -263,7 +263,7 @@ export default function CandidateProfile() {
                 variant="secondary"
                 className={`capitalize text-xs font-medium ${STAGE_COLORS[latestApp.stage] ?? ""}`}
               >
-                {latestApp.stage}
+                {STAGE_LABELS[latestApp.stage] ?? latestApp.stage}
               </Badge>
             )}
           </div>
@@ -419,7 +419,7 @@ export default function CandidateProfile() {
                             variant="secondary"
                             className={`capitalize text-xs font-medium ${STAGE_COLORS[app.stage] ?? ""}`}
                           >
-                            {app.stage}
+                            {STAGE_LABELS[app.stage] ?? app.stage}
                           </Badge>
                           <Select value={app.stage} onValueChange={(v) => handleStageChange(app.id, v)}>
                             <SelectTrigger className="w-[120px] h-7 text-xs">
@@ -427,8 +427,8 @@ export default function CandidateProfile() {
                             </SelectTrigger>
                             <SelectContent>
                               {STAGES.map((s) => (
-                                <SelectItem key={s} value={s} className="capitalize text-xs">
-                                  {s}
+                                <SelectItem key={s} value={s} className="text-xs">
+                                  {STAGE_LABELS[s] ?? s}
                                 </SelectItem>
                               ))}
                             </SelectContent>
