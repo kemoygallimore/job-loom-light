@@ -48,6 +48,7 @@ interface ApplicationWithJob {
   created_at: string;
   job_id: string;
   job_title: string;
+  hiring_manager: string | null;
 }
 
 export default function CandidateProfile() {
@@ -68,7 +69,7 @@ export default function CandidateProfile() {
         supabase.from("candidates").select("*").eq("id", id).single(),
         supabase
           .from("applications")
-          .select("id, stage, updated_at, created_at, job_id, jobs(title)")
+          .select("id, stage, updated_at, created_at, job_id, jobs(title, hiring_manager)")
           .eq("candidate_id", id)
           .order("updated_at", { ascending: false }),
         supabase.from("notes").select("*").eq("candidate_id", id).order("created_at", { ascending: false }),
@@ -101,6 +102,7 @@ export default function CandidateProfile() {
           created_at: a.created_at,
           job_id: a.job_id,
           job_title: a.jobs?.title ?? "Unknown",
+          hiring_manager: a.jobs?.hiring_manager ?? null,
         })),
       );
       setNotes(
@@ -428,13 +430,12 @@ export default function CandidateProfile() {
         </div>
       )}
 
-      {/* Tabs: Notes / Interview Feedback / Activity */}
+      {/* Tabs: Notes / Interview Feedback / Resume History */}
       <Tabs defaultValue="notes" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 max-w-xl">
+        <TabsList className="grid w-full grid-cols-3 max-w-xl">
           <TabsTrigger value="notes">Notes</TabsTrigger>
           <TabsTrigger value="feedback">Interview Feedback</TabsTrigger>
           <TabsTrigger value="resumes">Resume History</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
 
         <TabsContent value="notes" className="mt-4">
@@ -452,8 +453,13 @@ export default function CandidateProfile() {
             candidateId={candidate.id}
             companyId={candidate.company_id}
             userId={profile!.user_id}
-            jobs={applications.map((a) => ({ id: a.job_id, title: a.job_title }))}
+            jobs={applications.map((a) => ({
+              id: a.job_id,
+              title: a.job_title,
+              hiring_manager: a.hiring_manager,
+            }))}
             defaultJobId={latestApp?.job_id}
+            currentUserName={profile?.name}
           />
         </TabsContent>
 
@@ -465,11 +471,10 @@ export default function CandidateProfile() {
             <ResumeHistory candidateId={candidate.id} />
           </div>
         </TabsContent>
-
-        <TabsContent value="activity" className="mt-4">
-          <ActivityTimeline events={buildTimeline()} />
-        </TabsContent>
       </Tabs>
+
+      {/* Standalone Activity Timeline */}
+      <ActivityTimeline events={buildTimeline()} />
     </div>
   );
 }
