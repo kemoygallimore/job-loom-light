@@ -69,7 +69,7 @@ export default function CandidateProfile() {
         supabase.from("candidates").select("*").eq("id", id).single(),
         supabase
           .from("applications")
-          .select("id, stage, updated_at, created_at, job_id, jobs(title)")
+          .select("id, stage, updated_at, created_at, job_id, jobs(title, hiring_manager)")
           .eq("candidate_id", id)
           .order("updated_at", { ascending: false }),
         supabase.from("notes").select("*").eq("candidate_id", id).order("created_at", { ascending: false }),
@@ -102,6 +102,7 @@ export default function CandidateProfile() {
           created_at: a.created_at,
           job_id: a.job_id,
           job_title: a.jobs?.title ?? "Unknown",
+          hiring_manager: a.jobs?.hiring_manager ?? null,
         })),
       );
       setNotes(
