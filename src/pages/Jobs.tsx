@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Search, Link2, Check, Video, ChevronDown, CalendarIcon, Copy, AlertCircle } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
+import { htmlToPlainText } from "@/lib/htmlToPlainText";
 
 interface Job {
   id: string;
@@ -70,7 +71,7 @@ export default function Jobs() {
   const openJobsCount = jobs.filter(j => j.status === "open").length;
   const atLimit = openJobsCount >= maxOpenJobs;
 
-  const careersUrl = companySlug ? `${window.location.origin}/careers/${companySlug}` : null;
+  const careersUrl = companySlug ? `${window.location.origin}/${companySlug}/careers` : null;
 
   const handleCopyLink = async () => {
     if (!careersUrl) return;
@@ -315,7 +316,7 @@ export default function Jobs() {
             {filtered.map(job => (
               <TableRow key={job.id} className="group">
                 <TableCell className="font-medium">{job.title}</TableCell>
-                <TableCell className="text-muted-foreground text-sm hidden sm:table-cell max-w-xs truncate">{job.description?.slice(0, 60)}</TableCell>
+                <TableCell className="text-muted-foreground text-sm hidden sm:table-cell max-w-xs truncate">{htmlToPlainText(job.description).slice(0, 80)}</TableCell>
                 <TableCell>
                   <span className={`badge-stage ${job.status === "open" ? "badge-hired" : "badge-rejected"}`}>
                     {job.status}

@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Briefcase, ArrowRight, Building2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { htmlToPlainText } from "@/lib/htmlToPlainText";
 
 interface Job {
   id: string;
@@ -120,7 +121,7 @@ export default function CareersPage() {
             {jobs.map((job, i) => (
               <Link
                 key={job.id}
-                to={`/careers/${companySlug}/${job.id}`}
+                to={`/${companySlug}/careers/${job.id}`}
                 className="group block rounded-xl border bg-card p-5 sm:p-6 shadow-sm hover:shadow-md transition-shadow duration-200 animate-fade-in"
                 style={{ animationDelay: `${i * 80}ms` }}
               >
@@ -131,7 +132,7 @@ export default function CareersPage() {
                     </h3>
                     {job.description && (
                       <p className="text-sm text-muted-foreground mt-1.5 line-clamp-2 leading-relaxed">
-                        {job.description.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()}
+                        {htmlToPlainText(job.description)}
                       </p>
                     )}
                   </div>

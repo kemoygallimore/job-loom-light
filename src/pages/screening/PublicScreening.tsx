@@ -280,13 +280,13 @@ export default function PublicScreening() {
         });
 
       if (submissionError) {
-        throw submissionError;
+        throw new Error(`Video uploaded, but the submission could not be saved: ${submissionError.message}`);
       }
 
       setStep("submitted");
       toast.success("Video submitted successfully");
     } catch (err: any) {
-      console.error(err);
+      console.error("Video screening submission failed", err);
       toast.error(err?.message || "Failed to submit video");
     } finally {
       setSubmitting(false);

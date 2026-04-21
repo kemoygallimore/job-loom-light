@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate, useParams } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -68,6 +68,16 @@ function DefaultRedirect() {
 }
 
 
+function LegacyCareersRedirect() {
+  const { companySlug } = useParams<{ companySlug: string }>();
+  return <Navigate to={`/${companySlug}/careers`} replace />;
+}
+
+function LegacyJobRedirect() {
+  const { companySlug, jobId } = useParams<{ companySlug: string; jobId: string }>();
+  return <Navigate to={`/${companySlug}/careers/${jobId}`} replace />;
+}
+
 function AuthRoute() {
   const { user, loading, profile, role } = useAuth();
   if (loading) return null;
@@ -90,8 +100,10 @@ const App = () => (
             <Route path="/auth" element={<AuthRoute />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/careers/:companySlug" element={<CareersPage />} />
-            <Route path="/careers/:companySlug/:jobId" element={<JobDetailsPage />} />
+            <Route path="/careers/:companySlug" element={<LegacyCareersRedirect />} />
+            <Route path="/careers/:companySlug/:jobId" element={<LegacyJobRedirect />} />
+            <Route path="/:companySlug/careers" element={<CareersPage />} />
+            <Route path="/:companySlug/careers/:jobId" element={<JobDetailsPage />} />
             <Route path="/screen/:linkId" element={<PublicScreening />} />
             <Route path="/apply/:jobId" element={<PublicJobApplication />} />
             <Route element={<ProtectedRoutes />}>
