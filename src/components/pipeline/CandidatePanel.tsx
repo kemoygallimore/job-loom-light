@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { X, Mail, User, Briefcase, Clock } from "lucide-react";
+import { X, Mail, Briefcase, Clock, Link2, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 import InterviewFeedback from "@/components/candidate/InterviewFeedback";
 
@@ -40,6 +40,8 @@ export default function CandidatePanel({ app, onClose, onStageChange }: Props) {
   const { profile } = useAuth();
   const [notes, setNotes] = useState<Note[]>([]);
   const [newNote, setNewNote] = useState("");
+  const [generatingLink, setGeneratingLink] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const fetchNotes = async () => {
@@ -69,6 +71,32 @@ export default function CandidatePanel({ app, onClose, onStageChange }: Props) {
       .eq("candidate_id", app.candidate_id)
       .order("created_at", { ascending: false });
     setNotes((data as Note[]) ?? []);
+  };
+
+  const generateFeedbackLink = async () => {
+    if (!profile) return;
+    setGeneratingLink(true);
+    const { data, error } = await (supabase as any)
+      .from("feedback_links")
+      .insert({
+        company_id: profile.company_id,
+        candidate_id: app.candidate_id,
+        job_id: app.job_id,
+        application_id: app.id,
+        created_by: profile.user_id,
+      })
+      .select("token")
+      .single();
+    setGeneratingLink(false);
+    if (error || !data) {
+      toast.error(error?.message ?? "Failed to generate link");
+      return;
+    }
+    const url = `${window.location.origin}/feedback/${data.token}`;
+    await navigator.clipboard.writeText(url);
+    setCopied(true);
+    toast.success("Panelist feedback link copied to clipboard");
+    setTimeout(() => setCopied(false), 2500);
   };
 
   return (
@@ -154,6 +182,18 @@ export default function CandidatePanel({ app, onClose, onStageChange }: Props) {
             </TabsContent>
 
             <TabsContent value="feedback" className="mt-4">
+              <div className="mb-3 flex justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={generateFeedbackLink}
+                  disabled={generatingLink}
+                  className="gap-1.5"
+                >
+                  {copied ? <Check className="w-3.5 h-3.5 text-primary" /> : <Link2 className="w-3.5 h-3.5" />}
+                  {generatingLink ? "Generating…" : copied ? "Link copied" : "Generate Panel Feedback Link"}
+                </Button>
+              </div>
               {profile && (
                 <InterviewFeedback
                   candidateId={app.candidate_id}
