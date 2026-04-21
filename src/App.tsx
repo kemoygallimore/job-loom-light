@@ -21,6 +21,7 @@ import ScreeningJobs from "./pages/screening/ScreeningJobs";
 import ScreeningSubmissions from "./pages/screening/ScreeningSubmissions";
 import PublicScreening from "./pages/screening/PublicScreening";
 import PublicJobApplication from "./pages/apply/PublicJobApplication";
+import PublicFeedback from "./pages/feedback/PublicFeedback";
 import NotFound from "./pages/NotFound";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
@@ -106,6 +107,7 @@ const App = () => (
             <Route path="/:companySlug/careers/:jobId" element={<JobDetailsPage />} />
             <Route path="/screen/:linkId" element={<PublicScreening />} />
             <Route path="/apply/:jobId" element={<PublicJobApplication />} />
+            <Route path="/feedback/:token" element={<PublicFeedback />} />
             <Route element={<ProtectedRoutes />}>
               <Route path="/dashboard" element={<DefaultRedirect />} />
               <Route path="/jobs" element={<ATSGuard><Jobs /></ATSGuard>} />
