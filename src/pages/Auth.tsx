@@ -41,7 +41,7 @@ export default function Auth() {
             not harder.
           </h1>
           <p className="mt-4 text-sidebar-foreground/60 max-w-sm leading-relaxed">
-            Track candidates, manage pipelines, and collaborate with your team — all in one place.
+            Track candidates, manage pipelines, and collaborate with your team all in one place.
           </p>
         </div>
         <p className="text-xs text-sidebar-foreground/30">© {new Date().getFullYear()} RizonHire</p>
