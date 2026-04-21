@@ -382,7 +382,42 @@ export default function InterviewFeedback({
                   <span>{f.job_title}</span>
                 </div>
               </div>
-              <p className="text-sm whitespace-pre-wrap leading-relaxed pt-1 border-t">{f.feedback_text}</p>
+              {(f.rating || f.source === "guest") && (
+                <div className="flex items-center justify-between pt-1 border-t">
+                  {f.rating ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-foreground">Rating:</span>
+                      <StarRating value={f.rating} readOnly size={14} />
+                    </div>
+                  ) : <span />}
+                  {f.source === "guest" && (
+                    <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-primary/10 text-primary font-semibold">
+                      Guest panelist
+                    </span>
+                  )}
+                </div>
+              )}
+              {f.strengths && (
+                <div className="text-sm pt-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Strengths</p>
+                  <p className="whitespace-pre-wrap leading-relaxed">{f.strengths}</p>
+                </div>
+              )}
+              {f.opportunities && (
+                <div className="text-sm">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Opportunities</p>
+                  <p className="whitespace-pre-wrap leading-relaxed">{f.opportunities}</p>
+                </div>
+              )}
+              {f.weaknesses && (
+                <div className="text-sm">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Weaknesses</p>
+                  <p className="whitespace-pre-wrap leading-relaxed">{f.weaknesses}</p>
+                </div>
+              )}
+              {!f.strengths && !f.opportunities && !f.weaknesses && f.feedback_text && (
+                <p className="text-sm whitespace-pre-wrap leading-relaxed pt-1 border-t">{f.feedback_text}</p>
+              )}
               <div className="flex items-center gap-1 text-[11px] text-muted-foreground pt-1">
                 <Clock className="w-3 h-3" />
                 Submitted {new Date(f.submitted_at).toLocaleString()}
