@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Copy, Check, Video, Eye, ExternalLink } from "lucide-react";
+import { Plus, Copy, Check, Video, Eye, ExternalLink, Pencil } from "lucide-react";
 import { format, addDays, isAfter } from "date-fns";
 import { Link } from "react-router-dom";
 import { Calendar } from "@/components/ui/calendar";
@@ -37,6 +37,11 @@ export default function ScreeningJobs() {
   const [expiresAt, setExpiresAt] = useState<Date | undefined>(addDays(new Date(), 7));
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [editJob, setEditJob] = useState<ScreeningJob | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editQuestion, setEditQuestion] = useState("");
+  const [editExpiresAt, setEditExpiresAt] = useState<Date | undefined>(undefined);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -121,6 +126,39 @@ export default function ScreeningJobs() {
   };
 
   const isExpired = (date: string) => !isAfter(new Date(date), new Date());
+
+  const openEdit = (job: ScreeningJob) => {
+    setEditJob(job);
+    setEditTitle(job.title);
+    setEditQuestion(job.question);
+    setEditExpiresAt(new Date(job.expires_at));
+  };
+
+  const saveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editJob || !editExpiresAt) return;
+    if (isAfter(editExpiresAt, addDays(new Date(), 30))) {
+      toast.error("Expiration date cannot exceed 30 days from today");
+      return;
+    }
+    setSavingEdit(true);
+    const { error } = await supabase
+      .from("screening_jobs")
+      .update({
+        title: editTitle,
+        question: editQuestion,
+        expires_at: editExpiresAt.toISOString(),
+      })
+      .eq("id", editJob.id);
+    setSavingEdit(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Screening job updated");
+    setEditJob(null);
+    load();
+  };
 
   return (
     <div className="space-y-6">
@@ -216,6 +254,9 @@ export default function ScreeningJobs() {
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => copyLink(job.unique_link_id)} title="Copy screening link">
                       {copiedId === job.unique_link_id ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
                     </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(job)} title="Edit screening question">
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
                     <Link to={`/screening/${job.id}/submissions`}>
                       <Button variant="ghost" size="icon" className="h-8 w-8" title="View submissions">
                         <Eye className="w-3.5 h-3.5" />
@@ -235,6 +276,56 @@ export default function ScreeningJobs() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Edit Screening Job Dialog */}
+      <Dialog open={!!editJob} onOpenChange={(o) => !o && setEditJob(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Screening Job</DialogTitle></DialogHeader>
+          <form onSubmit={saveEdit} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Job Title</Label>
+              <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Screening Question</Label>
+              <Textarea
+                value={editQuestion}
+                onChange={(e) => setEditQuestion(e.target.value)}
+                rows={4}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Expiration Date (max 30 days from today)</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    type="button"
+                    className={cn("w-full justify-start text-left font-normal", !editExpiresAt && "text-muted-foreground")}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {editExpiresAt ? format(editExpiresAt, "PPP") : "Pick a date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={editExpiresAt}
+                    onSelect={setEditExpiresAt}
+                    disabled={(date) => date < new Date() || date > addDays(new Date(), 30)}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <Button type="submit" className="w-full" disabled={savingEdit}>
+              {savingEdit ? "Saving…" : "Save Changes"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

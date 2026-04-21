@@ -219,6 +219,99 @@ export type Database = {
         }
         Relationships: []
       }
+      feedback_links: {
+        Row: {
+          application_id: string | null
+          candidate_id: string
+          company_id: string
+          created_at: string
+          created_by: string
+          expires_at: string
+          id: string
+          job_id: string
+          token: string
+        }
+        Insert: {
+          application_id?: string | null
+          candidate_id: string
+          company_id: string
+          created_at?: string
+          created_by: string
+          expires_at?: string
+          id?: string
+          job_id: string
+          token?: string
+        }
+        Update: {
+          application_id?: string | null
+          candidate_id?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          id?: string
+          job_id?: string
+          token?: string
+        }
+        Relationships: []
+      }
+      interview_feedback: {
+        Row: {
+          candidate_id: string
+          company_id: string
+          feedback_by: string | null
+          feedback_date: string | null
+          feedback_text: string
+          hiring_manager: string | null
+          id: string
+          job_id: string
+          opportunities: string | null
+          rating: number | null
+          recruiter_name: string | null
+          source: string
+          strengths: string | null
+          submitted_at: string
+          submitted_by: string | null
+          weaknesses: string | null
+        }
+        Insert: {
+          candidate_id: string
+          company_id: string
+          feedback_by?: string | null
+          feedback_date?: string | null
+          feedback_text: string
+          hiring_manager?: string | null
+          id?: string
+          job_id: string
+          opportunities?: string | null
+          rating?: number | null
+          recruiter_name?: string | null
+          source?: string
+          strengths?: string | null
+          submitted_at?: string
+          submitted_by?: string | null
+          weaknesses?: string | null
+        }
+        Update: {
+          candidate_id?: string
+          company_id?: string
+          feedback_by?: string | null
+          feedback_date?: string | null
+          feedback_text?: string
+          hiring_manager?: string | null
+          id?: string
+          job_id?: string
+          opportunities?: string | null
+          rating?: number | null
+          recruiter_name?: string | null
+          source?: string
+          strengths?: string | null
+          submitted_at?: string
+          submitted_by?: string | null
+          weaknesses?: string | null
+        }
+        Relationships: []
+      }
       jobs: {
         Row: {
           company_id: string

@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Clock, Plus, User, Briefcase, UserCheck, Calendar, Pencil, Trash2, X, Check } from "lucide-react";
+import { Clock, Plus, User, Briefcase, UserCheck, Calendar, Star } from "lucide-react";
+import StarRating from "@/components/feedback/StarRating";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +29,11 @@ export interface FeedbackEntry {
   recruiter_name: string | null;
   feedback_date: string | null;
   author_name: string;
+  strengths: string | null;
+  opportunities: string | null;
+  weaknesses: string | null;
+  rating: number | null;
+  source: string | null;
 }
 
 interface JobOption {
@@ -57,11 +63,14 @@ export default function InterviewFeedback({
 }: Props) {
   const [feedback, setFeedback] = useState<FeedbackEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [text, setText] = useState("");
   const [feedbackBy, setFeedbackBy] = useState("");
   const [recruiterName, setRecruiterName] = useState(currentUserName ?? "");
   const [feedbackDate, setFeedbackDate] = useState(todayISO());
   const [saving, setSaving] = useState(false);
+  const [strengths, setStrengths] = useState("");
+  const [opportunities, setOpportunities] = useState("");
+  const [weaknesses, setWeaknesses] = useState("");
+  const [rating, setRating] = useState(0);
 
   // Edit/delete state
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -182,6 +191,11 @@ export default function InterviewFeedback({
         recruiter_name: r.recruiter_name ?? null,
         feedback_date: r.feedback_date ?? null,
         author_name: authorMap[r.submitted_by] ?? "Unknown",
+        strengths: r.strengths ?? null,
+        opportunities: r.opportunities ?? null,
+        weaknesses: r.weaknesses ?? null,
+        rating: r.rating ?? null,
+        source: r.source ?? "internal",
       })),
     );
     setLoading(false);
@@ -193,26 +207,43 @@ export default function InterviewFeedback({
   }, [candidateId]);
 
   const submit = async () => {
-    if (!text.trim()) return;
     if (!feedbackBy.trim() || !recruiterName.trim()) {
-      toast.error("Please fill in Feedback by and Recruiter name");
+      toast.error("Please fill in Feedback done by and Recruiter name");
+      return;
+    }
+    if (!strengths.trim()) {
+      toast.error("Please describe at least the candidate's strengths");
+      return;
+    }
+    if (rating === 0) {
+      toast.error("Please select an overall rating");
       return;
     }
     if (!activeJob) {
       toast.error("No position available to attach feedback to");
       return;
     }
+    const composedText = [
+      strengths.trim() && `STRENGTHS:\n${strengths.trim()}`,
+      opportunities.trim() && `OPPORTUNITIES:\n${opportunities.trim()}`,
+      weaknesses.trim() && `WEAKNESSES:\n${weaknesses.trim()}`,
+    ].filter(Boolean).join("\n\n");
     setSaving(true);
     const { error } = await (supabase as any).from("interview_feedback").insert({
       candidate_id: candidateId,
       job_id: activeJob.id,
       company_id: companyId,
-      feedback_text: text.trim(),
+      feedback_text: composedText,
       feedback_by: feedbackBy.trim(),
       recruiter_name: recruiterName.trim(),
       feedback_date: feedbackDate,
       hiring_manager: activeJob.hiring_manager ?? null,
       submitted_by: userId,
+      strengths: strengths.trim() || null,
+      opportunities: opportunities.trim() || null,
+      weaknesses: weaknesses.trim() || null,
+      rating,
+      source: "internal",
     });
     if (error) {
       toast.error(error.message);
@@ -220,9 +251,12 @@ export default function InterviewFeedback({
       return;
     }
     toast.success("Feedback submitted");
-    setText("");
     setFeedbackBy("");
     setFeedbackDate(todayISO());
+    setStrengths("");
+    setOpportunities("");
+    setWeaknesses("");
+    setRating(0);
     await fetchFeedback();
     setSaving(false);
   };
@@ -275,17 +309,28 @@ export default function InterviewFeedback({
             <Input value={position} disabled className="h-9 text-sm bg-background" />
           </div>
         </div>
-        <Textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Share your interview feedback (strengths, concerns, recommendation...)"
-          rows={4}
-          className="text-sm"
-        />
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Strengths</label>
+            <Textarea value={strengths} onChange={(e) => setStrengths(e.target.value)} placeholder="What did the candidate do well?" rows={3} className="text-sm" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Opportunities</label>
+            <Textarea value={opportunities} onChange={(e) => setOpportunities(e.target.value)} placeholder="Areas where they could grow" rows={3} className="text-sm" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Weaknesses</label>
+            <Textarea value={weaknesses} onChange={(e) => setWeaknesses(e.target.value)} placeholder="Concerns or weaknesses" rows={3} className="text-sm" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Overall rating</label>
+            <StarRating value={rating} onChange={setRating} size={22} />
+          </div>
+        </div>
         <div className="flex justify-end">
           <Button
             onClick={submit}
-            disabled={!text.trim() || !feedbackBy.trim() || !recruiterName.trim() || saving}
+            disabled={!strengths.trim() || rating === 0 || !feedbackBy.trim() || !recruiterName.trim() || saving}
             size="sm"
             className="gap-1.5"
           >
@@ -337,7 +382,42 @@ export default function InterviewFeedback({
                   <span>{f.job_title}</span>
                 </div>
               </div>
-              <p className="text-sm whitespace-pre-wrap leading-relaxed pt-1 border-t">{f.feedback_text}</p>
+              {(f.rating || f.source === "guest") && (
+                <div className="flex items-center justify-between pt-1 border-t">
+                  {f.rating ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-foreground">Rating:</span>
+                      <StarRating value={f.rating} readOnly size={14} />
+                    </div>
+                  ) : <span />}
+                  {f.source === "guest" && (
+                    <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-primary/10 text-primary font-semibold">
+                      Guest panelist
+                    </span>
+                  )}
+                </div>
+              )}
+              {f.strengths && (
+                <div className="text-sm pt-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Strengths</p>
+                  <p className="whitespace-pre-wrap leading-relaxed">{f.strengths}</p>
+                </div>
+              )}
+              {f.opportunities && (
+                <div className="text-sm">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Opportunities</p>
+                  <p className="whitespace-pre-wrap leading-relaxed">{f.opportunities}</p>
+                </div>
+              )}
+              {f.weaknesses && (
+                <div className="text-sm">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Weaknesses</p>
+                  <p className="whitespace-pre-wrap leading-relaxed">{f.weaknesses}</p>
+                </div>
+              )}
+              {!f.strengths && !f.opportunities && !f.weaknesses && f.feedback_text && (
+                <p className="text-sm whitespace-pre-wrap leading-relaxed pt-1 border-t">{f.feedback_text}</p>
+              )}
               <div className="flex items-center gap-1 text-[11px] text-muted-foreground pt-1">
                 <Clock className="w-3 h-3" />
                 Submitted {new Date(f.submitted_at).toLocaleString()}
