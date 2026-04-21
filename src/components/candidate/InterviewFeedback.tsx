@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Clock, Plus, User, Briefcase, UserCheck, Calendar, Pencil, Trash2, X, Check } from "lucide-react";
+import { Clock, Plus, User, Briefcase, UserCheck, Calendar, Star } from "lucide-react";
+import StarRating from "@/components/feedback/StarRating";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +29,11 @@ export interface FeedbackEntry {
   recruiter_name: string | null;
   feedback_date: string | null;
   author_name: string;
+  strengths: string | null;
+  opportunities: string | null;
+  weaknesses: string | null;
+  rating: number | null;
+  source: string | null;
 }
 
 interface JobOption {
