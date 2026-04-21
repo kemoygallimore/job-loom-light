@@ -63,11 +63,14 @@ export default function InterviewFeedback({
 }: Props) {
   const [feedback, setFeedback] = useState<FeedbackEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [text, setText] = useState("");
   const [feedbackBy, setFeedbackBy] = useState("");
   const [recruiterName, setRecruiterName] = useState(currentUserName ?? "");
   const [feedbackDate, setFeedbackDate] = useState(todayISO());
   const [saving, setSaving] = useState(false);
+  const [strengths, setStrengths] = useState("");
+  const [opportunities, setOpportunities] = useState("");
+  const [weaknesses, setWeaknesses] = useState("");
+  const [rating, setRating] = useState(0);
 
   // Edit/delete state
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -188,6 +191,11 @@ export default function InterviewFeedback({
         recruiter_name: r.recruiter_name ?? null,
         feedback_date: r.feedback_date ?? null,
         author_name: authorMap[r.submitted_by] ?? "Unknown",
+        strengths: r.strengths ?? null,
+        opportunities: r.opportunities ?? null,
+        weaknesses: r.weaknesses ?? null,
+        rating: r.rating ?? null,
+        source: r.source ?? "internal",
       })),
     );
     setLoading(false);
@@ -199,26 +207,43 @@ export default function InterviewFeedback({
   }, [candidateId]);
 
   const submit = async () => {
-    if (!text.trim()) return;
     if (!feedbackBy.trim() || !recruiterName.trim()) {
-      toast.error("Please fill in Feedback by and Recruiter name");
+      toast.error("Please fill in Feedback done by and Recruiter name");
+      return;
+    }
+    if (!strengths.trim()) {
+      toast.error("Please describe at least the candidate's strengths");
+      return;
+    }
+    if (rating === 0) {
+      toast.error("Please select an overall rating");
       return;
     }
     if (!activeJob) {
       toast.error("No position available to attach feedback to");
       return;
     }
+    const composedText = [
+      strengths.trim() && `STRENGTHS:\n${strengths.trim()}`,
+      opportunities.trim() && `OPPORTUNITIES:\n${opportunities.trim()}`,
+      weaknesses.trim() && `WEAKNESSES:\n${weaknesses.trim()}`,
+    ].filter(Boolean).join("\n\n");
     setSaving(true);
     const { error } = await (supabase as any).from("interview_feedback").insert({
       candidate_id: candidateId,
       job_id: activeJob.id,
       company_id: companyId,
-      feedback_text: text.trim(),
+      feedback_text: composedText,
       feedback_by: feedbackBy.trim(),
       recruiter_name: recruiterName.trim(),
       feedback_date: feedbackDate,
       hiring_manager: activeJob.hiring_manager ?? null,
       submitted_by: userId,
+      strengths: strengths.trim() || null,
+      opportunities: opportunities.trim() || null,
+      weaknesses: weaknesses.trim() || null,
+      rating,
+      source: "internal",
     });
     if (error) {
       toast.error(error.message);
@@ -226,9 +251,12 @@ export default function InterviewFeedback({
       return;
     }
     toast.success("Feedback submitted");
-    setText("");
     setFeedbackBy("");
     setFeedbackDate(todayISO());
+    setStrengths("");
+    setOpportunities("");
+    setWeaknesses("");
+    setRating(0);
     await fetchFeedback();
     setSaving(false);
   };
