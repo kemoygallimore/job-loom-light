@@ -309,17 +309,28 @@ export default function InterviewFeedback({
             <Input value={position} disabled className="h-9 text-sm bg-background" />
           </div>
         </div>
-        <Textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Share your interview feedback (strengths, concerns, recommendation...)"
-          rows={4}
-          className="text-sm"
-        />
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Strengths</label>
+            <Textarea value={strengths} onChange={(e) => setStrengths(e.target.value)} placeholder="What did the candidate do well?" rows={3} className="text-sm" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Opportunities</label>
+            <Textarea value={opportunities} onChange={(e) => setOpportunities(e.target.value)} placeholder="Areas where they could grow" rows={3} className="text-sm" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Weaknesses</label>
+            <Textarea value={weaknesses} onChange={(e) => setWeaknesses(e.target.value)} placeholder="Concerns or weaknesses" rows={3} className="text-sm" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Overall rating</label>
+            <StarRating value={rating} onChange={setRating} size={22} />
+          </div>
+        </div>
         <div className="flex justify-end">
           <Button
             onClick={submit}
-            disabled={!text.trim() || !feedbackBy.trim() || !recruiterName.trim() || saving}
+            disabled={!strengths.trim() || rating === 0 || !feedbackBy.trim() || !recruiterName.trim() || saving}
             size="sm"
             className="gap-1.5"
           >
