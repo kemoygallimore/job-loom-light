@@ -1,158 +1,79 @@
 
-## Plan
 
-### 1. Fix guest video screening submissions
+## Plan: Candidate Tags
 
-The current public screening page submits to `screening_submissions` without a logged-in user. Since it works when signed in but not in incognito, the likely blocker is an RLS policy on the external database.
+Allow company admins to attach reusable, color-coded tags (e.g. "Do not hire", "Top talent", "Rehire") to candidates. Tags appear anywhere a candidate is shown — pipeline cards, candidate list, candidate profile — so any recruiter immediately sees prior flags.
 
-I will provide SQL for the external database that ensures:
+### 1. Database schema
 
-- Anonymous users can read active screening jobs by link.
-- Anonymous users can insert screening submissions.
-- The insert is still constrained so submissions must belong to an active screening job and matching company.
-- Authenticated recruiters can continue viewing/updating submissions for their own company.
+Two new tables (multi-tenant, scoped by `company_id`):
 
-Recommended SQL for the external database:
+**`candidate_tags`** — per-company tag library
+- `id` uuid PK
+- `company_id` uuid (not null)
+- `label` text (not null)
+- `color` text (e.g. `red`, `green`, `amber`, `blue`, `gray`)
+- `created_by` uuid
+- `created_at` timestamptz
+- Unique on `(company_id, lower(label))`
 
-```sql
-ALTER TABLE public.screening_jobs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.screening_submissions ENABLE ROW LEVEL SECURITY;
+**`candidate_tag_assignments`** — links tags to candidates
+- `id` uuid PK
+- `company_id` uuid (not null)
+- `candidate_id` uuid (not null)
+- `tag_id` uuid (not null, references `candidate_tags`)
+- `assigned_by` uuid
+- `assigned_at` timestamptz
+- Unique on `(candidate_id, tag_id)`
 
-DROP POLICY IF EXISTS "Public can view screening jobs by link" ON public.screening_jobs;
-DROP POLICY IF EXISTS "Public can create submissions" ON public.screening_submissions;
+### 2. RLS policies
 
-CREATE POLICY "Public can view active screening jobs"
-ON public.screening_jobs
-FOR SELECT
-TO anon
-USING (expires_at > now());
+| Table | Action | Who | Rule |
+|---|---|---|---|
+| `candidate_tags` | SELECT | authenticated | same `company_id` |
+| `candidate_tags` | INSERT/UPDATE/DELETE | authenticated | same company AND `has_role(auth.uid(),'admin')` |
+| `candidate_tag_assignments` | SELECT | authenticated | same `company_id` |
+| `candidate_tag_assignments` | INSERT/DELETE | authenticated | same company AND `has_role(auth.uid(),'admin')` |
 
-CREATE POLICY "Public can submit active screening responses"
-ON public.screening_submissions
-FOR INSERT
-TO anon
-WITH CHECK (
-  privacy_consent = true
-  AND EXISTS (
-    SELECT 1
-    FROM public.screening_jobs sj
-    WHERE sj.id = screening_job_id
-      AND sj.company_id = company_id
-      AND sj.expires_at > now()
-  )
-);
-```
+(Only admins create or assign tags. All recruiters in the company can see them.)
 
-I will also improve the public screening submit error handling so if the upload succeeds but the database insert fails, the toast clearly reports the database/RLS error instead of a generic failure.
+### 3. Tag management UI (admin-only)
 
-### 2. Change the careers route to `/{companySlug}/careers`
+New page `src/pages/admin/CandidateTagsAdmin.tsx` reachable from the existing Admin area:
+- List of tags for the current company.
+- Form to create a tag (label + color picker with 6 preset colors).
+- Edit / delete actions.
+- Hidden from non-admin users.
 
-I will update public career routing from:
+### 4. Tag assignment UI (all recruiters in company)
 
-```text
-/careers/:companySlug
-/careers/:companySlug/:jobId
-```
+New component `src/components/candidate/CandidateTagsBar.tsx`:
+- Renders pill badges of currently assigned tags using the tag color.
+- "+ Add tag" popover lists company tags (multi-select with checkboxes).
+- "x" on each pill removes the assignment.
+- Shows read-only badges for non-admins if you later want to gate assignment; for now: any recruiter in the company can assign/unassign (admins still solely manage the tag library itself).
 
-to:
+### 5. Where tags are displayed
 
-```text
-/:companySlug/careers
-/:companySlug/careers/:jobId
-```
+- **Candidate profile** (`src/pages/CandidateProfile.tsx`) — full `CandidateTagsBar` near the header.
+- **Candidates list** (`src/pages/Candidates.tsx`) — inline pills in the row.
+- **Pipeline kanban card** (`src/components/pipeline/KanbanCard.tsx`) — small color dots / pills near the name so flags like "Do not hire" are instantly visible.
+- **Candidate panel** (`src/components/pipeline/CandidatePanel.tsx`) — full bar at the top.
+- **Public application flow is untouched** (tags are internal-only).
 
-Files to update:
+### 6. Data fetching
 
-- `src/App.tsx`
-- `src/pages/Jobs.tsx`
-- `src/pages/careers/CareersPage.tsx`
-- `src/pages/careers/JobDetailsPage.tsx`
-
-I will also add backward-compatible redirects from the old routes to the new routes so existing shared links do not immediately break:
-
-```text
-/careers/:companySlug -> /:companySlug/careers
-/careers/:companySlug/:jobId -> /:companySlug/careers/:jobId
-```
-
-### 3. Make “Apply Now” redirect to the individual application page
-
-The job details page currently opens an application modal. I will remove the modal-based application flow from `JobDetailsPage.tsx` and change both Apply Now buttons to redirect to:
-
-```text
-/apply/:jobId
-```
-
-This will make the public job details page behave consistently with the job application link already copied from the Jobs table.
-
-### 4. Hide raw WYSIWYG HTML in job tables and previews
-
-The Jobs table currently renders:
-
-```ts
-job.description?.slice(0, 60)
-```
-
-That is why users see raw HTML like:
-
-```html
-<p><strong>Job Summary</strong></p>
-```
-
-I will add a small utility for converting rich text HTML into clean plain text snippets, then use it anywhere descriptions appear in a table, card preview, or truncated summary.
-
-Likely utility:
-
-```ts
-export function htmlToPlainText(html?: string | null): string {
-  if (!html) return "";
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  return doc.body.textContent?.replace(/\s+/g, " ").trim() ?? "";
-}
-```
-
-Files to update:
-
-- `src/pages/Jobs.tsx`
-- `src/pages/careers/CareersPage.tsx`
-- Any other table/preview found using raw `description`.
-
-### 5. Render WYSIWYG formatting correctly on `/apply/:jobId`
-
-The `/apply/:jobId` page already uses `dangerouslySetInnerHTML`, but the styling is likely not fully applying because Tailwind typography styles are not enabled in the Tailwind config even though `@tailwindcss/typography` is installed.
-
-I will update `tailwind.config.ts` to enable the typography plugin:
-
-```ts
-plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")]
-```
-
-Then I will ensure the job description on:
-
-- `src/pages/apply/PublicJobApplication.tsx`
-- `src/pages/careers/JobDetailsPage.tsx`
-
-uses consistent rich-text classes so headings, bold text, lists, paragraphs, and spacing display properly.
-
-### 6. Clean up public application flow
-
-Since the standalone `/apply/:jobId` page is now the source of truth, I will remove unused modal form state/imports from `JobDetailsPage.tsx`, including:
-
-- Dialog imports
-- Application form state
-- Resume upload modal logic
-- Duplicate submit handler inside the job details page
-
-The actual application submission flow will remain in `PublicJobApplication.tsx`.
+Single query helper that, given a list of candidate IDs, returns a map `candidateId -> tags[]` joining `candidate_tag_assignments` with `candidate_tags`. Used by Pipeline, Candidates list, and CandidateProfile to avoid N+1 calls.
 
 ### 7. Validation checklist
 
-After implementation, verify:
+- Admin can create/edit/delete tags; non-admin cannot see the management page.
+- Recruiter can assign/remove tags on a candidate.
+- "Do not hire" tag set on a candidate is visible on:
+  - their pipeline card (any job),
+  - candidate list row,
+  - candidate profile,
+  - candidate side panel.
+- Tags never leak across companies (verified via RLS company scoping).
+- No tags appear on public careers / apply pages.
 
-- Incognito users can open `/screen/:linkId`, record, and submit a screening.
-- Signed-in users can still view screening submissions.
-- “Copy Careers Link” now copies `/{companySlug}/careers`.
-- Old career links redirect to the new slug format.
-- Job cards and job tables show clean text, not HTML tags.
-- Apply Now redirects to `/apply/:jobId`.
-- `/apply/:jobId` displays rich formatted job descriptions correctly.
