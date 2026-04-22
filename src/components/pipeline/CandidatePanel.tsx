@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { X, Mail, Briefcase, Clock, Link2, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 import InterviewFeedback from "@/components/candidate/InterviewFeedback";
+import CandidateTagsBar from "@/components/candidate/CandidateTagsBar";
 
 const STAGES = ["applied", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"] as const;
 
@@ -128,6 +129,7 @@ export default function CandidatePanel({ app, onClose, onStageChange }: Props) {
                 <span>{app.candidate.email}</span>
               </div>
             )}
+            <CandidateTagsBar candidateId={app.candidate_id} />
           </div>
 
           {/* Stage selector */}

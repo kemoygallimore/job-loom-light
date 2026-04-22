@@ -14,6 +14,7 @@ import {
   Building2,
   Video,
   ClipboardCheck,
+  Tags,
 } from "lucide-react";
 import { useState } from "react";
 import rizonhireLogo from "@/assets/RH logo white.png";
@@ -25,6 +26,7 @@ const atsNavItems = [
   { to: "/jobs", label: "Jobs", icon: Briefcase },
   { to: "/candidates", label: "Candidates", icon: Users },
   { to: "/pipeline", label: "Pipeline", icon: FolderKanban },
+  { to: "/admin/candidate-tags", label: "Candidate Tags", icon: Tags },
 ];
 
 const screeningNavItems = [{ to: "/screening", label: "Video Screening", icon: Video }];
