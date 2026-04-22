@@ -32,7 +32,6 @@ export interface FeedbackEntry {
   opportunities: string | null;
   weaknesses: string | null;
   rating: number | null;
-  source: string | null;
 }
 
 interface JobOption {
