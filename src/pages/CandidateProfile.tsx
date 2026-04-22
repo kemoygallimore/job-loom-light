@@ -13,6 +13,7 @@ import ActivityTimeline, { type TimelineEvent } from "@/components/candidate/Act
 import InterviewFeedback from "@/components/candidate/InterviewFeedback";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ResumeHistory from "@/components/candidate/ResumeHistory";
+import CandidateTagsBar from "@/components/candidate/CandidateTagsBar";
 
 const STAGES = ["applied", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"] as const;
 
@@ -267,6 +268,8 @@ export default function CandidateProfile() {
               </Badge>
             )}
           </div>
+
+          <CandidateTagsBar candidateId={candidate.id} />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {candidate.email && (
