@@ -90,7 +90,6 @@ export default function PublicFeedback() {
       opportunities: opportunities.trim() || null,
       weaknesses: weaknesses.trim() || null,
       rating,
-      source: "guest",
     });
     setSubmitting(false);
     if (insertErr) {
