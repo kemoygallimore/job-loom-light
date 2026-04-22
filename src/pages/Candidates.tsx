@@ -436,6 +436,18 @@ export default function Candidates() {
                             <RotateCcw className="w-2.5 h-2.5" />{c.application_count}
                           </Badge>
                         )}
+                        {(tagsByCandidate.get(c.id) ?? []).length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {(tagsByCandidate.get(c.id) ?? []).map(t => (
+                              <span
+                                key={t.id}
+                                className={`inline-flex items-center rounded-full border text-[10px] px-1.5 py-0 font-medium ${getTagColorClasses(t.color)}`}
+                              >
+                                {t.label}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </TableCell>
