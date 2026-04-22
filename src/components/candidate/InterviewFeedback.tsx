@@ -26,7 +26,6 @@ export interface FeedbackEntry {
   job_title: string;
   hiring_manager: string | null;
   feedback_by: string | null;
-  recruiter_name: string | null;
   feedback_date: string | null;
   author_name: string;
   strengths: string | null;
@@ -64,7 +63,6 @@ export default function InterviewFeedback({
   const [feedback, setFeedback] = useState<FeedbackEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [feedbackBy, setFeedbackBy] = useState("");
-  const [recruiterName, setRecruiterName] = useState(currentUserName ?? "");
   const [feedbackDate, setFeedbackDate] = useState(todayISO());
   const [saving, setSaving] = useState(false);
   const [strengths, setStrengths] = useState("");
@@ -77,7 +75,6 @@ export default function InterviewFeedback({
   const [editDraft, setEditDraft] = useState({
     feedback_text: "",
     feedback_by: "",
-    recruiter_name: "",
     feedback_date: "",
   });
   const [savingEdit, setSavingEdit] = useState(false);
@@ -89,7 +86,6 @@ export default function InterviewFeedback({
     setEditDraft({
       feedback_text: f.feedback_text,
       feedback_by: f.feedback_by ?? "",
-      recruiter_name: f.recruiter_name ?? "",
       feedback_date: f.feedback_date ?? todayISO(),
     });
   };
@@ -109,7 +105,6 @@ export default function InterviewFeedback({
       .update({
         feedback_text: editDraft.feedback_text.trim(),
         feedback_by: editDraft.feedback_by.trim() || null,
-        recruiter_name: editDraft.recruiter_name.trim() || null,
         feedback_date: editDraft.feedback_date || null,
       })
       .eq("id", id);
@@ -143,7 +138,7 @@ export default function InterviewFeedback({
   const hiringManager = activeJob?.hiring_manager ?? "—";
 
   useEffect(() => {
-    if (currentUserName && !recruiterName) setRecruiterName(currentUserName);
+    if (currentUserName && !feedbackBy) setFeedbackBy(currentUserName);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUserName]);
 
@@ -188,7 +183,6 @@ export default function InterviewFeedback({
         job_title: jobMap[r.job_id]?.title ?? "Unknown position",
         hiring_manager: r.hiring_manager ?? jobMap[r.job_id]?.hiring_manager ?? null,
         feedback_by: r.feedback_by ?? null,
-        recruiter_name: r.recruiter_name ?? null,
         feedback_date: r.feedback_date ?? null,
         author_name: authorMap[r.submitted_by] ?? "Unknown",
         strengths: r.strengths ?? null,
@@ -207,8 +201,8 @@ export default function InterviewFeedback({
   }, [candidateId]);
 
   const submit = async () => {
-    if (!feedbackBy.trim() || !recruiterName.trim()) {
-      toast.error("Please fill in Feedback done by and Recruiter name");
+    if (!feedbackBy.trim()) {
+      toast.error("Please fill in Feedback done by");
       return;
     }
     if (!strengths.trim()) {
@@ -235,7 +229,6 @@ export default function InterviewFeedback({
       company_id: companyId,
       feedback_text: composedText,
       feedback_by: feedbackBy.trim(),
-      recruiter_name: recruiterName.trim(),
       feedback_date: feedbackDate,
       hiring_manager: activeJob.hiring_manager ?? null,
       submitted_by: userId,
@@ -283,15 +276,6 @@ export default function InterviewFeedback({
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Recruiter name</label>
-            <Input
-              value={recruiterName}
-              onChange={(e) => setRecruiterName(e.target.value)}
-              placeholder="Recruiter name"
-              className="h-9 text-sm"
-            />
-          </div>
-          <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Interview Date</label>
             <Input
               type="date"
@@ -330,7 +314,7 @@ export default function InterviewFeedback({
         <div className="flex justify-end">
           <Button
             onClick={submit}
-            disabled={!strengths.trim() || rating === 0 || !feedbackBy.trim() || !recruiterName.trim() || saving}
+            disabled={!strengths.trim() || rating === 0 || !feedbackBy.trim() || saving}
             size="sm"
             className="gap-1.5"
           >
@@ -356,11 +340,6 @@ export default function InterviewFeedback({
                   <User className="w-3.5 h-3.5" />
                   <span className="font-medium text-foreground">Feedback From:</span>
                   <span>{f.feedback_by ?? f.author_name}</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-muted-foreground">
-                  <UserCheck className="w-3.5 h-3.5" />
-                  <span className="font-medium text-foreground">Recruiter:</span>
-                  <span>{f.recruiter_name ?? f.author_name}</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <Calendar className="w-3.5 h-3.5" />
