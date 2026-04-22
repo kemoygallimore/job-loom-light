@@ -267,7 +267,6 @@ export type Database = {
           job_id: string
           opportunities: string | null
           rating: number | null
-          recruiter_name: string | null
           source: string
           strengths: string | null
           submitted_at: string
@@ -285,7 +284,6 @@ export type Database = {
           job_id: string
           opportunities?: string | null
           rating?: number | null
-          recruiter_name?: string | null
           source?: string
           strengths?: string | null
           submitted_at?: string
@@ -303,7 +301,6 @@ export type Database = {
           job_id?: string
           opportunities?: string | null
           rating?: number | null
-          recruiter_name?: string | null
           source?: string
           strengths?: string | null
           submitted_at?: string

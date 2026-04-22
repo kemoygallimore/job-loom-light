@@ -84,13 +84,13 @@ export default function PublicFeedback() {
       company_id: ctx.company_id,
       feedback_text: composedText,
       feedback_by: feedbackBy.trim(),
-      recruiter_name: feedbackBy.trim(),
       feedback_date: new Date().toISOString().slice(0, 10),
       hiring_manager: ctx.hiring_manager,
       strengths: strengths.trim() || null,
       opportunities: opportunities.trim() || null,
       weaknesses: weaknesses.trim() || null,
       rating,
+      source: "guest",
     });
     setSubmitting(false);
     if (insertErr) {
