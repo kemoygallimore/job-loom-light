@@ -130,6 +130,68 @@ export type Database = {
           },
         ]
       }
+      candidate_tag_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          candidate_id: string
+          company_id: string
+          id: string
+          tag_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          candidate_id: string
+          company_id: string
+          id?: string
+          tag_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          candidate_id?: string
+          company_id?: string
+          id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidate_tag_assignments_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "candidate_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      candidate_tags: {
+        Row: {
+          color: string
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          label: string
+        }
+        Insert: {
+          color?: string
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label: string
+        }
+        Update: {
+          color?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string
+        }
+        Relationships: []
+      }
       candidates: {
         Row: {
           company_id: string
