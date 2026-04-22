@@ -74,7 +74,9 @@ export default function PublicFeedback() {
       strengths.trim() && `STRENGTHS:\n${strengths.trim()}`,
       opportunities.trim() && `OPPORTUNITIES:\n${opportunities.trim()}`,
       weaknesses.trim() && `WEAKNESSES:\n${weaknesses.trim()}`,
-    ].filter(Boolean).join("\n\n");
+    ]
+      .filter(Boolean)
+      .join("\n\n");
 
     const { error: insertErr } = await (supabase as any).from("interview_feedback").insert({
       candidate_id: ctx.candidate_id,
@@ -89,7 +91,6 @@ export default function PublicFeedback() {
       opportunities: opportunities.trim() || null,
       weaknesses: weaknesses.trim() || null,
       rating,
-      source: "guest",
     });
     setSubmitting(false);
     if (insertErr) {
@@ -135,31 +136,57 @@ export default function PublicFeedback() {
         <div className="space-y-1">
           <h1 className="text-2xl font-bold">Interview Feedback</h1>
           <p className="text-sm text-muted-foreground">
-            Candidate: <span className="font-medium text-foreground">{ctx.candidate_name}</span> ·
-            {" "}Position: <span className="font-medium text-foreground">{ctx.job_title}</span>
-            {ctx.hiring_manager && (<> · Hiring Manager: <span className="font-medium text-foreground">{ctx.hiring_manager}</span></>)}
+            Candidate: <span className="font-medium text-foreground">{ctx.candidate_name}</span> · Position:{" "}
+            <span className="font-medium text-foreground">{ctx.job_title}</span>
+            {ctx.hiring_manager && (
+              <>
+                {" "}
+                · Hiring Manager: <span className="font-medium text-foreground">{ctx.hiring_manager}</span>
+              </>
+            )}
           </p>
         </div>
 
         <form onSubmit={submit} className="space-y-5">
           <div className="space-y-1.5">
             <Label>Feedback done by *</Label>
-            <Input value={feedbackBy} onChange={(e) => setFeedbackBy(e.target.value)} placeholder="Your full name" required />
+            <Input
+              value={feedbackBy}
+              onChange={(e) => setFeedbackBy(e.target.value)}
+              placeholder="Your full name"
+              required
+            />
           </div>
 
           <div className="space-y-1.5">
             <Label>Strengths *</Label>
-            <Textarea value={strengths} onChange={(e) => setStrengths(e.target.value)} rows={3} placeholder="What did the candidate do well?" required />
+            <Textarea
+              value={strengths}
+              onChange={(e) => setStrengths(e.target.value)}
+              rows={3}
+              placeholder="What did the candidate do well?"
+              required
+            />
           </div>
 
           <div className="space-y-1.5">
             <Label>Opportunities</Label>
-            <Textarea value={opportunities} onChange={(e) => setOpportunities(e.target.value)} rows={3} placeholder="Areas where they could grow" />
+            <Textarea
+              value={opportunities}
+              onChange={(e) => setOpportunities(e.target.value)}
+              rows={3}
+              placeholder="Areas where they could grow"
+            />
           </div>
 
           <div className="space-y-1.5">
             <Label>Weaknesses</Label>
-            <Textarea value={weaknesses} onChange={(e) => setWeaknesses(e.target.value)} rows={3} placeholder="Concerns or weaknesses" />
+            <Textarea
+              value={weaknesses}
+              onChange={(e) => setWeaknesses(e.target.value)}
+              rows={3}
+              placeholder="Concerns or weaknesses"
+            />
           </div>
 
           <div className="space-y-1.5">
