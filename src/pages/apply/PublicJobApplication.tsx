@@ -512,6 +512,23 @@ export default function PublicJobApplication() {
           <div className="space-y-4 rounded-lg border p-4">
             <h3 className="text-sm font-medium">Address</h3>
 
+            {/* Street Address */}
+            <div className="space-y-1.5">
+              <Label className="text-sm">
+                Street Address <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                value={streetAddress}
+                onChange={(e) => {
+                  setStreetAddress(e.target.value);
+                  setErrors((p) => ({ ...p, streetAddress: "" }));
+                }}
+                placeholder="123 Main Street"
+                className={errors.streetAddress ? "border-destructive" : ""}
+              />
+              {errors.streetAddress && <p className="text-xs text-destructive">{errors.streetAddress}</p>}
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Country */}
               <div className="space-y-1.5">
