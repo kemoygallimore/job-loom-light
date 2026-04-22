@@ -236,7 +236,6 @@ export default function InterviewFeedback({
       opportunities: opportunities.trim() || null,
       weaknesses: weaknesses.trim() || null,
       rating,
-      source: "internal",
     });
     if (error) {
       toast.error(error.message);
