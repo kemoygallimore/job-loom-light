@@ -32,7 +32,6 @@ export interface FeedbackEntry {
   opportunities: string | null;
   weaknesses: string | null;
   rating: number | null;
-  source: string | null;
 }
 
 interface JobOption {
@@ -236,7 +235,6 @@ export default function InterviewFeedback({
       opportunities: opportunities.trim() || null,
       weaknesses: weaknesses.trim() || null,
       rating,
-      source: "internal",
     });
     if (error) {
       toast.error(error.message);
@@ -361,15 +359,13 @@ export default function InterviewFeedback({
                   <span>{f.job_title}</span>
                 </div>
               </div>
-              {(f.rating || f.source === "guest") && (
+              {f.rating && (
                 <div className="flex items-center justify-between pt-1 border-t">
-                  {f.rating ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-foreground">Rating:</span>
-                      <StarRating value={f.rating} readOnly size={14} />
-                    </div>
-                  ) : <span />}
-                  {f.source === "guest" && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-foreground">Rating:</span>
+                    <StarRating value={f.rating} readOnly size={14} />
+                  </div>
+                  {!f.submitted_by && (
                     <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-primary/10 text-primary font-semibold">
                       Guest panelist
                     </span>
