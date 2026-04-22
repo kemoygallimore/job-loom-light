@@ -14,6 +14,7 @@ import { Plus, Pencil, Trash2, Search, User, X, RotateCcw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import CandidateFilters from "@/components/candidate/CandidateFilters";
 import CandidateQuickActions from "@/components/candidate/CandidateQuickActions";
+import { fetchTagsForCandidates, getTagColorClasses, type CandidateTag } from "@/lib/candidateTags";
 
 interface CandidateWithContext {
   id: string;
@@ -58,6 +59,7 @@ export default function Candidates() {
   const navigate = useNavigate();
   const [candidates, setCandidates] = useState<CandidateWithContext[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [tagsByCandidate, setTagsByCandidate] = useState<Map<string, CandidateTag[]>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -129,6 +131,8 @@ export default function Candidates() {
       });
 
       setCandidates(enriched);
+      const tagMap = await fetchTagsForCandidates(enriched.map(c => c.id));
+      setTagsByCandidate(tagMap);
     } catch (err: any) {
       setError(err.message ?? "Failed to load candidates");
       toast.error("Failed to load candidates");
