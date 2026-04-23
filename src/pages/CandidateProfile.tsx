@@ -16,10 +16,11 @@ import ResumeHistory from "@/components/candidate/ResumeHistory";
 import CandidateTagsBar from "@/components/candidate/CandidateTagsBar";
 import CandidateDocuments from "@/components/candidate/CandidateDocuments";
 
-const STAGES = ["applied", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"] as const;
+const STAGES = ["applied", "shortlisted", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"] as const;
 
 const STAGE_LABELS: Record<string, string> = {
   applied: "Applied",
+  shortlisted: "Shortlisted",
   screening: "Screening",
   scheduling: "Scheduling",
   "1st_interview": "1st Interview",
@@ -31,6 +32,7 @@ const STAGE_LABELS: Record<string, string> = {
 
 const STAGE_COLORS: Record<string, string> = {
   applied: "bg-muted text-muted-foreground",
+  shortlisted: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
   screening: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
   scheduling: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400",
   "1st_interview": "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
