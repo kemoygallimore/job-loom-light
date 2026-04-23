@@ -664,6 +664,7 @@ export type Database = {
       app_role: "admin" | "recruiter" | "super_admin"
       application_stage:
         | "applied"
+        | "shortlisted"
         | "screening"
         | "scheduling"
         | "1st_interview"
@@ -803,6 +804,7 @@ export const Constants = {
       app_role: ["admin", "recruiter", "super_admin"],
       application_stage: [
         "applied",
+        "shortlisted",
         "screening",
         "scheduling",
         "1st_interview",
