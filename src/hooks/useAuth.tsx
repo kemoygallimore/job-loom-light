@@ -17,11 +17,13 @@ interface AuthContextType {
   role: string | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  refreshAuth: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null, session: null, profile: null, role: null, loading: true,
   signOut: async () => {},
+  refreshAuth: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -33,6 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [initialSessionChecked, setInitialSessionChecked] = useState(false);
+  const [refreshTick, setRefreshTick] = useState(0);
 
   useEffect(() => {
     // First, restore session from storage before subscribing to changes
@@ -74,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     fetchProfile();
-  }, [user, initialSessionChecked]);
+  }, [user, initialSessionChecked, refreshTick]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -82,8 +85,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRole(null);
   };
 
+  const refreshAuth = async () => {
+    setLoading(true);
+    const { data } = await supabase.auth.getSession();
+    setSession(data.session);
+    setUser(data.session?.user ?? null);
+    setRefreshTick((n) => n + 1);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, session, profile, role, loading, signOut }}>
+    <AuthContext.Provider value={{ user, session, profile, role, loading, signOut, refreshAuth }}>
       {children}
     </AuthContext.Provider>
   );
