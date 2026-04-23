@@ -7,10 +7,11 @@ import { CalendarIcon, Filter, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 
-const STAGES = ["applied", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"];
+const STAGES = ["applied", "shortlisted", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"];
 
 const STAGE_LABELS: Record<string, string> = {
   applied: "Applied",
+  shortlisted: "Shortlisted",
   screening: "Screening",
   scheduling: "Scheduling",
   "1st_interview": "1st Interview",
