@@ -450,10 +450,11 @@ export default function CandidateProfile() {
 
       {/* Tabs: Notes / Interview Feedback / Resume History */}
       <Tabs defaultValue="notes" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 max-w-xl">
+        <TabsList className="grid w-full grid-cols-4 max-w-2xl">
           <TabsTrigger value="notes">Notes</TabsTrigger>
           <TabsTrigger value="feedback">Interview Feedback</TabsTrigger>
           <TabsTrigger value="resumes">Resume History</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
         </TabsList>
 
         <TabsContent value="notes" className="mt-4">
@@ -487,6 +488,15 @@ export default function CandidateProfile() {
               Resume History
             </h2>
             <ResumeHistory candidateId={candidate.id} />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="documents" className="mt-4">
+          <div className="bg-card border rounded-xl p-6" style={{ boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.04)" }}>
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">
+              Documents
+            </h2>
+            <CandidateDocuments candidateId={candidate.id} companyId={candidate.company_id} />
           </div>
         </TabsContent>
       </Tabs>
