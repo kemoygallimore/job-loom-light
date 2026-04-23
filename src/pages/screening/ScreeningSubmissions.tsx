@@ -6,9 +6,20 @@ import { getSignedVideoViewUrl } from "@/lib/getSignedVideoViewUrl";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { ArrowLeft, Play, Star, Loader2 } from "lucide-react";
+import { ArrowLeft, Play, Star, Loader2, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 
 interface Submission {
@@ -33,7 +44,7 @@ interface ScreeningJob {
 
 export default function ScreeningSubmissions() {
   const { jobId } = useParams<{ jobId: string }>();
-  const { profile } = useAuth();
+  const { profile, role } = useAuth();
   const [job, setJob] = useState<ScreeningJob | null>(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [selectedSub, setSelectedSub] = useState<Submission | null>(null);
@@ -42,6 +53,7 @@ export default function ScreeningSubmissions() {
   const [loadingVideo, setLoadingVideo] = useState(false);
   const [rating, setRating] = useState<number>(0);
   const [notes, setNotes] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const load = async () => {
     if (!jobId) return;
