@@ -497,7 +497,7 @@ export default function Candidates() {
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)}>
                           <Pencil className="w-3.5 h-3.5" />
                         </Button>
-                        {role === "admin" && (
+                        {loadingAuth ? null : !role ? null : role === "admin" && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="icon" className="h-8 w-8">
