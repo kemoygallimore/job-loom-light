@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Briefcase, Users, FileText, TrendingUp } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const STAGE_COLORS: Record<string, string> = {
   applied: "hsl(220, 70%, 52%)",
@@ -30,51 +31,96 @@ const STAGE_LABELS: Record<string, string> = {
 
 export default function Dashboard() {
   const { profile, role } = useAuth();
-  const [stats, setStats] = useState({ jobs: 0, candidates: 0, applications: 0, openJobs: 0 });
-  const [stageCounts, setStageCounts] = useState<{ stage: string; count: number }[]>([]);
+  const [jobs, setJobs] = useState<{ id: string; title: string; status: string }[]>([]);
+  const [appRows, setAppRows] = useState<{ stage: string; job_id: string; candidate_id: string }[]>([]);
+  const [totalCandidates, setTotalCandidates] = useState(0);
+  const [jobFilter, setJobFilter] = useState<string>("all");
 
   useEffect(() => {
     if (!profile) return;
     const load = async () => {
-      const [jobs, candidates, applications, appRows] = await Promise.all([
-        supabase.from("jobs").select("id, status"),
+      const [jobsRes, candidatesRes, appsRes] = await Promise.all([
+        supabase.from("jobs").select("id, title, status").order("created_at", { ascending: false }),
         supabase.from("candidates").select("id", { count: "exact", head: true }),
-        supabase.from("applications").select("id", { count: "exact", head: true }),
-        supabase.from("applications").select("stage"),
+        supabase.from("applications").select("stage, job_id, candidate_id"),
       ]);
-      const jobList = jobs.data ?? [];
-      setStats({
-        jobs: jobList.length,
-        candidates: candidates.count ?? 0,
-        applications: applications.count ?? 0,
-        openJobs: jobList.filter(j => j.status === "open").length,
-      });
-
-      // Count by stage
-      const counts: Record<string, number> = {};
-      (appRows.data ?? []).forEach((a: any) => {
-        counts[a.stage] = (counts[a.stage] || 0) + 1;
-      });
-      const stageOrder = ["applied", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"];
-      setStageCounts(stageOrder.map(s => ({ stage: s, count: counts[s] || 0 })));
+      setJobs((jobsRes.data ?? []) as any);
+      setAppRows((appsRes.data ?? []) as any);
+      setTotalCandidates(candidatesRes.count ?? 0);
     };
     load();
   }, [profile]);
 
   if (role === "super_admin") return <Navigate to="/admin" replace />;
 
+  const isAll = jobFilter === "all";
+  const filteredApps = isAll ? appRows : appRows.filter((a) => a.job_id === jobFilter);
+
+  // Total applicants = unique candidates that have any application (in selection)
+  const uniqueApplicants = new Set(filteredApps.map((a) => a.candidate_id)).size;
+
+  const stageOrder = ["applied", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"];
+  const counts: Record<string, number> = {};
+  filteredApps.forEach((a) => {
+    counts[a.stage] = (counts[a.stage] || 0) + 1;
+  });
+  const stageCounts = stageOrder.map((s) => ({ stage: s, count: counts[s] || 0 }));
+
+  const openJobs = jobs.filter((j) => j.status === "open").length;
+
   const cards = [
-    { label: "Open Jobs", value: stats.openJobs, icon: Briefcase, color: "text-primary" },
-    { label: "Candidates", value: stats.candidates, icon: Users, color: "text-accent" },
-    { label: "Applications", value: stats.applications, icon: FileText, color: "hsl(38,92%,50%)" },
-    { label: "Total Jobs", value: stats.jobs, icon: TrendingUp, color: "text-muted-foreground" },
+    {
+      label: isAll ? "Total Applicants" : "Applicants for Job",
+      value: uniqueApplicants,
+      icon: Users,
+      color: "text-primary",
+    },
+    {
+      label: "Applications",
+      value: filteredApps.length,
+      icon: FileText,
+      color: "hsl(38,92%,50%)",
+    },
+    {
+      label: "Open Jobs",
+      value: isAll ? openJobs : 1,
+      icon: Briefcase,
+      color: "text-accent",
+    },
+    {
+      label: "All Candidates",
+      value: totalCandidates,
+      icon: TrendingUp,
+      color: "text-muted-foreground",
+    },
   ];
 
   return (
     <div className="space-y-8">
-      <div className="animate-fade-in">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground mt-1 text-sm">Welcome back, {profile?.name}</p>
+      <div className="animate-fade-in flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Welcome back, {profile?.name}</p>
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Filter by job
+          </label>
+          <Select value={jobFilter} onValueChange={setJobFilter}>
+            <SelectTrigger className="w-[260px]">
+              <SelectValue placeholder="All jobs" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All jobs</SelectItem>
+              {jobs.map((j) => (
+                <SelectItem key={j.id} value={j.id}>
+                  {j.title}
+                  {j.status !== "open" ? " (closed)" : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Stat cards */}
