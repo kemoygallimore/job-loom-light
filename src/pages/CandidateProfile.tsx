@@ -14,6 +14,7 @@ import InterviewFeedback from "@/components/candidate/InterviewFeedback";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ResumeHistory from "@/components/candidate/ResumeHistory";
 import CandidateTagsBar from "@/components/candidate/CandidateTagsBar";
+import CandidateDocuments from "@/components/candidate/CandidateDocuments";
 
 const STAGES = ["applied", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"] as const;
 
