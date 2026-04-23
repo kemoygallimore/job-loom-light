@@ -119,6 +119,21 @@ export default function ScreeningSubmissions() {
     load();
   };
 
+  const handleDelete = async (sub: Submission) => {
+    setDeletingId(sub.id);
+    const { error } = await supabase
+      .from("screening_submissions")
+      .delete()
+      .eq("id", sub.id);
+    setDeletingId(null);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Screening video deleted");
+    setSubmissions((prev) => prev.filter((s) => s.id !== sub.id));
+  };
+
   return (
     <div className="space-y-6">
       <div className="animate-fade-in">
@@ -166,9 +181,45 @@ export default function ScreeningSubmissions() {
                   {format(new Date(sub.created_at), "MMM d, yyyy h:mm a")}
                 </TableCell>
                 <TableCell>
-                  <Button variant="ghost" size="sm" onClick={() => openReview(sub)} className="gap-1.5">
-                    <Play className="w-3.5 h-3.5" /> Review
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => openReview(sub)} className="gap-1.5">
+                      <Play className="w-3.5 h-3.5" /> Review
+                    </Button>
+                    {role === "admin" && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            disabled={deletingId === sub.id}
+                            title="Delete submission"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete this screening video?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will permanently remove the submission from{" "}
+                              <span className="font-medium text-foreground">{sub.candidate_name}</span>,
+                              including their video, rating, and notes. This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              onClick={() => handleDelete(sub)}
+                            >
+                              Delete video
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
