@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -44,7 +44,8 @@ interface ScreeningJob {
 
 export default function ScreeningSubmissions() {
   const { jobId } = useParams<{ jobId: string }>();
-  const { profile, role } = useAuth();
+  const { profile, role, loading: loadingAuth, refreshAuth } = useAuth();
+  const notifiedMissingRoleRef = useRef(false);
   const [job, setJob] = useState<ScreeningJob | null>(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [selectedSub, setSelectedSub] = useState<Submission | null>(null);
@@ -54,6 +55,18 @@ export default function ScreeningSubmissions() {
   const [rating, setRating] = useState<number>(0);
   const [notes, setNotes] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (loadingAuth) return;
+    if (profile && !role && !notifiedMissingRoleRef.current) {
+      notifiedMissingRoleRef.current = true;
+      toast.error("Couldn't load your role. Retrying…");
+      refreshAuth();
+    }
+    if (role) {
+      notifiedMissingRoleRef.current = false;
+    }
+  }, [loadingAuth, profile, role, refreshAuth]);
 
   const load = async () => {
     if (!jobId) return;
@@ -185,7 +198,7 @@ export default function ScreeningSubmissions() {
                     <Button variant="ghost" size="sm" onClick={() => openReview(sub)} className="gap-1.5">
                       <Play className="w-3.5 h-3.5" /> Review
                     </Button>
-                    {role === "admin" && (
+                    {!loadingAuth && role === "admin" && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button
