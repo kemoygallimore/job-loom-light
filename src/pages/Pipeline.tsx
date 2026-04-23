@@ -11,7 +11,7 @@ import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-p
 import KanbanCard from "@/components/pipeline/KanbanCard";
 import CandidatePanel from "@/components/pipeline/CandidatePanel";
 
-const STAGES = ["applied", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"] as const;
+const STAGES = ["applied", "shortlisted", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"] as const;
 type Stage = typeof STAGES[number];
 
 export interface Application {
@@ -107,6 +107,7 @@ export default function Pipeline() {
 
   const stageLabels: Record<Stage, string> = {
     applied: "Applied",
+    shortlisted: "Shortlisted",
     screening: "Screening",
     scheduling: "Scheduling",
     "1st_interview": "1st Interview",

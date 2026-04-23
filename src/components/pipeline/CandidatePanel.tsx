@@ -11,10 +11,11 @@ import { toast } from "sonner";
 import InterviewFeedback from "@/components/candidate/InterviewFeedback";
 import CandidateTagsBar from "@/components/candidate/CandidateTagsBar";
 
-const STAGES = ["applied", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"] as const;
+const STAGES = ["applied", "shortlisted", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"] as const;
 
 const STAGE_LABELS: Record<string, string> = {
   applied: "Applied",
+  shortlisted: "Shortlisted",
   screening: "Screening",
   scheduling: "Scheduling",
   "1st_interview": "1st Interview",

@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 const STAGE_COLORS: Record<string, string> = {
   applied: "hsl(220, 70%, 52%)",
+  shortlisted: "hsl(160, 60%, 42%)",
   screening: "hsl(38, 92%, 50%)",
   scheduling: "hsl(190, 70%, 45%)",
   "1st_interview": "hsl(270, 50%, 52%)",
@@ -20,6 +21,7 @@ const STAGE_COLORS: Record<string, string> = {
 
 const STAGE_LABELS: Record<string, string> = {
   applied: "Applied",
+  shortlisted: "Shortlisted",
   screening: "Screening",
   scheduling: "Scheduling",
   "1st_interview": "1st Interview",
@@ -59,7 +61,7 @@ export default function Dashboard() {
   // Total applicants = unique candidates that have any application (in selection)
   const uniqueApplicants = new Set(filteredApps.map((a) => a.candidate_id)).size;
 
-  const stageOrder = ["applied", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"];
+  const stageOrder = ["applied", "shortlisted", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"];
   const counts: Record<string, number> = {};
   filteredApps.forEach((a) => {
     counts[a.stage] = (counts[a.stage] || 0) + 1;
