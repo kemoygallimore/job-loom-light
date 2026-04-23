@@ -67,7 +67,20 @@ const STAGE_COLORS: Record<string, string> = {
 };
 
 export default function Candidates() {
-  const { profile, role } = useAuth();
+  const { profile, role, loading: loadingAuth, refreshAuth } = useAuth();
+  const notifiedMissingRoleRef = useRef(false);
+
+  useEffect(() => {
+    if (loadingAuth) return;
+    if (profile && !role && !notifiedMissingRoleRef.current) {
+      notifiedMissingRoleRef.current = true;
+      toast.error("Couldn't load your role. Retrying…");
+      refreshAuth();
+    }
+    if (role) {
+      notifiedMissingRoleRef.current = false;
+    }
+  }, [loadingAuth, profile, role, refreshAuth]);
   const navigate = useNavigate();
   const [candidates, setCandidates] = useState<CandidateWithContext[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
