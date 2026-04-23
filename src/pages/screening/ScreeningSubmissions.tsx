@@ -205,8 +205,15 @@ export default function ScreeningSubmissions() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8"
-                            disabled={deletingId === sub.id}
-                            title="Delete submission"
+                            disabled={
+                              deletingId === sub.id ||
+                              (reviewOpen && selectedSub?.id === sub.id)
+                            }
+                            title={
+                              reviewOpen && selectedSub?.id === sub.id
+                                ? "Close the review to delete this video"
+                                : "Delete submission"
+                            }
                           >
                             <Trash2 className="w-3.5 h-3.5 text-destructive" />
                           </Button>
