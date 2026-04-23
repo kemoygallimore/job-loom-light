@@ -1,6 +1,6 @@
 const WORKER_URL = "https://api.rizonhire.com";
 
-export type UploadCategory = "resume" | "video";
+export type UploadCategory = "resume" | "video" | "document";
 
 export interface UploadToStorageParams {
   file: File;
@@ -19,7 +19,9 @@ export interface UploadToStorageResult {
 }
 
 function getFolder(category: UploadCategory): string {
-  return category === "video" ? "videos" : "resumes";
+  if (category === "video") return "videos";
+  if (category === "document") return "documents";
+  return "resumes";
 }
 
 export async function uploadToStorage({
