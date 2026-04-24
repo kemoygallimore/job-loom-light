@@ -19,8 +19,6 @@ import {
 import { useState } from "react";
 import rizonhireLogo from "@/assets/RH logo white.png";
 
-const TEST_ADMIN_EMAIL = "testadmin@email.com";
-
 const atsNavItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/jobs", label: "Jobs", icon: Briefcase },
@@ -44,13 +42,8 @@ export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
-  const isTestAdmin = profile?.email === TEST_ADMIN_EMAIL;
   const isSuperAdmin = role === "super_admin";
-  const topLinks = isSuperAdmin
-    ? superAdminNav
-    : isTestAdmin
-      ? [...atsNavItems, ...screeningNavItems]
-      : screeningNavItems;
+  const topLinks = isSuperAdmin ? superAdminNav : [...atsNavItems, ...screeningNavItems];
   const bottomLinks = isSuperAdmin ? [] : [assessmentNavItem];
 
   return (
@@ -77,6 +70,13 @@ export default function AppLayout() {
           ) : (
             <img src={rizonhireLogo} alt="RizonHire" className="h-12 w-auto" />
           )}
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            className="ml-auto hidden lg:flex items-center justify-center w-7 h-7 rounded-md text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <ChevronLeft className={`w-4 h-4 transition-transform duration-300 ${collapsed ? "rotate-180" : ""}`} />
+          </button>
           <button
             onClick={() => setMobileOpen(false)}
             className="ml-auto lg:hidden text-sidebar-foreground/60 hover:text-sidebar-foreground"
@@ -149,14 +149,6 @@ export default function AppLayout() {
             </div>
           )}
         </nav>
-
-        {/* Collapse toggle (desktop) */}
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="hidden lg:flex items-center justify-center h-10 mx-2 mb-1 rounded-lg text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
-        >
-          <ChevronLeft className={`w-4 h-4 transition-transform duration-300 ${collapsed ? "rotate-180" : ""}`} />
-        </button>
 
         {/* User */}
         <div className={`border-t border-sidebar-border ${collapsed ? "px-2 py-3" : "px-4 py-3"}`}>
