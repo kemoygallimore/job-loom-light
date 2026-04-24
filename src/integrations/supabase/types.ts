@@ -651,6 +651,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      archive_resume_version: {
+        Args: {
+          _bucket: string
+          _candidate_id: string
+          _company_id: string
+          _file_key: string
+          _file_name: string
+          _file_size: number
+          _file_type: string
+          _job_id: string
+        }
+        Returns: string
+      }
       get_user_company_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {

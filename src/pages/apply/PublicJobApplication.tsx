@@ -330,17 +330,17 @@ export default function PublicJobApplication() {
         if (updateError) throw updateError;
 
         // Archive resume version
-        await supabase.from("candidate_files").insert({
-          company_id: company.id,
-          candidate_id: candidateId,
-          job_id: job.id,
-          category: "resume",
-          bucket: resumeResult.bucket,
-          file_key: resumeResult.key,
-          file_name: resumeResult.filename,
-          file_type: resumeResult.contentType,
-          file_size: resumeResult.size,
+        const { error: archiveError } = await supabase.rpc("archive_resume_version" as any, {
+          _candidate_id: candidateId,
+          _company_id: company.id,
+          _job_id: job.id,
+          _bucket: resumeResult.bucket,
+          _file_key: resumeResult.key,
+          _file_name: resumeResult.filename,
+          _file_type: resumeResult.contentType,
+          _file_size: resumeResult.size,
         });
+        if (archiveError) console.error("Resume archive failed:", archiveError);
       } else {
         // 2b. New candidate — insert first, then upload, then patch
         candidateId = crypto.randomUUID();
@@ -380,17 +380,17 @@ export default function PublicJobApplication() {
         if (resumeUpdateError) throw resumeUpdateError;
 
         // Archive resume version
-        await supabase.from("candidate_files").insert({
-          company_id: company.id,
-          candidate_id: candidateId,
-          job_id: job.id,
-          category: "resume",
-          bucket: resumeResult.bucket,
-          file_key: resumeResult.key,
-          file_name: resumeResult.filename,
-          file_type: resumeResult.contentType,
-          file_size: resumeResult.size,
+        const { error: archiveError } = await supabase.rpc("archive_resume_version" as any, {
+          _candidate_id: candidateId,
+          _company_id: company.id,
+          _job_id: job.id,
+          _bucket: resumeResult.bucket,
+          _file_key: resumeResult.key,
+          _file_name: resumeResult.filename,
+          _file_type: resumeResult.contentType,
+          _file_size: resumeResult.size,
         });
+        if (archiveError) console.error("Resume archive failed:", archiveError);
       }
 
       // 3. Create application
