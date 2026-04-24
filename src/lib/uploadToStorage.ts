@@ -5,7 +5,7 @@ export type UploadCategory = "resume" | "video" | "document";
 export interface UploadToStorageParams {
   file: File;
   companyId: string;
-  jobId: string;
+  jobId?: string;
   candidateId: string;
   category: UploadCategory;
 }
@@ -41,8 +41,8 @@ export async function uploadToStorage({
       contentType: file.type || "application/octet-stream",
       folder,
       companyId,
-      jobId,
       candidateId,
+      ...(jobId ? { jobId } : {}),
     }),
   });
 

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -105,6 +105,37 @@ export default function Pipeline() {
 
   const filtered = selectedJobFilter === "all" ? applications : applications.filter(a => a.job_id === selectedJobFilter);
 
+  const kanbanRef = useRef<HTMLDivElement>(null);
+  const topScrollRef = useRef<HTMLDivElement>(null);
+  const [scrollWidth, setScrollWidth] = useState(0);
+  const syncingRef = useRef<"top" | "bottom" | null>(null);
+
+  useEffect(() => {
+    const el = kanbanRef.current;
+    if (!el) return;
+    const update = () => setScrollWidth(el.scrollWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    Array.from(el.children).forEach((c) => ro.observe(c as Element));
+    return () => ro.disconnect();
+  }, [filtered.length]);
+
+  const handleTopScroll = () => {
+    if (syncingRef.current === "bottom") { syncingRef.current = null; return; }
+    if (kanbanRef.current && topScrollRef.current) {
+      syncingRef.current = "top";
+      kanbanRef.current.scrollLeft = topScrollRef.current.scrollLeft;
+    }
+  };
+  const handleKanbanScroll = () => {
+    if (syncingRef.current === "top") { syncingRef.current = null; return; }
+    if (kanbanRef.current && topScrollRef.current) {
+      syncingRef.current = "bottom";
+      topScrollRef.current.scrollLeft = kanbanRef.current.scrollLeft;
+    }
+  };
+
   const stageLabels: Record<Stage, string> = {
     applied: "Applied",
     shortlisted: "Shortlisted",
@@ -163,7 +194,20 @@ export default function Pipeline() {
 
       {/* Kanban */}
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex gap-3 overflow-x-auto pb-4 animate-opacity-in" style={{ animationDelay: "100ms" }}>
+        <div
+          ref={topScrollRef}
+          onScroll={handleTopScroll}
+          className="overflow-x-auto"
+          aria-hidden="true"
+        >
+          <div style={{ width: scrollWidth }} className="h-3" />
+        </div>
+        <div
+          ref={kanbanRef}
+          onScroll={handleKanbanScroll}
+          className="flex gap-3 overflow-x-auto pb-4 animate-opacity-in"
+          style={{ animationDelay: "100ms" }}
+        >
           {STAGES.map(stage => {
             const stageApps = filtered.filter(a => a.stage === stage);
             return (

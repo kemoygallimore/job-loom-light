@@ -80,7 +80,6 @@ export default function CandidateDocuments({ candidateId, companyId }: Props) {
       const result = await uploadToStorage({
         file,
         companyId,
-        jobId: "manual",
         candidateId,
         category: "document",
       });

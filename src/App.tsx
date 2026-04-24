@@ -29,7 +29,6 @@ import ResetPassword from "./pages/ResetPassword";
 
 
 const queryClient = new QueryClient();
-const TEST_ADMIN_EMAIL = "testadmin@email.com";
 
 function ProtectedRoutes() {
   const { user, loading, profile, role } = useAuth();
@@ -53,23 +52,6 @@ function ProtectedRoutes() {
   return <AppLayout />;
 }
 
-function ATSGuard({ children }: { children: React.ReactNode }) {
-  const { profile } = useAuth();
-  if (profile?.email !== TEST_ADMIN_EMAIL) {
-    return <Navigate to="/screening" replace />;
-  }
-  return <>{children}</>;
-}
-
-function DefaultRedirect() {
-  const { profile } = useAuth();
-  if (profile?.email === TEST_ADMIN_EMAIL) {
-    return <Dashboard />;
-  }
-  return <Navigate to="/screening" replace />;
-}
-
-
 function LegacyCareersRedirect() {
   const { companySlug } = useParams<{ companySlug: string }>();
   return <Navigate to={`/${companySlug}/careers`} replace />;
@@ -84,8 +66,7 @@ function AuthRoute() {
   const { user, loading, profile, role } = useAuth();
   if (loading) return null;
   if (user && (profile || role === "super_admin")) {
-    const redirectTo = profile?.email === TEST_ADMIN_EMAIL ? "/dashboard" : "/screening";
-    return <Navigate to={redirectTo} replace />;
+    return <Navigate to="/dashboard" replace />;
   }
   return <Auth />;
 }
@@ -110,12 +91,12 @@ const App = () => (
             <Route path="/apply/:jobId" element={<PublicJobApplication />} />
             <Route path="/feedback/:token" element={<PublicFeedback />} />
             <Route element={<ProtectedRoutes />}>
-              <Route path="/dashboard" element={<DefaultRedirect />} />
-              <Route path="/jobs" element={<ATSGuard><Jobs /></ATSGuard>} />
-              <Route path="/candidates" element={<ATSGuard><Candidates /></ATSGuard>} />
-              <Route path="/candidates/:id" element={<ATSGuard><CandidateProfile /></ATSGuard>} />
-              <Route path="/pipeline" element={<ATSGuard><Pipeline /></ATSGuard>} />
-              <Route path="/admin/candidate-tags" element={<ATSGuard><CandidateTagsAdmin /></ATSGuard>} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/jobs" element={<Jobs />} />
+              <Route path="/candidates" element={<Candidates />} />
+              <Route path="/candidates/:id" element={<CandidateProfile />} />
+              <Route path="/pipeline" element={<Pipeline />} />
+              <Route path="/admin/candidate-tags" element={<CandidateTagsAdmin />} />
               <Route path="/screening" element={<ScreeningJobs />} />
               <Route path="/screening/:jobId/submissions" element={<ScreeningSubmissions />} />
               <Route path="/assessment" element={<Assessment />} />
