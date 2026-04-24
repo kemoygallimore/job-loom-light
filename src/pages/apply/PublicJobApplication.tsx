@@ -328,6 +328,19 @@ export default function PublicJobApplication() {
           .eq("id", candidateId);
 
         if (updateError) throw updateError;
+
+        // Archive resume version
+        await supabase.from("candidate_files").insert({
+          company_id: company.id,
+          candidate_id: candidateId,
+          job_id: job.id,
+          category: "resume",
+          bucket: resumeResult.bucket,
+          file_key: resumeResult.key,
+          file_name: resumeResult.filename,
+          file_type: resumeResult.contentType,
+          file_size: resumeResult.size,
+        });
       } else {
         // 2b. New candidate — insert first, then upload, then patch
         candidateId = crypto.randomUUID();
@@ -365,6 +378,19 @@ export default function PublicJobApplication() {
           .eq("id", candidateId);
 
         if (resumeUpdateError) throw resumeUpdateError;
+
+        // Archive resume version
+        await supabase.from("candidate_files").insert({
+          company_id: company.id,
+          candidate_id: candidateId,
+          job_id: job.id,
+          category: "resume",
+          bucket: resumeResult.bucket,
+          file_key: resumeResult.key,
+          file_name: resumeResult.filename,
+          file_type: resumeResult.contentType,
+          file_size: resumeResult.size,
+        });
       }
 
       // 3. Create application
