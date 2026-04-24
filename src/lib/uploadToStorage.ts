@@ -33,6 +33,11 @@ export async function uploadToStorage({
 }: UploadToStorageParams): Promise<UploadToStorageResult> {
   const folder = getFolder(category);
 
+  // The Cloudflare Worker requires a valid UUID for jobId. For ad-hoc
+  // document uploads (not tied to a job), reuse the candidateId so the
+  // request passes validation and the file is namespaced under the candidate.
+  const effectiveJobId = jobId ?? (category === "document" ? candidateId : undefined);
+
   const presignRes = await fetch(`${WORKER_URL}/presign-upload`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -42,7 +47,7 @@ export async function uploadToStorage({
       folder,
       companyId,
       candidateId,
-      ...(jobId ? { jobId } : {}),
+      ...(effectiveJobId ? { jobId: effectiveJobId } : {}),
     }),
   });
 
