@@ -63,16 +63,12 @@ export default function AppLayout() {
         <div
           className={`flex items-center gap-2.5 border-b border-sidebar-border h-14 ${collapsed ? "justify-center px-2" : "px-5"}`}
         >
-          {collapsed ? (
-            <div className="w-8 h-8 rounded-lg bg-sidebar-primary flex items-center justify-center flex-shrink-0">
-              <Briefcase className="w-4 h-4 text-sidebar-primary-foreground" />
-            </div>
-          ) : (
+          {!collapsed && (
             <img src={rizonhireLogo} alt="RizonHire" className="h-12 w-auto" />
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="ml-auto hidden lg:flex items-center justify-center w-7 h-7 rounded-md text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
+            className={`hidden lg:flex items-center justify-center w-8 h-8 rounded-md text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors ${collapsed ? "" : "ml-auto"}`}
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             <ChevronLeft className={`w-4 h-4 transition-transform duration-300 ${collapsed ? "rotate-180" : ""}`} />
