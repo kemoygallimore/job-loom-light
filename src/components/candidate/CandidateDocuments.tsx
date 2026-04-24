@@ -85,6 +85,11 @@ export default function CandidateDocuments({ candidateId, companyId }: Props) {
         category: "document",
       });
 
+      console.log("DEBUG INSERT", {
+        company_id: companyId,
+        candidate_id: candidateId,
+      });
+
       console.log("candidate_files insert payload", {
         company_id: companyId,
         job_id: null,
