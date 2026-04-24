@@ -80,6 +80,7 @@ export default function CandidateDocuments({ candidateId, companyId }: Props) {
       const result = await uploadToStorage({
         file,
         companyId,
+        jobId: "general",
         candidateId,
         category: "document",
       });
@@ -151,19 +152,8 @@ export default function CandidateDocuments({ candidateId, companyId }: Props) {
           </p>
         </div>
         <div>
-          <input
-            ref={inputRef}
-            type="file"
-            className="hidden"
-            onChange={handleFileChange}
-            disabled={uploading}
-          />
-          <Button
-            size="sm"
-            className="gap-2"
-            onClick={() => inputRef.current?.click()}
-            disabled={uploading}
-          >
+          <input ref={inputRef} type="file" className="hidden" onChange={handleFileChange} disabled={uploading} />
+          <Button size="sm" className="gap-2" onClick={() => inputRef.current?.click()} disabled={uploading}>
             <Upload className="w-4 h-4" />
             {uploading ? "Uploading…" : "Upload document"}
           </Button>
@@ -176,16 +166,11 @@ export default function CandidateDocuments({ candidateId, companyId }: Props) {
           <Skeleton className="h-14 w-full" />
         </div>
       ) : files.length === 0 ? (
-        <div className="text-center py-8 text-sm text-muted-foreground">
-          No documents uploaded yet.
-        </div>
+        <div className="text-center py-8 text-sm text-muted-foreground">No documents uploaded yet.</div>
       ) : (
         <div className="space-y-2">
           {files.map((f) => (
-            <div
-              key={f.id}
-              className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30"
-            >
+            <div key={f.id} className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
               <div className="w-9 h-9 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
                 <FileText className="w-4 h-4 text-muted-foreground" />
               </div>
@@ -197,9 +182,7 @@ export default function CandidateDocuments({ candidateId, companyId }: Props) {
                     {new Date(f.uploaded_at).toLocaleDateString()}
                   </span>
                   <span className="tabular-nums">{formatBytes(f.file_size)}</span>
-                  {f.file_type && (
-                    <span className="truncate max-w-[160px]">{f.file_type}</span>
-                  )}
+                  {f.file_type && <span className="truncate max-w-[160px]">{f.file_type}</span>}
                 </div>
               </div>
               <Button
