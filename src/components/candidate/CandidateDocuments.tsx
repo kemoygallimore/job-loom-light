@@ -85,6 +85,12 @@ export default function CandidateDocuments({ candidateId, companyId }: Props) {
         category: "document",
       });
 
+      console.log("candidate_files insert payload", {
+        company_id: companyId,
+        job_id: null,
+        candidate_id: candidateId,
+      });
+
       const { error } = await supabase.from("candidate_files").insert({
         company_id: companyId,
         job_id: null,
