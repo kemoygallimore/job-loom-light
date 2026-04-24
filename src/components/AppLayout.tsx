@@ -2,7 +2,6 @@ import { Link, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
-  Briefcase,
   Users,
   FolderKanban,
   LayoutDashboard,
@@ -15,6 +14,7 @@ import {
   Video,
   ClipboardCheck,
   Tags,
+  Briefcase,
 } from "lucide-react";
 import { useState } from "react";
 import rizonhireLogo from "@/assets/RH logo white.png";
