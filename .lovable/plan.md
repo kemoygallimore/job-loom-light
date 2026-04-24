@@ -1,79 +1,63 @@
 
 
-## Plan: Candidate Tags
+## Plan: Five fixes
 
-Allow company admins to attach reusable, color-coded tags (e.g. "Do not hire", "Top talent", "Rehire") to candidates. Tags appear anywhere a candidate is shown — pipeline cards, candidate list, candidate profile — so any recruiter immediately sees prior flags.
+### 1. Resume re-upload archives a version (existing candidate re-applies)
 
-### 1. Database schema
+In `src/pages/apply/PublicJobApplication.tsx`, after a successful resume upload (in BOTH the existing-candidate and new-candidate branches), insert a row into `candidate_files` with `category: 'resume'`, the new `bucket`, `file_key`, `file_name`, `file_type`, `file_size`, and the current `job_id`. The candidate's `resume_*` columns continue to be overwritten with the latest upload — so the profile always shows the most recent resume, while `ResumeHistory` (which reads `candidate_files`) automatically displays every prior version with the job it was submitted for.
 
-Two new tables (multi-tenant, scoped by `company_id`):
+The existing public RLS policy `Public can create candidate resume files` already permits this insert from anonymous users (it requires `category = 'resume'` and a valid candidate/open-job pair).
 
-**`candidate_tags`** — per-company tag library
-- `id` uuid PK
-- `company_id` uuid (not null)
-- `label` text (not null)
-- `color` text (e.g. `red`, `green`, `amber`, `blue`, `gray`)
-- `created_by` uuid
-- `created_at` timestamptz
-- Unique on `(company_id, lower(label))`
+### 2. Admin "Add additional document" — fix "Invalid job_id or candidate_id"
 
-**`candidate_tag_assignments`** — links tags to candidates
-- `id` uuid PK
-- `company_id` uuid (not null)
-- `candidate_id` uuid (not null)
-- `tag_id` uuid (not null, references `candidate_tags`)
-- `assigned_by` uuid
-- `assigned_at` timestamptz
-- Unique on `(candidate_id, tag_id)`
+Root cause: `src/components/candidate/CandidateDocuments.tsx` calls `uploadToStorage({ ..., jobId: "manual" })`. The Cloudflare Worker at `api.rizonhire.com/presign-upload` validates that `jobId`/`candidateId` are UUIDs and rejects the literal `"manual"` — that's the source of the error message (it is NOT an RLS problem; the DB insert never runs).
 
-### 2. RLS policies
+Fix in `src/lib/uploadToStorage.ts`: make `jobId` optional. When uploading a `document`, omit `jobId` from the request body (the worker should treat it as optional for documents). Update `CandidateDocuments.tsx` to stop passing `jobId: "manual"`.
 
-| Table | Action | Who | Rule |
-|---|---|---|---|
-| `candidate_tags` | SELECT | authenticated | same `company_id` |
-| `candidate_tags` | INSERT/UPDATE/DELETE | authenticated | same company AND `has_role(auth.uid(),'admin')` |
-| `candidate_tag_assignments` | SELECT | authenticated | same `company_id` |
-| `candidate_tag_assignments` | INSERT/DELETE | authenticated | same company AND `has_role(auth.uid(),'admin')` |
+If the worker still rejects a missing `jobId`, fall back to sending the `candidateId` as the path discriminator only (folder layout: `documents/{companyId}/{candidateId}/...`). The DB row already stores `job_id: null`, which the existing RLS allows for authenticated users in the same company.
 
-(Only admins create or assign tags. All recruiters in the company can see them.)
+### 3. Sidebar collapse button at the top
 
-### 3. Tag management UI (admin-only)
+In `src/components/AppLayout.tsx`, move the collapse toggle (currently rendered between the nav and the user block, lines 153–159) into the logo header row at the top of the sidebar (next to the logo). Keep it desktop-only (`hidden lg:flex`). The icon still flips with `rotate-180` when collapsed. Remove the old bottom placement.
 
-New page `src/pages/admin/CandidateTagsAdmin.tsx` reachable from the existing Admin area:
-- List of tags for the current company.
-- Form to create a tag (label + color picker with 6 preset colors).
-- Edit / delete actions.
-- Hidden from non-admin users.
+### 4. Pipeline horizontal scrollbar at the top
 
-### 4. Tag assignment UI (all recruiters in company)
+In `src/pages/Pipeline.tsx`, the kanban currently uses a single `overflow-x-auto` wrapper at the bottom. Add a thin "top scrollbar" that mirrors the kanban's horizontal scroll:
 
-New component `src/components/candidate/CandidateTagsBar.tsx`:
-- Renders pill badges of currently assigned tags using the tag color.
-- "+ Add tag" popover lists company tags (multi-select with checkboxes).
-- "x" on each pill removes the assignment.
-- Shows read-only badges for non-admins if you later want to gate assignment; for now: any recruiter in the company can assign/unassign (admins still solely manage the tag library itself).
+- Wrap the kanban in a container with `ref={kanbanRef}`.
+- Above the kanban, render a `<div ref={topScrollRef} className="overflow-x-auto" onScroll={...}>` containing a single inner `<div style={{ width: kanbanScrollWidth }} className="h-3" />`.
+- Sync both directions with `onScroll` handlers and a `ResizeObserver` to keep the inner width in sync with `kanbanRef.current.scrollWidth`.
 
-### 5. Where tags are displayed
+Result: a horizontal scrollbar visible at the top of the board, plus the existing one at the bottom, both controlling the same view.
 
-- **Candidate profile** (`src/pages/CandidateProfile.tsx`) — full `CandidateTagsBar` near the header.
-- **Candidates list** (`src/pages/Candidates.tsx`) — inline pills in the row.
-- **Pipeline kanban card** (`src/components/pipeline/KanbanCard.tsx`) — small color dots / pills near the name so flags like "Do not hire" are instantly visible.
-- **Candidate panel** (`src/components/pipeline/CandidatePanel.tsx`) — full bar at the top.
-- **Public application flow is untouched** (tags are internal-only).
+### 5. Remove the `testadmin@email.com` gate — all admins see all modules
 
-### 6. Data fetching
+- `src/App.tsx`: delete `TEST_ADMIN_EMAIL`, `ATSGuard`, `DefaultRedirect`. Replace `<DefaultRedirect />` with `<Dashboard />`. Remove every `<ATSGuard>` wrapper around `/jobs`, `/candidates`, `/candidates/:id`, `/pipeline`, `/admin/candidate-tags` so they render directly. In `AuthRoute`, redirect any signed-in non-super-admin to `/dashboard`.
+- `src/components/AppLayout.tsx`: remove `TEST_ADMIN_EMAIL` and `isTestAdmin`. For non-super-admins, show **both** `atsNavItems` and `screeningNavItems` (plus the Assessment bottom link).
 
-Single query helper that, given a list of candidate IDs, returns a map `candidateId -> tags[]` joining `candidate_tag_assignments` with `candidate_tags`. Used by Pipeline, Candidates list, and CandidateProfile to avoid N+1 calls.
+Also update memory: `mem://constraints/ats-access` and the Core line in `mem://index.md` to remove the ATS-restriction rule.
 
-### 7. Validation checklist
+### Files to change
 
-- Admin can create/edit/delete tags; non-admin cannot see the management page.
-- Recruiter can assign/remove tags on a candidate.
-- "Do not hire" tag set on a candidate is visible on:
-  - their pipeline card (any job),
-  - candidate list row,
-  - candidate profile,
-  - candidate side panel.
-- Tags never leak across companies (verified via RLS company scoping).
-- No tags appear on public careers / apply pages.
+- `src/pages/apply/PublicJobApplication.tsx` — archive resume version on every submit
+- `src/lib/uploadToStorage.ts` — make `jobId` optional, omit for documents
+- `src/components/candidate/CandidateDocuments.tsx` — stop sending `jobId: "manual"`
+- `src/components/AppLayout.tsx` — collapse button at top; remove test-admin gating
+- `src/pages/Pipeline.tsx` — top horizontal scrollbar synced with kanban
+- `src/App.tsx` — remove `ATSGuard` / `DefaultRedirect` / test-admin checks
+- `mem://index.md`, `mem://constraints/ats-access` — remove ATS restriction note
+
+### No database migrations required
+
+All required RLS policies already exist:
+- `candidate_files` public resume insert policy already permits the version-archive insert from `/apply/:jobId`.
+- `candidate_files` authenticated insert policy already permits admin-uploaded documents with `job_id: null`.
+
+### Validation checklist
+
+- Re-apply with the same email to a different job → candidate row's `resume_*` updates to the new file; **Resume History** tab shows both old and new entries with the correct job titles.
+- Admin opens a candidate profile and uploads a document → no "Invalid job_id" error; document appears in the Documents list and is viewable.
+- Sidebar: collapse toggle is at the top (next to logo); clicking it collapses to icon-only and the toggle stays visible.
+- Pipeline: horizontal scrollbars appear both above and below the columns; dragging either scrolls the board.
+- Logging in with any admin (not just `testadmin@email.com`) shows Dashboard, Jobs, Candidates, Pipeline, Candidate Tags, Video Screening, and Assessment in the sidebar and all routes load.
 
