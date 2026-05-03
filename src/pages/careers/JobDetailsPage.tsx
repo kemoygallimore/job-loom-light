@@ -29,11 +29,9 @@ export default function JobDetailsPage() {
     if (!companySlug || !jobId) return;
 
     const fetchJob = async () => {
-      const { data: companyData } = await supabase
-        .from("companies")
-        .select("id, name")
-        .eq("slug", companySlug)
-        .maybeSingle();
+      const { data: companyRows } = await supabase
+        .rpc("get_public_company_by_slug", { _slug: companySlug });
+      const companyData = companyRows?.[0] ?? null;
 
       if (!companyData) { setNotFound(true); setLoading(false); return; }
       setCompany(companyData);
