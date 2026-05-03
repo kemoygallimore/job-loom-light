@@ -664,6 +664,14 @@ export type Database = {
         }
         Returns: string
       }
+      get_public_company_by_slug: {
+        Args: { _slug: string }
+        Returns: {
+          id: string
+          name: string
+          slug: string
+        }[]
+      }
       get_user_company_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
