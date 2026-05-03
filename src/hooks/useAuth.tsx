@@ -45,10 +45,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setInitialSessionChecked(true);
     });
 
-    // Subscribe to subsequent auth changes (sign in, sign out, token refresh)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    // Subscribe to subsequent auth changes (sign in, sign out, token refresh).
+    // IMPORTANT: only update React state when the user identity actually changes.
+    // Supabase fires SIGNED_IN / TOKEN_REFRESHED on tab focus; updating state on
+    // every event causes a full app re-render and wipes unsaved form input.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession((prevSession) => {
+        const prevUserId = prevSession?.user?.id ?? null;
+        const nextUserId = newSession?.user?.id ?? null;
+        if (prevUserId === nextUserId) {
+          // Same user (token refresh or focus re-emit) — keep existing references
+          // so downstream effects don't re-run.
+          return prevSession;
+        }
+        setUser(newSession?.user ?? null);
+        return newSession;
+      });
     });
 
     return () => subscription.unsubscribe();
@@ -77,7 +89,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     fetchProfile();
-  }, [user, initialSessionChecked, refreshTick]);
+    // Depend on user.id (primitive) rather than the user object so that a
+    // refreshed-but-identical user does not re-trigger profile fetches.
+  }, [user?.id, initialSessionChecked, refreshTick]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
