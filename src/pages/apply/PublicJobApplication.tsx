@@ -219,13 +219,9 @@ export default function PublicJobApplication() {
 
       setJob(jobData);
 
-      const { data: companyData, error: companyError } = await supabase
-        .from("companies")
-        .select("id, name")
-        .eq("id", jobData.company_id)
-        .maybeSingle();
-
-      setCompany(companyData);
+      const { data: companyRows } = await supabase
+        .rpc("get_public_company_for_job", { _job_id: jobData.id });
+      setCompany(companyRows?.[0] ?? null);
       setLoading(false);
     };
 
