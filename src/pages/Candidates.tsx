@@ -40,6 +40,8 @@ interface CandidateWithContext {
   resume_content_type: string | null;
   resume_size_bytes: number | null;
   created_at: string;
+  parish_state: string | null;
+  country: string | null;
   latest_app_id: string | null;
   latest_job_id: string | null;
   latest_job_title: string | null;
@@ -98,6 +100,7 @@ export default function Candidates() {
   // Filters
   const [stageFilter, setStageFilter] = useState("all");
   const [jobFilter, setJobFilter] = useState("all");
+  const [parishFilter, setParishFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [repeatOnly, setRepeatOnly] = useState(false);
@@ -105,6 +108,7 @@ export default function Candidates() {
   const activeFilterCount = [
     stageFilter !== "all",
     jobFilter !== "all",
+    parishFilter !== "all",
     !!dateFrom,
     !!dateTo,
     repeatOnly,
@@ -113,6 +117,7 @@ export default function Candidates() {
   const clearFilters = () => {
     setStageFilter("all");
     setJobFilter("all");
+    setParishFilter("all");
     setDateFrom(undefined);
     setDateTo(undefined);
     setRepeatOnly(false);
@@ -195,6 +200,11 @@ export default function Candidates() {
       result = result.filter((c) => c.latest_job_id === jobFilter);
     }
 
+    // Parish/state filter
+    if (parishFilter !== "all") {
+      result = result.filter((c) => (c.parish_state ?? "") === parishFilter);
+    }
+
     // Date from
     if (dateFrom) {
       const from = dateFrom.getTime();
@@ -214,7 +224,16 @@ export default function Candidates() {
     }
 
     return result;
-  }, [candidates, search, stageFilter, jobFilter, dateFrom, dateTo, repeatOnly]);
+  }, [candidates, search, stageFilter, jobFilter, parishFilter, dateFrom, dateTo, repeatOnly]);
+
+  const parishOptions = useMemo(() => {
+    const set = new Set<string>();
+    candidates.forEach((c) => {
+      const p = c.parish_state?.trim();
+      if (p) set.add(p);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [candidates]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -386,12 +405,15 @@ export default function Candidates() {
       <CandidateFilters
         stageFilter={stageFilter}
         jobFilter={jobFilter}
+        parishFilter={parishFilter}
+        parishOptions={parishOptions}
         dateFrom={dateFrom}
         dateTo={dateTo}
         repeatOnly={repeatOnly}
         jobs={jobs}
         onStageChange={setStageFilter}
         onJobChange={setJobFilter}
+        onParishChange={setParishFilter}
         onDateFromChange={setDateFrom}
         onDateToChange={setDateTo}
         onRepeatOnlyChange={setRepeatOnly}

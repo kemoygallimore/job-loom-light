@@ -29,12 +29,15 @@ interface Job {
 interface CandidateFiltersProps {
   stageFilter: string;
   jobFilter: string;
+  parishFilter: string;
+  parishOptions: string[];
   dateFrom: Date | undefined;
   dateTo: Date | undefined;
   repeatOnly: boolean;
   jobs: Job[];
   onStageChange: (val: string) => void;
   onJobChange: (val: string) => void;
+  onParishChange: (val: string) => void;
   onDateFromChange: (val: Date | undefined) => void;
   onDateToChange: (val: Date | undefined) => void;
   onRepeatOnlyChange: (val: boolean) => void;
@@ -43,8 +46,8 @@ interface CandidateFiltersProps {
 }
 
 export default function CandidateFilters({
-  stageFilter, jobFilter, dateFrom, dateTo, repeatOnly, jobs,
-  onStageChange, onJobChange, onDateFromChange, onDateToChange,
+  stageFilter, jobFilter, parishFilter, parishOptions, dateFrom, dateTo, repeatOnly, jobs,
+  onStageChange, onJobChange, onParishChange, onDateFromChange, onDateToChange,
   onRepeatOnlyChange, onClearAll, activeCount,
 }: CandidateFiltersProps) {
   return (
@@ -77,6 +80,19 @@ export default function CandidateFilters({
             <SelectItem value="all" className="text-xs">All jobs</SelectItem>
             {jobs.map((j) => (
               <SelectItem key={j.id} value={j.id} className="text-xs">{j.title}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Parish/State */}
+        <Select value={parishFilter} onValueChange={onParishChange}>
+          <SelectTrigger className="w-[160px] h-8 text-xs">
+            <SelectValue placeholder="All parishes" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all" className="text-xs">All parishes/states</SelectItem>
+            {parishOptions.map((p) => (
+              <SelectItem key={p} value={p} className="text-xs">{p}</SelectItem>
             ))}
           </SelectContent>
         </Select>
