@@ -57,7 +57,7 @@ interface Candidate {
   street_address: string | null;
   parish_state: string | null;
   education_level: string | null;
-  linkedin_url: string | null;
+  linkedin_url?: string | null;
 }
 
 interface ApplicationWithJob {
@@ -112,7 +112,7 @@ export default function CandidateProfile() {
         });
       }
 
-      setCandidate(cRes.data as Candidate);
+      setCandidate(cRes.data as unknown as Candidate);
       setApplications(
         (aRes.data ?? []).map((a: any) => ({
           id: a.id,
