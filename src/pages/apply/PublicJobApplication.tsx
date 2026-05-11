@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { CheckCircle2, FileText, Loader2, AlertCircle, Upload, X, Building2 } from "lucide-react";
+import { CheckCircle2, FileText, Loader2, AlertCircle, Upload, X, Building2, Linkedin } from "lucide-react";
 import { uploadResumeToR2 } from "@/lib/uploadResumeToR2";
 const EDUCATION_LEVELS = [
   "Primary Level Education",
@@ -190,11 +191,13 @@ export default function PublicJobApplication() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [linkedinUrl, setLinkedinUrl] = useState("");
   const [country, setCountry] = useState("");
   const [streetAddress, setStreetAddress] = useState("");
   const [parishState, setParishState] = useState("");
   const [educationLevel, setEducationLevel] = useState("");
   const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -242,11 +245,15 @@ export default function PublicJobApplication() {
     if (!email.trim()) e.email = "Email is required";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = "Enter a valid email";
     if (!phone.trim()) e.phone = "Phone number is required";
+    if (linkedinUrl.trim() && !/^https?:\/\/(www\.)?linkedin\.com\/.+/i.test(linkedinUrl.trim())) {
+      e.linkedinUrl = "Enter a valid LinkedIn URL (e.g. https://www.linkedin.com/in/your-name)";
+    }
     if (!country) e.country = "Country is required";
     if (!streetAddress.trim()) e.streetAddress = "Street address is required";
     if (!parishState) e.parishState = "Parish/State is required";
     if (!educationLevel) e.educationLevel = "Education level is required";
     if (!resumeFile) e.resume = "Resume is required";
+    if (!agreedToTerms) e.terms = "You must agree to the Data Protection Agreement to continue";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -313,6 +320,7 @@ export default function PublicJobApplication() {
           .update({
             name: name.trim(),
             phone: phone.trim(),
+            linkedin_url: linkedinUrl.trim() || null,
             country,
             street_address: streetAddress.trim(),
             parish_state: parishState,
@@ -350,6 +358,7 @@ export default function PublicJobApplication() {
           name: name.trim(),
           email: normalizedEmail,
           phone: phone.trim(),
+          linkedin_url: linkedinUrl.trim() || null,
           country,
           street_address: streetAddress.trim(),
           parish_state: parishState,
