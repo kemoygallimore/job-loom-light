@@ -226,129 +226,11 @@ export default function Candidates() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [candidates]);
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!profile) return;
-
-    let resumeFields: {
-      resume_url?: string | null;
-      resume_bucket?: string | null;
-      resume_object_key?: string | null;
-      resume_filename?: string | null;
-      resume_content_type?: string | null;
-      resume_size_bytes?: number | null;
-    } = {};
-
-    if (resumeFile) {
-      try {
-        const candidateId = editCandidate?.id ?? email?.trim().toLowerCase() ?? crypto.randomUUID();
-        const result = await uploadResumeToR2({
-          file: resumeFile,
-          companyId: profile.company_id!,
-          candidateId,
-        });
-        resumeFields = {
-          resume_url: result.key,
-          resume_bucket: result.bucket,
-          resume_object_key: result.key,
-          resume_filename: result.filename,
-          resume_content_type: result.contentType,
-          resume_size_bytes: result.size,
-        };
-      } catch (err: any) {
-        toast.error(err.message || "Resume upload failed");
-        return;
-      }
-    }
-
-    let savedCandidateId: string | null = null;
-
-    if (editCandidate) {
-      const { error } = await supabase.from("candidates").update({
-        name,
-        email: email || null,
-        phone: phone || null,
-        ...resumeFields,
-      }).eq("id", editCandidate.id);
-      if (error) { toast.error(error.message); return; }
-      savedCandidateId = editCandidate.id;
-      toast.success("Candidate updated");
-    } else {
-      const { data: inserted, error } = await supabase.from("candidates").insert({
-        company_id: profile.company_id!,
-        name,
-        email: email || null,
-        phone: phone || null,
-        ...resumeFields,
-      }).select("id").single();
-      if (error) { toast.error(error.message); return; }
-      savedCandidateId = inserted?.id ?? null;
-      toast.success("Candidate added");
-    }
-
-    // Archive resume version into candidate_files history
-    if (resumeFile && savedCandidateId && resumeFields.resume_object_key) {
-      let archiveJobId = editCandidate?.latest_job_id ?? null;
-
-      if (editCandidate && !archiveJobId) {
-        const { data: latestApplication } = await supabase
-          .from("applications")
-          .select("job_id")
-          .eq("candidate_id", savedCandidateId)
-          .order("updated_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        archiveJobId = latestApplication?.job_id ?? null;
-      }
-
-      const fileType =
-        resumeFields.resume_content_type ||
-        resumeFile.type ||
-        "application/octet-stream";
-      const { error: archiveError } = await supabase.from("candidate_files").insert({
-        company_id: profile.company_id!,
-        candidate_id: savedCandidateId,
-        job_id: archiveJobId,
-        category: "resume",
-        bucket: resumeFields.resume_bucket!,
-        file_key: resumeFields.resume_object_key!,
-        file_name: resumeFields.resume_filename ?? resumeFile.name,
-        file_type: fileType,
-        file_size: resumeFields.resume_size_bytes ?? resumeFile.size,
-      });
-      if (archiveError) {
-        console.error("candidate_files archive failed:", archiveError);
-        toast.error(`Resume saved but history archive failed: ${archiveError.message}`);
-      }
-    }
-    resetForm();
-    load();
-  };
-
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from("candidates").delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
     toast.success("Candidate deleted");
     load();
-  };
-
-  const openEdit = (c: CandidateWithContext) => {
-    setEditCandidate(c);
-    setName(c.name);
-    setEmail(c.email ?? "");
-    setPhone(c.phone ?? "");
-    setResumeFile(null);
-    setOpen(true);
-  };
-
-  const resetForm = () => {
-    setOpen(false);
-    setEditCandidate(null);
-    setName("");
-    setEmail("");
-    setPhone("");
-    setResumeFile(null);
   };
 
   return (
@@ -364,21 +246,6 @@ export default function Candidates() {
             </p>
           )}
         </div>
-        <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); else setOpen(true); }}>
-          <DialogTrigger asChild>
-            <Button><Plus className="w-4 h-4 mr-2" />Add Candidate</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>{editCandidate ? "Edit Candidate" : "New Candidate"}</DialogTitle></DialogHeader>
-            <form onSubmit={handleSave} className="space-y-4">
-              <div className="space-y-1.5"><Label>Name</Label><Input value={name} onChange={(e) => setName(e.target.value)} required /></div>
-              <div className="space-y-1.5"><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-              <div className="space-y-1.5"><Label>Phone</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
-              <div className="space-y-1.5"><Label>Resume</Label><Input type="file" accept=".pdf,.doc,.docx" onChange={(e) => setResumeFile(e.target.files?.[0] ?? null)} /></div>
-              <Button type="submit" className="w-full">Save</Button>
-            </form>
-          </DialogContent>
-        </Dialog>
       </div>
 
       {/* Search */}
