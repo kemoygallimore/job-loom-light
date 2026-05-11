@@ -1,12 +1,9 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { uploadResumeToR2 } from "@/lib/uploadResumeToR2";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,7 +18,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Search, User, X, RotateCcw } from "lucide-react";
+import { Trash2, Search, User, X, RotateCcw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import CandidateFilters from "@/components/candidate/CandidateFilters";
 import CandidateQuickActions from "@/components/candidate/CandidateQuickActions";
@@ -89,12 +86,6 @@ export default function Candidates() {
   const [tagsByCandidate, setTagsByCandidate] = useState<Map<string, CandidateTag[]>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [open, setOpen] = useState(false);
-  const [editCandidate, setEditCandidate] = useState<CandidateWithContext | null>(null);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [search, setSearch] = useState("");
 
   // Filters
