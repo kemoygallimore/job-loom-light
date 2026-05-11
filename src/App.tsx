@@ -23,6 +23,7 @@ import ScreeningSubmissions from "./pages/screening/ScreeningSubmissions";
 import PublicScreening from "./pages/screening/PublicScreening";
 import PublicJobApplication from "./pages/apply/PublicJobApplication";
 import PublicFeedback from "./pages/feedback/PublicFeedback";
+import DataProtection from "./pages/legal/DataProtection";
 import NotFound from "./pages/NotFound";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
@@ -90,6 +91,7 @@ const App = () => (
             <Route path="/screen/:linkId" element={<PublicScreening />} />
             <Route path="/apply/:jobId" element={<PublicJobApplication />} />
             <Route path="/feedback/:token" element={<PublicFeedback />} />
+            <Route path="/legal/data-protection" element={<DataProtection />} />
             <Route element={<ProtectedRoutes />}>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/jobs" element={<Jobs />} />
