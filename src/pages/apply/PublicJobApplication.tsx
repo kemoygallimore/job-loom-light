@@ -414,7 +414,13 @@ export default function PublicJobApplication() {
       setSubmitted(true);
     } catch (err: any) {
       console.error("Submit error:", err);
-      toast.error(err.message || "Something went wrong");
+      const msg: string = err?.message || "Something went wrong";
+      if (/linkedin/i.test(msg)) {
+        setErrors((p) => ({ ...p, linkedinUrl: msg }));
+        toast.error(msg);
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setSubmitting(false);
     }
