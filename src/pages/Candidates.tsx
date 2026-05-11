@@ -319,7 +319,7 @@ export default function Candidates() {
                 <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
                   <div className="flex flex-col items-center gap-2">
                     <User className="w-8 h-8 text-muted-foreground/40" />
-                    <span>{search || activeFilterCount > 0 ? "No matching applicants found" : "No candidates yet. Add your first candidate."}</span>
+                    <span>{search || activeFilterCount > 0 ? "No matching applicants found" : "No candidates yet. Share your public job link to start receiving applications."}</span>
                     {activeFilterCount > 0 && (
                       <Button variant="ghost" size="sm" onClick={clearFilters} className="text-xs">Clear filters</Button>
                     )}
