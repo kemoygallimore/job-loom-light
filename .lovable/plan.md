@@ -1,58 +1,62 @@
-## Why the app "refreshes" when you switch tabs
 
-The page is **not** doing a full browser reload — there is no `window.location.reload()` anywhere in the codebase. What you are experiencing is a **React re-render cascade** that wipes any unsaved local component state (form inputs, dialogs, scroll position, etc.).
+## Scope
 
-### Root cause: `src/hooks/useAuth.tsx`
+Four changes across the public application flow, candidate views, and a new policy page.
 
-When you leave a tab, Supabase's auth client pauses its token refresh timer. When you come back, it immediately:
+---
 
-1. Refreshes the JWT (fires a `TOKEN_REFRESHED` event), and
-2. Re-emits a `SIGNED_IN` event on visibility change.
+### 1. Optional LinkedIn profile link on the application
 
-Our `onAuthStateChange` handler responds to **every** event by calling:
+**Database**
+- Add `linkedin_url text NULL` to `public.candidates`.
 
-```ts
-setSession(session);
-setUser(session?.user ?? null);
-```
+**Public apply form (`src/pages/apply/PublicJobApplication.tsx`)**
+- Add a LinkedIn URL input below Phone, clearly labeled **optional** (no asterisk).
+- Validate only when filled: must look like a LinkedIn URL (`/^https?:\/\/(www\.)?linkedin\.com\/.+/i`).
+- Persist on insert and update paths next to the other candidate fields.
 
-Even though the logged-in user is the same, `session.user` is a brand-new object reference each time. That triggers the second `useEffect` (which depends on `user`), which:
+**Display on candidate page (`src/pages/CandidateProfile.tsx`)**
+- Extend the `Candidate` interface with `linkedin_url`.
+- In the contact grid, show a LinkedIn row when present (Linkedin icon + external link, opens in new tab).
 
-- Re-fetches `profiles` and `user_roles` from the database,
-- Calls `setProfile(...)` and `setRole(...)` with new object references,
-- Which changes the `AuthContext` value,
-- Which re-renders **every component in the app that uses `useAuth()`** (basically all pages, the layout, and protected routes),
-- And any child component whose `useEffect` depends on `profile`, `role`, `user`, or `company_id` then re-runs its own data fetch — which is what feels like a "refresh".
+**Display on pipeline candidate panel (`src/components/pipeline/CandidatePanel.tsx`)**
+- Fetch `linkedin_url` for the candidate (small extra select against `candidates`) and render a row alongside email when present.
 
-Anything held only in local component state (typed text in an input, modal open state, an in-progress upload form) gets reset because the parent's identity churn unmounts/remounts subtrees.
+---
 
-### The fix
+### 2. Remove "Add Candidate" from the Candidates page
 
-Make the auth provider **idempotent**: ignore auth events that don't actually change the logged-in user, and only re-fetch the profile when the user id changes — not on every token refresh.
+In `src/pages/Candidates.tsx`:
+- Remove the **Add Candidate** button, the create/edit `Dialog`, and all related state (`open`, `editCandidate`, `name`, `email`, `phone`, `resumeFile`, `handleSave`, `openEdit`, `resetForm`) plus the `uploadResumeToR2` import that becomes unused.
+- Keep the **edit pencil** out of the row actions only if it depended on the same dialog; otherwise leave row actions (view / delete) intact. The plan removes only creation/edit-via-dialog flow per the request ("New candidates should only be added through the public link"). Deletion stays.
+- Keep filters, search, table, and tag display untouched.
 
-Concretely, in `src/hooks/useAuth.tsx`:
+---
 
-1. In the `onAuthStateChange` callback, compare the incoming `session.user.id` to the current one. Only call `setUser` / `setSession` when it actually changed (sign-in, sign-out, user switch). Token refreshes silently update the cached session without touching React state.
-2. Change the profile-fetch effect to depend on `user?.id` instead of the whole `user` object, so a refreshed-but-identical user does not retrigger the fetch.
-3. Keep the existing `refreshAuth()` escape hatch (via `refreshTick`) so we can still force a re-fetch when something legitimately changes (e.g. after a profile update).
+### 3. Mobile apply button cleanup on the public job page
 
-### Files to change
+The page that shows the bottom sticky mobile button is `src/pages/careers/JobDetailsPage.tsx` (the apply form itself has only one submit button). Remove the `sm:hidden fixed bottom-0 ...` floating Apply Now block. Keep the inline **Apply Now** button inside the "Interested in this role?" section as the single CTA on every viewport.
 
-- `src/hooks/useAuth.tsx` — the only change needed.
+---
 
-### What this will fix
+### 4. Data Protection agreement on the apply form
 
-- Typing in a form and switching tabs will no longer reset the inputs.
-- Open dialogs/sheets stay open.
-- No unnecessary network calls to `profiles` / `user_roles` every time you tab back.
-- Pages that fetch on `useEffect([profile])` won't re-fetch on focus.
+**New page**
+- Create `src/pages/legal/DataProtection.tsx` with a clean, branded long-form policy page covering: what data we collect, lawful basis, storage (private R2, RLS), retention, sharing with the hiring company only, candidate rights (access, correction, deletion), and contact. Use existing typography/`prose` styling so it matches the public pages.
+- Add route `/legal/data-protection` in `src/App.tsx` (public, no auth).
 
-### What this will NOT change
+**Apply form (`PublicJobApplication.tsx`)**
+- Add a required checkbox at the bottom of the form, just above the Submit button:
+  > I agree to the [Data Protection Agreement](…) and consent to my information being processed as described.
+- The link uses `<a href="/legal/data-protection" target="_blank" rel="noopener noreferrer">`.
+- Validation: block submit until checked; show inline error if not.
+- Disable the Submit button while unchecked, in addition to the existing `submitting` state.
 
-- Real sign-in / sign-out events still update the UI immediately.
-- The session is still refreshed in the background by Supabase — you stay logged in.
-- No other files (pages, layout, queries) need to change.
+---
 
-### Out of scope (mention only)
+## Technical notes
 
-We do not use React Query's `useQuery` anywhere, so `refetchOnWindowFocus` is not a factor here. If we add React Query data fetching later, we should also disable `refetchOnWindowFocus` globally for forms-heavy screens.
+- Migration uses an `ALTER TABLE` only — no RLS change needed (existing policies cover the new column).
+- `linkedin_url` is rendered as a normal anchor; no scraping or external API calls.
+- The Data Protection page is a static React component, not stored in the DB.
+- All UI uses existing semantic tokens; no new colors introduced.

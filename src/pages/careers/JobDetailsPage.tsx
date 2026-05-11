@@ -141,17 +141,6 @@ export default function JobDetailsPage() {
         )}
       </main>
 
-      {!loading && job && (
-        <div className="sm:hidden fixed bottom-0 inset-x-0 p-4 bg-background/80 backdrop-blur border-t">
-          <Button
-            className="w-full h-12 text-base active:scale-[0.97] transition-transform"
-            onClick={() => navigate(applyPath)}
-          >
-            Apply Now
-          </Button>
-        </div>
-      )}
-
       <footer className="border-t mt-auto">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 text-center">
           <p className="text-xs text-muted-foreground/50">

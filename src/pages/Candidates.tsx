@@ -1,12 +1,9 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { uploadResumeToR2 } from "@/lib/uploadResumeToR2";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,7 +18,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Search, User, X, RotateCcw } from "lucide-react";
+import { Trash2, Search, User, X, RotateCcw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import CandidateFilters from "@/components/candidate/CandidateFilters";
 import CandidateQuickActions from "@/components/candidate/CandidateQuickActions";
@@ -89,12 +86,6 @@ export default function Candidates() {
   const [tagsByCandidate, setTagsByCandidate] = useState<Map<string, CandidateTag[]>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [open, setOpen] = useState(false);
-  const [editCandidate, setEditCandidate] = useState<CandidateWithContext | null>(null);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [search, setSearch] = useState("");
 
   // Filters
@@ -235,129 +226,11 @@ export default function Candidates() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [candidates]);
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!profile) return;
-
-    let resumeFields: {
-      resume_url?: string | null;
-      resume_bucket?: string | null;
-      resume_object_key?: string | null;
-      resume_filename?: string | null;
-      resume_content_type?: string | null;
-      resume_size_bytes?: number | null;
-    } = {};
-
-    if (resumeFile) {
-      try {
-        const candidateId = editCandidate?.id ?? email?.trim().toLowerCase() ?? crypto.randomUUID();
-        const result = await uploadResumeToR2({
-          file: resumeFile,
-          companyId: profile.company_id!,
-          candidateId,
-        });
-        resumeFields = {
-          resume_url: result.key,
-          resume_bucket: result.bucket,
-          resume_object_key: result.key,
-          resume_filename: result.filename,
-          resume_content_type: result.contentType,
-          resume_size_bytes: result.size,
-        };
-      } catch (err: any) {
-        toast.error(err.message || "Resume upload failed");
-        return;
-      }
-    }
-
-    let savedCandidateId: string | null = null;
-
-    if (editCandidate) {
-      const { error } = await supabase.from("candidates").update({
-        name,
-        email: email || null,
-        phone: phone || null,
-        ...resumeFields,
-      }).eq("id", editCandidate.id);
-      if (error) { toast.error(error.message); return; }
-      savedCandidateId = editCandidate.id;
-      toast.success("Candidate updated");
-    } else {
-      const { data: inserted, error } = await supabase.from("candidates").insert({
-        company_id: profile.company_id!,
-        name,
-        email: email || null,
-        phone: phone || null,
-        ...resumeFields,
-      }).select("id").single();
-      if (error) { toast.error(error.message); return; }
-      savedCandidateId = inserted?.id ?? null;
-      toast.success("Candidate added");
-    }
-
-    // Archive resume version into candidate_files history
-    if (resumeFile && savedCandidateId && resumeFields.resume_object_key) {
-      let archiveJobId = editCandidate?.latest_job_id ?? null;
-
-      if (editCandidate && !archiveJobId) {
-        const { data: latestApplication } = await supabase
-          .from("applications")
-          .select("job_id")
-          .eq("candidate_id", savedCandidateId)
-          .order("updated_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        archiveJobId = latestApplication?.job_id ?? null;
-      }
-
-      const fileType =
-        resumeFields.resume_content_type ||
-        resumeFile.type ||
-        "application/octet-stream";
-      const { error: archiveError } = await supabase.from("candidate_files").insert({
-        company_id: profile.company_id!,
-        candidate_id: savedCandidateId,
-        job_id: archiveJobId,
-        category: "resume",
-        bucket: resumeFields.resume_bucket!,
-        file_key: resumeFields.resume_object_key!,
-        file_name: resumeFields.resume_filename ?? resumeFile.name,
-        file_type: fileType,
-        file_size: resumeFields.resume_size_bytes ?? resumeFile.size,
-      });
-      if (archiveError) {
-        console.error("candidate_files archive failed:", archiveError);
-        toast.error(`Resume saved but history archive failed: ${archiveError.message}`);
-      }
-    }
-    resetForm();
-    load();
-  };
-
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from("candidates").delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
     toast.success("Candidate deleted");
     load();
-  };
-
-  const openEdit = (c: CandidateWithContext) => {
-    setEditCandidate(c);
-    setName(c.name);
-    setEmail(c.email ?? "");
-    setPhone(c.phone ?? "");
-    setResumeFile(null);
-    setOpen(true);
-  };
-
-  const resetForm = () => {
-    setOpen(false);
-    setEditCandidate(null);
-    setName("");
-    setEmail("");
-    setPhone("");
-    setResumeFile(null);
   };
 
   return (
@@ -373,21 +246,6 @@ export default function Candidates() {
             </p>
           )}
         </div>
-        <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); else setOpen(true); }}>
-          <DialogTrigger asChild>
-            <Button><Plus className="w-4 h-4 mr-2" />Add Candidate</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>{editCandidate ? "Edit Candidate" : "New Candidate"}</DialogTitle></DialogHeader>
-            <form onSubmit={handleSave} className="space-y-4">
-              <div className="space-y-1.5"><Label>Name</Label><Input value={name} onChange={(e) => setName(e.target.value)} required /></div>
-              <div className="space-y-1.5"><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-              <div className="space-y-1.5"><Label>Phone</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
-              <div className="space-y-1.5"><Label>Resume</Label><Input type="file" accept=".pdf,.doc,.docx" onChange={(e) => setResumeFile(e.target.files?.[0] ?? null)} /></div>
-              <Button type="submit" className="w-full">Save</Button>
-            </form>
-          </DialogContent>
-        </Dialog>
       </div>
 
       {/* Search */}
@@ -461,7 +319,7 @@ export default function Candidates() {
                 <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
                   <div className="flex flex-col items-center gap-2">
                     <User className="w-8 h-8 text-muted-foreground/40" />
-                    <span>{search || activeFilterCount > 0 ? "No matching applicants found" : "No candidates yet. Add your first candidate."}</span>
+                    <span>{search || activeFilterCount > 0 ? "No matching applicants found" : "No candidates yet. Share your public job link to start receiving applications."}</span>
                     {activeFilterCount > 0 && (
                       <Button variant="ghost" size="sm" onClick={clearFilters} className="text-xs">Clear filters</Button>
                     )}
@@ -529,9 +387,6 @@ export default function Candidates() {
                         hideStageChange
                       />
                       <div className="flex items-center gap-0.5 border-l border-border ml-1 pl-1" onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)}>
-                          <Pencil className="w-3.5 h-3.5" />
-                        </Button>
                         {loadingAuth ? null : !role ? null : role === "admin" && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>

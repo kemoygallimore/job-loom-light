@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { X, Mail, Briefcase, Clock, Link2, Copy, Check } from "lucide-react";
+import { X, Mail, Briefcase, Clock, Link2, Copy, Check, Linkedin } from "lucide-react";
 import { toast } from "sonner";
 import InterviewFeedback from "@/components/candidate/InterviewFeedback";
 import CandidateTagsBar from "@/components/candidate/CandidateTagsBar";
@@ -44,6 +44,7 @@ export default function CandidatePanel({ app, onClose, onStageChange }: Props) {
   const [newNote, setNewNote] = useState("");
   const [generatingLink, setGeneratingLink] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [linkedinUrl, setLinkedinUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchNotes = async () => {
@@ -55,6 +56,18 @@ export default function CandidatePanel({ app, onClose, onStageChange }: Props) {
       setNotes((data as Note[]) ?? []);
     };
     fetchNotes();
+  }, [app.candidate_id]);
+
+  useEffect(() => {
+    const fetchCandidate = async () => {
+      const { data } = await supabase
+        .from("candidates")
+        .select("linkedin_url")
+        .eq("id", app.candidate_id)
+        .maybeSingle();
+      setLinkedinUrl((data as any)?.linkedin_url ?? null);
+    };
+    fetchCandidate();
   }, [app.candidate_id]);
 
   const addNote = async () => {
@@ -128,6 +141,19 @@ export default function CandidatePanel({ app, onClose, onStageChange }: Props) {
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Mail className="w-4 h-4" />
                 <span>{app.candidate.email}</span>
+              </div>
+            )}
+            {linkedinUrl && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Linkedin className="w-4 h-4" />
+                <a
+                  href={linkedinUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline truncate"
+                >
+                  LinkedIn Profile
+                </a>
               </div>
             )}
             <CandidateTagsBar candidateId={app.candidate_id} />

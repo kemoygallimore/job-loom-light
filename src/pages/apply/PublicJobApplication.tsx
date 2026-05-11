@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { CheckCircle2, FileText, Loader2, AlertCircle, Upload, X, Building2 } from "lucide-react";
+import { CheckCircle2, FileText, Loader2, AlertCircle, Upload, X, Building2, Linkedin } from "lucide-react";
 import { uploadResumeToR2 } from "@/lib/uploadResumeToR2";
 const EDUCATION_LEVELS = [
   "Primary Level Education",
@@ -190,11 +191,13 @@ export default function PublicJobApplication() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [linkedinUrl, setLinkedinUrl] = useState("");
   const [country, setCountry] = useState("");
   const [streetAddress, setStreetAddress] = useState("");
   const [parishState, setParishState] = useState("");
   const [educationLevel, setEducationLevel] = useState("");
   const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -242,11 +245,15 @@ export default function PublicJobApplication() {
     if (!email.trim()) e.email = "Email is required";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = "Enter a valid email";
     if (!phone.trim()) e.phone = "Phone number is required";
+    if (linkedinUrl.trim() && !/^https?:\/\/(www\.)?linkedin\.com\/.+/i.test(linkedinUrl.trim())) {
+      e.linkedinUrl = "Enter a valid LinkedIn URL (e.g. https://www.linkedin.com/in/your-name)";
+    }
     if (!country) e.country = "Country is required";
     if (!streetAddress.trim()) e.streetAddress = "Street address is required";
     if (!parishState) e.parishState = "Parish/State is required";
     if (!educationLevel) e.educationLevel = "Education level is required";
     if (!resumeFile) e.resume = "Resume is required";
+    if (!agreedToTerms) e.terms = "You must agree to the Data Protection Agreement to continue";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -313,6 +320,7 @@ export default function PublicJobApplication() {
           .update({
             name: name.trim(),
             phone: phone.trim(),
+            linkedin_url: linkedinUrl.trim() || null,
             country,
             street_address: streetAddress.trim(),
             parish_state: parishState,
@@ -350,6 +358,7 @@ export default function PublicJobApplication() {
           name: name.trim(),
           email: normalizedEmail,
           phone: phone.trim(),
+          linkedin_url: linkedinUrl.trim() || null,
           country,
           street_address: streetAddress.trim(),
           parish_state: parishState,
@@ -533,6 +542,26 @@ export default function PublicJobApplication() {
             {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
           </div>
 
+          {/* LinkedIn (optional) */}
+          <div className="space-y-1.5">
+            <Label htmlFor="linkedin" className="text-sm flex items-center gap-1.5">
+              <Linkedin className="w-3.5 h-3.5 text-muted-foreground" />
+              LinkedIn Profile <span className="text-muted-foreground font-normal">(optional)</span>
+            </Label>
+            <Input
+              id="linkedin"
+              type="url"
+              value={linkedinUrl}
+              onChange={(e) => {
+                setLinkedinUrl(e.target.value);
+                setErrors((p) => ({ ...p, linkedinUrl: "" }));
+              }}
+              placeholder="https://www.linkedin.com/in/your-name"
+              className={errors.linkedinUrl ? "border-destructive" : ""}
+            />
+            {errors.linkedinUrl && <p className="text-xs text-destructive">{errors.linkedinUrl}</p>}
+          </div>
+
           {/* Address section */}
           <div className="space-y-4 rounded-lg border p-4">
             <h3 className="text-sm font-medium">Address</h3>
@@ -690,7 +719,39 @@ export default function PublicJobApplication() {
             {errors.resume && <p className="text-xs text-destructive">{errors.resume}</p>}
           </div>
 
-          <Button type="submit" className="w-full h-11 active:scale-[0.97] transition-transform" disabled={submitting}>
+          {/* Data protection consent */}
+          <div className="space-y-1.5 pt-2">
+            <div className="flex items-start gap-2.5 rounded-lg border bg-muted/30 p-3">
+              <Checkbox
+                id="terms"
+                checked={agreedToTerms}
+                onCheckedChange={(v) => {
+                  setAgreedToTerms(v === true);
+                  setErrors((p) => ({ ...p, terms: "" }));
+                }}
+                className="mt-0.5"
+              />
+              <Label htmlFor="terms" className="text-sm font-normal leading-relaxed cursor-pointer">
+                I agree to the{" "}
+                <a
+                  href="/legal/data-protection"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary underline underline-offset-2 hover:no-underline"
+                >
+                  Data Protection Agreement
+                </a>{" "}
+                and consent to my information being collected, stored, and processed as described.
+              </Label>
+            </div>
+            {errors.terms && <p className="text-xs text-destructive">{errors.terms}</p>}
+          </div>
+
+          <Button
+            type="submit"
+            className="w-full h-11 active:scale-[0.97] transition-transform"
+            disabled={submitting || !agreedToTerms}
+          >
             {submitting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin mr-2" /> Submitting...

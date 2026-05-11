@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ArrowLeft, Mail, Phone, FileText, Briefcase, Calendar, Clock, User, RotateCcw, MapPin, GraduationCap } from "lucide-react";
+import { ArrowLeft, Mail, Phone, FileText, Briefcase, Calendar, Clock, User, RotateCcw, MapPin, GraduationCap, Linkedin } from "lucide-react";
 import CandidateNotes, { type NoteWithAuthor } from "@/components/candidate/CandidateNotes";
 import ActivityTimeline, { type TimelineEvent } from "@/components/candidate/ActivityTimeline";
 import InterviewFeedback from "@/components/candidate/InterviewFeedback";
@@ -57,6 +57,7 @@ interface Candidate {
   street_address: string | null;
   parish_state: string | null;
   education_level: string | null;
+  linkedin_url?: string | null;
 }
 
 interface ApplicationWithJob {
@@ -111,7 +112,7 @@ export default function CandidateProfile() {
         });
       }
 
-      setCandidate(cRes.data as Candidate);
+      setCandidate(cRes.data as unknown as Candidate);
       setApplications(
         (aRes.data ?? []).map((a: any) => ({
           id: a.id,
@@ -301,6 +302,19 @@ export default function CandidateProfile() {
               <div className="flex items-center gap-2.5 text-sm">
                 <GraduationCap className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                 <span className="text-foreground">{candidate.education_level}</span>
+              </div>
+            )}
+            {candidate.linkedin_url && (
+              <div className="flex items-center gap-2.5 text-sm">
+                <Linkedin className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                <a
+                  href={candidate.linkedin_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline truncate"
+                >
+                  LinkedIn Profile
+                </a>
               </div>
             )}
             <div className="flex items-center gap-2.5 text-sm">
