@@ -387,9 +387,6 @@ export default function Candidates() {
                         hideStageChange
                       />
                       <div className="flex items-center gap-0.5 border-l border-border ml-1 pl-1" onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)}>
-                          <Pencil className="w-3.5 h-3.5" />
-                        </Button>
                         {loadingAuth ? null : !role ? null : role === "admin" && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
