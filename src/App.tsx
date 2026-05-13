@@ -15,6 +15,7 @@ import Assessment from "./pages/Assessment";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminOverview from "./pages/admin/AdminOverview";
 import AdminCompanies from "./pages/admin/AdminCompanies";
+import AdminPricing from "./pages/admin/AdminPricing";
 import CandidateTagsAdmin from "./pages/admin/CandidateTagsAdmin";
 import CareersPage from "./pages/careers/CareersPage";
 import JobDetailsPage from "./pages/careers/JobDetailsPage";
@@ -105,6 +106,7 @@ const App = () => (
               <Route path="/admin" element={<AdminDashboard />}>
                 <Route index element={<AdminOverview />} />
                 <Route path="companies" element={<AdminCompanies />} />
+                <Route path="pricing" element={<AdminPricing />} />
               </Route>
             </Route>
             <Route path="*" element={<NotFound />} />
