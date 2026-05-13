@@ -15,8 +15,11 @@ import {
   ClipboardCheck,
   Tags,
   Briefcase,
+  DollarSign,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
 import rizonhireLogo from "@/assets/RH logo white.png";
 
 const atsNavItems = [
@@ -34,6 +37,7 @@ const assessmentNavItem = { to: "/assessment", label: "Assessment", icon: Clipbo
 const superAdminNav = [
   { to: "/admin", label: "Overview", icon: LayoutDashboard },
   { to: "/admin/companies", label: "Companies", icon: Building2 },
+  { to: "/admin/pricing", label: "Pricing", icon: DollarSign },
 ];
 
 export default function AppLayout() {
@@ -41,8 +45,48 @@ export default function AppLayout() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [suspended, setSuspended] = useState(false);
+  const [companyChecked, setCompanyChecked] = useState(false);
 
   const isSuperAdmin = role === "super_admin";
+
+  useEffect(() => {
+    if (isSuperAdmin || !profile?.company_id) {
+      setCompanyChecked(true);
+      return;
+    }
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("companies")
+        .select("status")
+        .eq("id", profile.company_id)
+        .maybeSingle();
+      setSuspended(data?.status === "suspended");
+      setCompanyChecked(true);
+    })();
+  }, [isSuperAdmin, profile?.company_id]);
+
+  if (!isSuperAdmin && companyChecked && suspended) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-background">
+        <div className="max-w-md w-full text-center space-y-5 rounded-2xl border bg-card p-8 shadow-sm">
+          <div className="w-12 h-12 mx-auto rounded-full bg-destructive/10 flex items-center justify-center">
+            <Shield className="w-6 h-6 text-destructive" />
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold">Account suspended</h1>
+            <p className="text-sm text-muted-foreground mt-2">
+              Your workspace is currently suspended. Please contact your account administrator to restore access.
+            </p>
+          </div>
+          <Button variant="outline" onClick={signOut} className="w-full">
+            <LogOut className="w-4 h-4 mr-2" /> Sign out
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   const topLinks = isSuperAdmin ? superAdminNav : [...atsNavItems, ...screeningNavItems];
   const bottomLinks = isSuperAdmin ? [] : [assessmentNavItem];
 
