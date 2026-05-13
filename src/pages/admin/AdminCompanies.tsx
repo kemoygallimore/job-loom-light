@@ -7,13 +7,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Building2, Search, Users, Briefcase, Check, X, Pencil } from "lucide-react";
+import { Plus, Building2, Search, Users, Briefcase, Check, X, Pencil, Ban, Power } from "lucide-react";
 
 interface CompanyRow {
   id: string;
   name: string;
   created_at: string;
   max_open_jobs: number;
+  status: string;
   userCount: number;
   jobCount: number;
   openJobCount: number;
@@ -66,6 +67,7 @@ export default function AdminCompanies() {
       name: c.name,
       created_at: c.created_at,
       max_open_jobs: c.max_open_jobs ?? 5,
+      status: c.status ?? "active",
       userCount: userCounts[c.id] || 0,
       jobCount: jobCounts[c.id] || 0,
       openJobCount: openJobCounts[c.id] || 0,
@@ -149,6 +151,16 @@ export default function AdminCompanies() {
   const filtered = companies.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase())
   );
+
+  const toggleStatus = async (c: CompanyRow) => {
+    const next = c.status === "suspended" ? "active" : "suspended";
+    const verb = next === "suspended" ? "Suspend" : "Reactivate";
+    if (!confirm(`${verb} "${c.name}"? ${next === "suspended" ? "All users will be locked out and public links will stop working." : ""}`)) return;
+    const { error } = await supabase.from("companies").update({ status: next } as any).eq("id", c.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`${c.name} ${next === "suspended" ? "suspended" : "reactivated"}`);
+    fetchCompanies();
+  };
 
   return (
     <div className="space-y-6">
