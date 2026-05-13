@@ -7,13 +7,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Building2, Search, Users, Briefcase, Check, X, Pencil } from "lucide-react";
+import { Plus, Building2, Search, Users, Briefcase, Check, X, Pencil, Ban, Power } from "lucide-react";
 
 interface CompanyRow {
   id: string;
   name: string;
   created_at: string;
   max_open_jobs: number;
+  status: string;
   userCount: number;
   jobCount: number;
   openJobCount: number;
@@ -66,6 +67,7 @@ export default function AdminCompanies() {
       name: c.name,
       created_at: c.created_at,
       max_open_jobs: c.max_open_jobs ?? 5,
+      status: c.status ?? "active",
       userCount: userCounts[c.id] || 0,
       jobCount: jobCounts[c.id] || 0,
       openJobCount: openJobCounts[c.id] || 0,
@@ -150,6 +152,16 @@ export default function AdminCompanies() {
     c.name.toLowerCase().includes(search.toLowerCase())
   );
 
+  const toggleStatus = async (c: CompanyRow) => {
+    const next = c.status === "suspended" ? "active" : "suspended";
+    const verb = next === "suspended" ? "Suspend" : "Reactivate";
+    if (!confirm(`${verb} "${c.name}"? ${next === "suspended" ? "All users will be locked out and public links will stop working." : ""}`)) return;
+    const { error } = await supabase.from("companies").update({ status: next } as any).eq("id", c.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`${c.name} ${next === "suspended" ? "suspended" : "reactivated"}`);
+    fetchCompanies();
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between animate-fade-in">
@@ -224,10 +236,12 @@ export default function AdminCompanies() {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>Company</TableHead>
+                <TableHead className="text-center">Status</TableHead>
                 <TableHead className="text-center">Users</TableHead>
                 <TableHead className="text-center">Jobs</TableHead>
                 <TableHead className="text-center">Open / Limit</TableHead>
                 <TableHead className="text-right">Created</TableHead>
+                <TableHead className="text-right w-[1%]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -240,6 +254,13 @@ export default function AdminCompanies() {
                       </div>
                       <span className="font-medium text-sm">{company.name}</span>
                     </div>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {company.status === "suspended" ? (
+                      <Badge variant="destructive">Suspended</Badge>
+                    ) : (
+                      <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Active</Badge>
+                    )}
                   </TableCell>
                   <TableCell className="text-center">
                     <Badge variant="secondary" className="gap-1 tabular-nums">
@@ -290,6 +311,21 @@ export default function AdminCompanies() {
                     {new Date(company.created_at).toLocaleDateString("en-US", {
                       month: "short", day: "numeric", year: "numeric"
                     })}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      size="sm"
+                      variant={company.status === "suspended" ? "outline" : "ghost"}
+                      className="h-8"
+                      onClick={() => toggleStatus(company)}
+                      title={company.status === "suspended" ? "Reactivate tenant" : "Suspend tenant"}
+                    >
+                      {company.status === "suspended" ? (
+                        <><Power className="w-3.5 h-3.5 mr-1.5" /> Reactivate</>
+                      ) : (
+                        <><Ban className="w-3.5 h-3.5 mr-1.5" /> Suspend</>
+                      )}
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
