@@ -41,6 +41,7 @@ interface Props {
 
 export default function CandidatePanel({ app, onClose, onStageChange }: Props) {
   const { profile } = useAuth();
+  const { flags } = useFeatureFlags();
   const [notes, setNotes] = useState<Note[]>([]);
   const [newNote, setNewNote] = useState("");
   const [generatingLink, setGeneratingLink] = useState(false);
@@ -212,6 +213,7 @@ export default function CandidatePanel({ app, onClose, onStageChange }: Props) {
             </TabsContent>
 
             <TabsContent value="feedback" className="mt-4">
+              {flags.guest_feedback && (
               <div className="mb-3 flex justify-end">
                 <Button
                   size="sm"
@@ -224,6 +226,7 @@ export default function CandidatePanel({ app, onClose, onStageChange }: Props) {
                   {generatingLink ? "Generating…" : copied ? "Link copied" : "Generate Panel Feedback Link"}
                 </Button>
               </div>
+              )}
               {profile && (
                 <InterviewFeedback
                   candidateId={app.candidate_id}
