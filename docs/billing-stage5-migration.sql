@@ -46,10 +46,8 @@ INSERT INTO public.company_features (
   feature_assessment, feature_public_careers, feature_guest_feedback,
   feature_email_notifications, feature_custom_email_domain
 )
-SELECT c.id,
-  pd.default_feature_assessment, pd.default_feature_public_careers, pd.default_feature_guest_feedback,
-  pd.default_feature_email_notifications, pd.default_feature_custom_email_domain
-FROM public.companies c, public.plan_defaults pd
+SELECT c.id, false, true, true, false, false
+FROM public.companies c
 ON CONFLICT (company_id) DO NOTHING;
 
 -- Helper used by anon-context lookups (PublicFeedback, etc.)
