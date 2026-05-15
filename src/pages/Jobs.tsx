@@ -59,12 +59,13 @@ export default function Jobs() {
   useEffect(() => {
     if (!profile) return;
     load();
-    supabase.from("companies").select("slug, max_open_jobs").eq("id", profile.company_id).maybeSingle()
+    supabase.from("companies").select("slug").eq("id", profile.company_id).maybeSingle()
       .then(({ data }) => {
-        if (data) {
-          setCompanySlug((data as any).slug);
-          setMaxOpenJobs((data as any).max_open_jobs ?? 5);
-        }
+        if (data) setCompanySlug((data as any).slug);
+      });
+    supabase.rpc("get_company_job_limit" as any, { _company_id: profile.company_id })
+      .then(({ data }) => {
+        if (typeof data === "number") setMaxOpenJobs(data);
       });
   }, [profile]);
 

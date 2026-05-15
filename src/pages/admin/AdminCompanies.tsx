@@ -7,7 +7,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Building2, Search, Users, Briefcase, Check, X, Pencil, Ban, Power } from "lucide-react";
+import { Plus, Building2, Search, Users, Briefcase, Check, X, Pencil, Ban, Power, Settings } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface CompanyRow {
   id: string;
@@ -313,6 +314,11 @@ export default function AdminCompanies() {
                     })}
                   </TableCell>
                   <TableCell className="text-right">
+                    <Button size="sm" variant="ghost" className="h-8 mr-1" asChild>
+                      <Link to={`/admin/companies/${company.id}`} title="Manage subscription & add-ons">
+                        <Settings className="w-3.5 h-3.5 mr-1.5" /> Manage
+                      </Link>
+                    </Button>
                     <Button
                       size="sm"
                       variant={company.status === "suspended" ? "outline" : "ghost"}
