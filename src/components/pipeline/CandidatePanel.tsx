@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { X, Mail, Briefcase, Clock, Link2, Copy, Check, Linkedin } from "lucide-react";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import { toast } from "sonner";
 import InterviewFeedback from "@/components/candidate/InterviewFeedback";
 import CandidateTagsBar from "@/components/candidate/CandidateTagsBar";
@@ -40,6 +41,7 @@ interface Props {
 
 export default function CandidatePanel({ app, onClose, onStageChange }: Props) {
   const { profile } = useAuth();
+  const { flags } = useFeatureFlags();
   const [notes, setNotes] = useState<Note[]>([]);
   const [newNote, setNewNote] = useState("");
   const [generatingLink, setGeneratingLink] = useState(false);
@@ -211,6 +213,7 @@ export default function CandidatePanel({ app, onClose, onStageChange }: Props) {
             </TabsContent>
 
             <TabsContent value="feedback" className="mt-4">
+              {flags.guest_feedback && (
               <div className="mb-3 flex justify-end">
                 <Button
                   size="sm"
@@ -223,6 +226,7 @@ export default function CandidatePanel({ app, onClose, onStageChange }: Props) {
                   {generatingLink ? "Generating…" : copied ? "Link copied" : "Generate Panel Feedback Link"}
                 </Button>
               </div>
+              )}
               {profile && (
                 <InterviewFeedback
                   candidateId={app.candidate_id}

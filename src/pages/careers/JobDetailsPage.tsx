@@ -36,6 +36,18 @@ export default function JobDetailsPage() {
         .maybeSingle();
 
       if (!companyData) { setNotFound(true); setLoading(false); return; }
+
+      const { data: feat } = await (supabase as any)
+        .from("company_features")
+        .select("feature_public_careers")
+        .eq("company_id", companyData.id)
+        .maybeSingle();
+      if (feat && feat.feature_public_careers === false) {
+        setNotFound(true);
+        setLoading(false);
+        return;
+      }
+
       setCompany(companyData);
 
       const { data: jobData } = await supabase

@@ -15,8 +15,7 @@ import { ArrowLeft, Save, Plus, Trash2 } from "lucide-react";
 interface Subscription {
   id?: string;
   company_id: string;
-  billing_cycle: string;
-  override_monthly_price_cents: number | null;
+  override_annual_price_cents: number | null;
   override_open_jobs: number | null;
   override_seats: number | null;
   discount_type: string | null;
@@ -35,7 +34,7 @@ interface Addon {
 }
 
 interface PlanDefaults {
-  monthly_price_cents: number;
+  annual_price_cents: number;
   included_open_jobs: number;
   included_seats: number;
   currency: string;
@@ -44,6 +43,22 @@ interface PlanDefaults {
   addon_price_email_notifications_cents: number;
   addon_price_custom_email_domain_cents: number;
 }
+
+interface Features {
+  feature_assessment: boolean;
+  feature_public_careers: boolean;
+  feature_guest_feedback: boolean;
+  feature_email_notifications: boolean;
+  feature_custom_email_domain: boolean;
+}
+
+const FEATURE_LABELS: Array<{ key: keyof Features; label: string; comingSoon?: boolean }> = [
+  { key: "feature_assessment", label: "Assessment Module" },
+  { key: "feature_public_careers", label: "Public Careers Portal" },
+  { key: "feature_guest_feedback", label: "Guest Feedback Links" },
+  { key: "feature_email_notifications", label: "Candidate Email Notifications", comingSoon: true },
+  { key: "feature_custom_email_domain", label: "Custom Email Domain", comingSoon: true },
+];
 
 const ADDON_LABELS: Record<string, string> = {
   extra_jobs_pack5: "Extra Open Jobs (pack of 5)",
@@ -67,6 +82,8 @@ export default function AdminCompanyDetail() {
   const [defaults, setDefaults] = useState<PlanDefaults | null>(null);
   const [sub, setSub] = useState<Subscription | null>(null);
   const [addons, setAddons] = useState<Addon[]>([]);
+  const [features, setFeatures] = useState<Features | null>(null);
+  const [savingFeatures, setSavingFeatures] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -82,11 +99,12 @@ export default function AdminCompanyDetail() {
   const refresh = useCallback(async () => {
     if (!id) return;
     setLoading(true);
-    const [companyRes, defaultsRes, subRes, addonsRes, jobLimitRes, seatLimitRes] = await Promise.all([
+    const [companyRes, defaultsRes, subRes, addonsRes, featuresRes, jobLimitRes, seatLimitRes] = await Promise.all([
       supabase.from("companies").select("name, status").eq("id", id).maybeSingle(),
       supabase.from("plan_defaults" as any).select("*").maybeSingle(),
       supabase.from("company_subscriptions" as any).select("*").eq("company_id", id).maybeSingle(),
       supabase.from("company_addons" as any).select("*").eq("company_id", id).order("created_at"),
+      supabase.from("company_features" as any).select("*").eq("company_id", id).maybeSingle(),
       supabase.rpc("get_company_job_limit" as any, { _company_id: id }),
       supabase.rpc("get_company_seat_limit" as any, { _company_id: id }),
     ]);
@@ -95,8 +113,7 @@ export default function AdminCompanyDetail() {
     setSub(
       (subRes.data as any) ?? {
         company_id: id,
-        billing_cycle: "monthly",
-        override_monthly_price_cents: null,
+        override_annual_price_cents: null,
         override_open_jobs: null,
         override_seats: null,
         discount_type: null,
@@ -105,6 +122,15 @@ export default function AdminCompanyDetail() {
       }
     );
     setAddons((addonsRes.data as any) ?? []);
+    setFeatures(
+      (featuresRes.data as any) ?? {
+        feature_assessment: false,
+        feature_public_careers: true,
+        feature_guest_feedback: true,
+        feature_email_notifications: false,
+        feature_custom_email_domain: false,
+      }
+    );
     setJobLimit(jobLimitRes.data as number);
     setSeatLimit(seatLimitRes.data as number);
     setLoading(false);
@@ -119,8 +145,7 @@ export default function AdminCompanyDetail() {
     setSaving(true);
     const payload = {
       company_id: id,
-      billing_cycle: sub.billing_cycle,
-      override_monthly_price_cents: sub.override_monthly_price_cents,
+      override_annual_price_cents: sub.override_annual_price_cents,
       override_open_jobs: sub.override_open_jobs,
       override_seats: sub.override_seats,
       discount_type: sub.discount_type,
@@ -143,6 +168,21 @@ export default function AdminCompanyDetail() {
         .eq("id", id);
     }
     toast.success("Subscription saved");
+    refresh();
+  };
+
+  const saveFeatures = async () => {
+    if (!features || !id) return;
+    setSavingFeatures(true);
+    const { error } = await supabase
+      .from("company_features" as any)
+      .upsert({ company_id: id, ...features }, { onConflict: "company_id" });
+    setSavingFeatures(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Features updated");
     refresh();
   };
 
@@ -226,6 +266,7 @@ export default function AdminCompanyDetail() {
       <Tabs defaultValue="subscription" className="animate-fade-in" style={{ animationDelay: "80ms" }}>
         <TabsList>
           <TabsTrigger value="subscription">Subscription</TabsTrigger>
+          <TabsTrigger value="features">Features</TabsTrigger>
           <TabsTrigger value="addons">Add-ons</TabsTrigger>
         </TabsList>
 
@@ -241,27 +282,16 @@ export default function AdminCompanyDetail() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs uppercase tracking-wider text-muted-foreground">Billing cycle</Label>
-                <Select value={sub.billing_cycle} onValueChange={(v) => setSub({ ...sub, billing_cycle: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                    <SelectItem value="annual">Annual</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
                 <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                  Monthly price override ({currency})
+                  Annual price override ({currency})
                 </Label>
                 <Input
                   type="number"
                   step="0.01"
                   min="0"
-                  placeholder={defaults ? `Default: ${cents(defaults.monthly_price_cents)}` : ""}
-                  value={cents(sub.override_monthly_price_cents)}
-                  onChange={(e) => setSub({ ...sub, override_monthly_price_cents: toCents(e.target.value) })}
+                  placeholder={defaults ? `Default: ${cents(defaults.annual_price_cents)}` : ""}
+                  value={cents(sub.override_annual_price_cents)}
+                  onChange={(e) => setSub({ ...sub, override_annual_price_cents: toCents(e.target.value) })}
                 />
               </div>
 
@@ -341,6 +371,40 @@ export default function AdminCompanyDetail() {
 
             <Button onClick={saveSubscription} disabled={saving} className="w-full sm:w-auto">
               <Save className="w-4 h-4 mr-2" /> {saving ? "Saving..." : "Save subscription"}
+            </Button>
+          </div>
+        </TabsContent>
+
+        {/* FEATURES TAB */}
+        <TabsContent value="features" className="space-y-6 mt-6">
+          <div className="rounded-xl border bg-card p-6 space-y-5 max-w-2xl">
+            <div>
+              <h2 className="text-lg font-semibold">Non-core feature toggles</h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                Enable or disable optional modules for this tenant.
+              </p>
+            </div>
+            <div className="space-y-2">
+              {features &&
+                FEATURE_LABELS.map(({ key, label, comingSoon }) => (
+                  <div key={key} className="flex items-center justify-between rounded-lg border p-3">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-medium">{label}</Label>
+                      {comingSoon && (
+                        <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
+                          Coming soon
+                        </Badge>
+                      )}
+                    </div>
+                    <Switch
+                      checked={features[key]}
+                      onCheckedChange={(b) => setFeatures({ ...features, [key]: b })}
+                    />
+                  </div>
+                ))}
+            </div>
+            <Button onClick={saveFeatures} disabled={savingFeatures} className="w-full sm:w-auto">
+              <Save className="w-4 h-4 mr-2" /> {savingFeatures ? "Saving..." : "Save features"}
             </Button>
           </div>
         </TabsContent>

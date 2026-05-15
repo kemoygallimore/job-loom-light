@@ -1,4 +1,11 @@
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
+import NotFound from "@/pages/NotFound";
+
 export default function Assessment() {
+  const { flags, loading } = useFeatureFlags();
+  if (loading) return null;
+  if (!flags.assessment) return <NotFound />;
+
   return (
     <div className="min-h-[60vh] flex flex-col items-center justify-center text-center animate-fade-in">
       <div className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground mb-3">

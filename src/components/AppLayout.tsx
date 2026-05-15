@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import rizonhireLogo from "@/assets/RH logo white.png";
 
 const atsNavItems = [
@@ -41,6 +42,7 @@ const superAdminNav = [
 
 export default function AppLayout() {
   const { profile, role, signOut } = useAuth();
+  const { flags } = useFeatureFlags();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -87,7 +89,7 @@ export default function AppLayout() {
   }
 
   const topLinks = isSuperAdmin ? superAdminNav : [...atsNavItems, ...screeningNavItems];
-  const bottomLinks = isSuperAdmin ? [] : [assessmentNavItem];
+  const bottomLinks = isSuperAdmin ? [] : flags.assessment ? [assessmentNavItem] : [];
 
   return (
     <div className="min-h-screen flex w-full">

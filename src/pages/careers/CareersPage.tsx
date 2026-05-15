@@ -22,6 +22,7 @@ export default function CareersPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [disabled, setDisabled] = useState(false);
 
   useEffect(() => {
     if (!companySlug) return;
@@ -35,6 +36,17 @@ export default function CareersPage() {
 
       if (!companyData) {
         setNotFound(true);
+        setLoading(false);
+        return;
+      }
+
+      const { data: feat } = await (supabase as any)
+        .from("company_features")
+        .select("feature_public_careers")
+        .eq("company_id", companyData.id)
+        .maybeSingle();
+      if (feat && feat.feature_public_careers === false) {
+        setDisabled(true);
         setLoading(false);
         return;
       }
@@ -63,6 +75,20 @@ export default function CareersPage() {
           <h1 className="text-xl font-semibold">Company not found</h1>
           <p className="text-muted-foreground text-sm mt-2">
             The company you're looking for doesn't exist or the link is incorrect.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (disabled) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <div className="text-center max-w-md">
+          <Building2 className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+          <h1 className="text-xl font-semibold">Careers page not available</h1>
+          <p className="text-muted-foreground text-sm mt-2">
+            This company's public careers portal is currently disabled.
           </p>
         </div>
       </div>
