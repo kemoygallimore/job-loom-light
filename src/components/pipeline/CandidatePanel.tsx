@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { X, Mail, Briefcase, Clock, Link2, Copy, Check, Linkedin } from "lucide-react";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import { toast } from "sonner";
 import InterviewFeedback from "@/components/candidate/InterviewFeedback";
 import CandidateTagsBar from "@/components/candidate/CandidateTagsBar";
