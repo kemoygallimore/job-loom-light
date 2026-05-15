@@ -10,7 +10,7 @@ import { DollarSign, Save } from "lucide-react";
 interface PlanDefaults {
   id: boolean;
   currency: string;
-  monthly_price_cents: number;
+  annual_price_cents: number;
   included_open_jobs: number;
   included_seats: number;
   addon_price_extra_jobs_pack5_cents: number;
@@ -104,7 +104,7 @@ export default function AdminPricing() {
             <Label className="text-sm">Currency</Label>
             <Input value={data.currency} onChange={(e) => update({ currency: e.target.value.toUpperCase().slice(0, 3) })} />
           </div>
-          <Money label="Monthly price" value={data.monthly_price_cents} onChange={(n) => update({ monthly_price_cents: n })} />
+          <Money label="Annual price" value={data.annual_price_cents} onChange={(n) => update({ annual_price_cents: n })} />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Num label="Included open jobs" value={data.included_open_jobs} onChange={(n) => update({ included_open_jobs: n })} />
