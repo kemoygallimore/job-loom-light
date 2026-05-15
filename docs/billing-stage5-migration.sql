@@ -46,14 +46,8 @@ INSERT INTO public.company_features (
   feature_assessment, feature_public_careers, feature_guest_feedback,
   feature_email_notifications, feature_custom_email_domain
 )
-SELECT c.id,
-  COALESCE(pd.default_feature_assessment, false),
-  COALESCE(pd.default_feature_public_careers, true),
-  COALESCE(pd.default_feature_guest_feedback, true),
-  COALESCE(pd.default_feature_email_notifications, false),
-  COALESCE(pd.default_feature_custom_email_domain, false)
+SELECT c.id, false, true, true, false, false
 FROM public.companies c
-LEFT JOIN public.plan_defaults pd ON pd.id = true
 ON CONFLICT (company_id) DO NOTHING;
 
 -- Helper used by anon-context lookups (PublicFeedback, etc.)
