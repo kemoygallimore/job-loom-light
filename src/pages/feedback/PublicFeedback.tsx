@@ -47,6 +47,15 @@ export default function PublicFeedback() {
         setLoading(false);
         return;
       }
+      const { data: enabled } = await (supabase as any).rpc("is_feature_enabled", {
+        _company_id: link.company_id,
+        _feature: "guest_feedback",
+      });
+      if (enabled === false) {
+        setError("Guest feedback is no longer available for this company.");
+        setLoading(false);
+        return;
+      }
       const [{ data: c }, { data: j }] = await Promise.all([
         supabase.from("candidates").select("name").eq("id", link.candidate_id).maybeSingle(),
         supabase.from("jobs").select("title, hiring_manager").eq("id", link.job_id).maybeSingle(),
