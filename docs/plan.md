@@ -8,6 +8,7 @@
 | 2 | Master pricing (`plan_defaults`) | Done |
 | 3 | Per-tenant subscription, overrides & discount | Done |
 | 4 | Add-ons | Done |
+| 5 | Non-core feature toggles | Done |
 
 ---
 
