@@ -16,6 +16,7 @@ import {
   Tags,
   Briefcase,
   DollarSign,
+  Receipt,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,6 +39,7 @@ const superAdminNav = [
   { to: "/admin", label: "Overview", icon: LayoutDashboard },
   { to: "/admin/companies", label: "Companies", icon: Building2 },
   { to: "/admin/pricing", label: "Pricing", icon: DollarSign },
+  { to: "/admin/billing", label: "Billing", icon: Receipt },
 ];
 
 export default function AppLayout() {
@@ -89,7 +91,11 @@ export default function AppLayout() {
   }
 
   const topLinks = isSuperAdmin ? superAdminNav : [...atsNavItems, ...screeningNavItems];
-  const bottomLinks = isSuperAdmin ? [] : flags.assessment ? [assessmentNavItem] : [];
+  const tenantBottom = [
+    ...(flags.assessment ? [assessmentNavItem] : []),
+    { to: "/billing", label: "Billing", icon: Receipt },
+  ];
+  const bottomLinks = isSuperAdmin ? [] : tenantBottom;
 
   return (
     <div className="min-h-screen flex w-full">

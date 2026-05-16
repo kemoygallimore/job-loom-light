@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
 import { getInvoiceDownloadUrl, requestInvoicePdf } from "@/lib/invoiceUrl";
-import { ArrowLeft, Download, FileText, RefreshCw } from "lucide-react";
+import { ArrowLeft, Download, FileText, RefreshCw, Send, CheckCircle2, AlertTriangle, Ban } from "lucide-react";
 
 type Invoice = {
   id: string;
@@ -21,6 +21,7 @@ type Invoice = {
   period_end: string | null;
   issued_at: string | null;
   due_at: string | null;
+  paid_at: string | null;
   pdf_r2_key: string | null;
   pdf_generated_at: string | null;
   pdf_version: number | null;
@@ -73,10 +74,36 @@ export default function AdminInvoiceDetail() {
     }
   }
 
+  async function updateStatus(patch: Record<string, any>, label: string) {
+    if (!id) return;
+    setBusy(true);
+    const { error } = await (supabase as any).from("invoices").update(patch).eq("id", id);
+    setBusy(false);
+    if (error) {
+      toast({ title: `${label} failed`, description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: label });
+    await load();
+  }
+
+  const issue = () => updateStatus({ status: "sent", issued_at: new Date().toISOString() }, "Invoice issued");
+  const markPaid = () => updateStatus({ status: "paid", paid_at: new Date().toISOString() }, "Marked as paid");
+  const markOverdue = () => updateStatus({ status: "overdue" }, "Marked as overdue");
+  const voidInvoice = () => {
+    if (!confirm("Void this invoice? This cannot be undone.")) return;
+    return updateStatus({ status: "void" }, "Invoice voided");
+  };
+
   if (loading) return <div className="p-6 text-muted-foreground">Loading invoice…</div>;
   if (!invoice) return <div className="p-6">Invoice not found.</div>;
 
   const hasPdf = !!invoice.pdf_r2_key;
+  const status = invoice.status ?? "draft";
+  const canIssue = isSuperAdmin && status === "draft";
+  const canMarkPaid = isSuperAdmin && (status === "sent" || status === "overdue");
+  const canMarkOverdue = isSuperAdmin && status === "sent";
+  const canVoid = isSuperAdmin && status !== "paid" && status !== "void";
 
   return (
     <div className="p-6 space-y-6">
@@ -89,6 +116,26 @@ export default function AdminInvoiceDetail() {
           <p className="text-sm text-muted-foreground">Status: {invoice.status ?? "—"}</p>
         </div>
         <div className="flex gap-2">
+          {canIssue && (
+            <Button onClick={issue} disabled={busy} variant="default">
+              <Send className="h-4 w-4" /> Issue
+            </Button>
+          )}
+          {canMarkPaid && (
+            <Button onClick={markPaid} disabled={busy} variant="default">
+              <CheckCircle2 className="h-4 w-4" /> Mark paid
+            </Button>
+          )}
+          {canMarkOverdue && (
+            <Button onClick={markOverdue} disabled={busy} variant="outline">
+              <AlertTriangle className="h-4 w-4" /> Mark overdue
+            </Button>
+          )}
+          {canVoid && (
+            <Button onClick={voidInvoice} disabled={busy} variant="outline">
+              <Ban className="h-4 w-4" /> Void
+            </Button>
+          )}
           {isSuperAdmin && (
             <Button onClick={handleGenerate} disabled={busy} variant={hasPdf ? "outline" : "default"}>
               {hasPdf ? <RefreshCw className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
@@ -123,6 +170,7 @@ export default function AdminInvoiceDetail() {
           <div><div className="text-muted-foreground">Period</div><div>{invoice.period_start} → {invoice.period_end}</div></div>
           <div><div className="text-muted-foreground">Issued</div><div>{invoice.issued_at ?? "—"}</div></div>
           <div><div className="text-muted-foreground">Due</div><div>{invoice.due_at ?? "—"}</div></div>
+          <div><div className="text-muted-foreground">Paid</div><div>{invoice.paid_at ?? "—"}</div></div>
           <div><div className="text-muted-foreground">Total</div><div>{invoice.currency} {(invoice.total_cents ?? 0) / 100}</div></div>
         </CardContent>
       </Card>
