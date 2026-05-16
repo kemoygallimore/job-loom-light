@@ -23,7 +23,7 @@ type Invoice = {
 };
 
 export default function Billing() {
-  const { profile, role } = useAuth();
+  const { profile, role, user } = useAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -46,7 +46,7 @@ export default function Billing() {
   async function handleDownload(invoiceId: string) {
     try {
       const url = await getInvoiceDownloadUrl(invoiceId);
-      await logInvoiceEvent(invoiceId, "pdf_downloaded", { actor_user_id: null });
+      await logInvoiceEvent(invoiceId, "pdf_downloaded", { actor_user_id: user?.id ?? null });
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (e: any) {
       toast({ title: "Download failed", description: e.message, variant: "destructive" });
