@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
 import { getInvoiceDownloadUrl, requestInvoicePdf } from "@/lib/invoiceUrl";
+import { logInvoiceEvent } from "@/lib/invoices";
+import InvoiceEventsTimeline from "@/components/billing/InvoiceEventsTimeline";
 import { ArrowLeft, Download, FileText, RefreshCw, Send, CheckCircle2, AlertTriangle, Ban } from "lucide-react";
 
 type Invoice = {
@@ -25,26 +27,44 @@ type Invoice = {
   pdf_r2_key: string | null;
   pdf_generated_at: string | null;
   pdf_version: number | null;
+  bill_to_legal_name: string | null;
+  bill_to_email: string | null;
+  bill_to_contact_name: string | null;
+  bill_to_phone: string | null;
+  bill_to_address: string | null;
+  bill_to_trn: string | null;
+  bill_to_customer_code: string | null;
+};
+
+type LineItem = {
+  id: string;
+  description: string;
+  quantity: number;
+  unit_price_cents: number;
+  amount_cents: number;
+  source: string;
 };
 
 export default function AdminInvoiceDetail() {
   const { id } = useParams<{ id: string }>();
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const isSuperAdmin = role === "super_admin";
   const [invoice, setInvoice] = useState<Invoice | null>(null);
+  const [lineItems, setLineItems] = useState<LineItem[]>([]);
+  const [eventsKey, setEventsKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
   async function load() {
     if (!id) return;
     setLoading(true);
-    const { data, error } = await (supabase as any)
-      .from("invoices")
-      .select("*")
-      .eq("id", id)
-      .maybeSingle();
+    const [{ data, error }, liRes] = await Promise.all([
+      (supabase as any).from("invoices").select("*").eq("id", id).maybeSingle(),
+      (supabase as any).from("invoice_line_items").select("*").eq("invoice_id", id).order("created_at"),
+    ]);
     if (error) toast({ title: "Failed to load invoice", description: error.message, variant: "destructive" });
     setInvoice((data as Invoice) ?? null);
+    setLineItems((liRes.data as LineItem[]) ?? []);
     setLoading(false);
   }
 
@@ -54,8 +74,11 @@ export default function AdminInvoiceDetail() {
     if (!id) return;
     setBusy(true);
     try {
+      const wasPresent = !!invoice?.pdf_r2_key;
       await requestInvoicePdf(id);
+      await logInvoiceEvent(id, wasPresent ? "pdf_regenerated" : "pdf_generated", { actor_user_id: user?.id ?? null });
       toast({ title: "PDF generated" });
+      setEventsKey((k) => k + 1);
       await load();
     } catch (e: any) {
       toast({ title: "PDF generation failed", description: e.message, variant: "destructive" });
@@ -74,7 +97,7 @@ export default function AdminInvoiceDetail() {
     }
   }
 
-  async function updateStatus(patch: Record<string, any>, label: string) {
+  async function updateStatus(patch: Record<string, any>, label: string, event: string) {
     if (!id) return;
     setBusy(true);
     const { error } = await (supabase as any).from("invoices").update(patch).eq("id", id);
@@ -83,16 +106,18 @@ export default function AdminInvoiceDetail() {
       toast({ title: `${label} failed`, description: error.message, variant: "destructive" });
       return;
     }
+    await logInvoiceEvent(id, event, { actor_user_id: user?.id ?? null, patch });
     toast({ title: label });
+    setEventsKey((k) => k + 1);
     await load();
   }
 
-  const issue = () => updateStatus({ status: "sent", issued_at: new Date().toISOString() }, "Invoice issued");
-  const markPaid = () => updateStatus({ status: "paid", paid_at: new Date().toISOString() }, "Marked as paid");
-  const markOverdue = () => updateStatus({ status: "overdue" }, "Marked as overdue");
+  const issue = () => updateStatus({ status: "sent", issued_at: new Date().toISOString() }, "Invoice issued", "issued");
+  const markPaid = () => updateStatus({ status: "paid", paid_at: new Date().toISOString() }, "Marked as paid", "marked_paid");
+  const markOverdue = () => updateStatus({ status: "overdue" }, "Marked as overdue", "marked_overdue");
   const voidInvoice = () => {
     if (!confirm("Void this invoice? This cannot be undone.")) return;
-    return updateStatus({ status: "void" }, "Invoice voided");
+    return updateStatus({ status: "void" }, "Invoice voided", "voided");
   };
 
   if (loading) return <div className="p-6 text-muted-foreground">Loading invoice…</div>;
@@ -174,6 +199,51 @@ export default function AdminInvoiceDetail() {
           <div><div className="text-muted-foreground">Total</div><div>{invoice.currency} {(invoice.total_cents ?? 0) / 100}</div></div>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Bill to (snapshot)</CardTitle></CardHeader>
+        <CardContent className="grid grid-cols-2 gap-4 text-sm">
+          <div><div className="text-muted-foreground">Legal name</div><div>{invoice.bill_to_legal_name ?? "—"}</div></div>
+          <div><div className="text-muted-foreground">Customer code</div><div>{invoice.bill_to_customer_code ?? "—"}</div></div>
+          <div><div className="text-muted-foreground">Email</div><div>{invoice.bill_to_email ?? "—"}</div></div>
+          <div><div className="text-muted-foreground">Contact</div><div>{invoice.bill_to_contact_name ?? "—"}</div></div>
+          <div><div className="text-muted-foreground">Phone</div><div>{invoice.bill_to_phone ?? "—"}</div></div>
+          <div><div className="text-muted-foreground">TRN</div><div>{invoice.bill_to_trn ?? "—"}</div></div>
+          <div className="col-span-2"><div className="text-muted-foreground">Address</div><div className="whitespace-pre-wrap">{invoice.bill_to_address ?? "—"}</div></div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Line items</CardTitle></CardHeader>
+        <CardContent>
+          {lineItems.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No line items.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-muted-foreground border-b">
+                  <th className="py-2">Description</th>
+                  <th className="py-2 text-right">Qty</th>
+                  <th className="py-2 text-right">Unit</th>
+                  <th className="py-2 text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lineItems.map((l) => (
+                  <tr key={l.id} className="border-b last:border-0">
+                    <td className="py-2">{l.description}</td>
+                    <td className="py-2 text-right">{l.quantity}</td>
+                    <td className="py-2 text-right">{(l.unit_price_cents / 100).toFixed(2)}</td>
+                    <td className="py-2 text-right">{(l.amount_cents / 100).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
+
+      <InvoiceEventsTimeline invoiceId={invoice.id} refreshKey={eventsKey} />
     </div>
   );
 }

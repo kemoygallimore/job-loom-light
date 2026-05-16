@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Save, Plus, Trash2 } from "lucide-react";
 import BillingProfileForm from "@/components/billing/BillingProfileForm";
 import BillingCycleCard from "@/components/billing/BillingCycleCard";
+import CompanyInvoicesCard from "@/components/billing/CompanyInvoicesCard";
 
 interface Subscription {
   id?: string;
@@ -498,6 +499,9 @@ export default function AdminCompanyDetail() {
           </div>
           <div className="rounded-xl border bg-card p-6 max-w-3xl">
             {id && <BillingCycleCard companyId={id} canEdit />}
+          </div>
+          <div className="rounded-xl border bg-card p-6">
+            {id && <CompanyInvoicesCard companyId={id} />}
           </div>
         </TabsContent>
       </Tabs>
