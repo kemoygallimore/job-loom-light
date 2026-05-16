@@ -35,12 +35,27 @@ export default function AdminBilling() {
       setLoading(true);
       let query = (supabase as any)
         .from("invoices")
-        .select("id, invoice_number, company_id, status, currency, total_cents, issued_at, due_at, pdf_r2_key, companies(name)")
+        .select("id, invoice_number, company_id, status, currency, total_cents, issued_at, due_at, pdf_r2_key")
         .order("issued_at", { ascending: false, nullsFirst: false });
       if (status !== "all") query = query.eq("status", status);
       const { data, error } = await query;
-      if (error) toast({ title: "Failed to load invoices", description: error.message, variant: "destructive" });
-      setRows((data as InvoiceRow[]) ?? []);
+      if (error) {
+        toast({ title: "Failed to load invoices", description: error.message, variant: "destructive" });
+        setRows([]);
+        setLoading(false);
+        return;
+      }
+      const invoices = (data as InvoiceRow[]) ?? [];
+      const companyIds = Array.from(new Set(invoices.map((i) => i.company_id).filter(Boolean)));
+      let companyMap: Record<string, string> = {};
+      if (companyIds.length) {
+        const { data: cdata } = await (supabase as any)
+          .from("companies")
+          .select("id, name")
+          .in("id", companyIds);
+        (cdata ?? []).forEach((c: any) => { companyMap[c.id] = c.name; });
+      }
+      setRows(invoices.map((i) => ({ ...i, companies: { name: companyMap[i.company_id] ?? null } })));
       setLoading(false);
     })();
   }, [status]);
