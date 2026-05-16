@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { ArrowLeft, Save, Plus, Trash2 } from "lucide-react";
+import BillingProfileForm from "@/components/billing/BillingProfileForm";
 
 interface Subscription {
   id?: string;
@@ -268,6 +269,7 @@ export default function AdminCompanyDetail() {
           <TabsTrigger value="subscription">Subscription</TabsTrigger>
           <TabsTrigger value="features">Features</TabsTrigger>
           <TabsTrigger value="addons">Add-ons</TabsTrigger>
+          <TabsTrigger value="billing">Billing</TabsTrigger>
         </TabsList>
 
         {/* SUBSCRIPTION TAB */}
