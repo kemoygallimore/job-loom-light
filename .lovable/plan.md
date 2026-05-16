@@ -1,325 +1,186 @@
-# Billing flow — close the gaps
+# Billing & Invoicing — Staged Implementation Plan
 
-## What you have today
+Approved decisions:
 
-- `invoices` + `invoice_line_items` tables (Stage 6 migration) with statuses `draft | sent | paid | overdue | void`.
-- `/admin/billing` global list and `/admin/billing/invoices/:id` detail page with Generate PDF / Download PDF / Issue / Mark paid / Mark overdue / Void buttons.
-- Two external Supabase Edge Functions: `request-invoice-pdf` and `get-invoice-download-url`, calling the Cloudflare Worker (`api.rizonhire.com`) which renders the PDF into the private R2 bucket.
-- Tenant `/billing` page that lists their own invoices and can download PDFs.
-- `/admin/companies/:id` shows Subscription / Features / Add-ons tabs — **no billing tab and no way to create an invoice from the company page**.
-- No `subscription_start_date` / `renewal_date` columns anywhere → no concept of "30 days before renewal".
-- No auto-renewal job, no email reminders.
+- Email provider: **Resend** (API key stored as Supabase secret `RESEND_API_KEY` on the external project; sender domain to be confirmed).
+- Status label: keep enum value `sent`, surface it as "Sent" (no relabel needed since you're OK with it).
+- `auto_renew` defaults to **true** for all existing and new companies.
+- New **`company_billing_profiles`** table (1:1 with `companies`) holds invoice identity; invoices snapshot it at issue time.
 
-## Where your flow maps onto today's schema
+Each stage is independent, ships its own migration + UI, and leaves the app in a usable state. Run them in order.
 
-| Your wording           | In the DB today                       |
-| ---------------------- | ------------------------------------- |
-| Draft (not yet issued) | `status = 'draft'`                    |
-| Pending payment        | `status = 'sent'`  (relabel in UI)    |
-| Paid                   | `status = 'paid'` + `paid_at`         |
-| Overdue                | `status = 'overdue'`                  |
-| Cancelled              | `status = 'void'`                     |
+---
 
-No new status is needed — just rename "Sent" to "Pending payment" in the admin/tenant UI. This keeps the existing enum, RLS, and edge functions untouched.
+## Stage A — Billing profile foundation
 
-## What's missing — and what this plan adds
+Goal: every company has a structured billing identity that invoices can snapshot from.
 
-### 1. Renewal dates on the subscription
-Add to `company_subscriptions`:
+**Migration**
 
-- `subscription_start_date date`
-- `renewal_date date` (computed as `start + 1 year` via trigger; editable so super-admin can shift)
-- `auto_renew boolean default true`
+- Create `company_billing_profiles` (1:1 with `companies`):
+  - `company_id uuid PK FK → companies(id) ON DELETE CASCADE`
+  - `legal_name text`, `billing_email text NOT NULL`, `billing_contact_name text`, `billing_phone text`, `billing_address text`, `trn text`
+  - `customer_code text UNIQUE` (auto via sequence + trigger, format `CUST-000123`, editable by super-admin)
+  - `created_at`, `updated_at` + `update_updated_at_column` trigger
+- RLS:
+  - super-admin: full access
+  - tenant company admin (`has_role(uid,'admin')` AND `company_id = get_user_company_id(uid)`): SELECT + UPDATE
+- Backfill: insert one row per existing company, default `billing_email` from any existing `companies.email` or the first admin user's email; fallback to `''` and surface a warning badge in admin UI for rows that need attention.
+- Drop the temporary `companies.email` / `companies.address` columns added in Stage 6 (after backfill).
 
-Backfill: for existing companies, set `subscription_start_date = companies.created_at::date`, `renewal_date = start + 1 year`.
+**UI**
 
-### 2. Billing tab on `/admin/companies/:id`
-New tab "Billing" showing:
+- `/admin/companies/:id` → new **Billing** tab. Top card: "Billing profile" — all fields inline editable by super-admin.
+- "Create company" flow auto-creates the profile row with the new admin's email as `billing_email`.
+- Validation helper `assertBillingProfileReady(companyId)` reused by Stage C invoice generation.
 
-- Billing cycle card: start date, renewal date, days until renewal, auto-renew toggle, "Edit dates" inline editor.
-- Plan summary line: current annual price, active add-ons, discount, computed total — same numbers that will land on the next invoice.
-- **Generate invoice for next cycle** button (super-admin only). Prefills a draft invoice from subscription + active add-ons + discount and jumps to `/admin/billing/invoices/:id` where Generate PDF / Issue / Mark Paid already live.
-- Invoice history table for this company (number, period, status badge, total, issued, paid, link to detail). Status badge for `sent` reads "Pending payment".
+**Done when**: every company row has a profile; super-admin can edit it; tenant company admins can view/edit their own.
 
-### 3. PDF visibility (why you "don't see it today")
-The PDF buttons already exist, but only on `/admin/billing/invoices/:id`. Because no invoice has been created yet for any company, there's nothing to PDF. The new "Generate invoice" button on the company billing tab is the missing entry point. After clicking it once, the existing Generate/Download PDF UI takes over.
+---
 
-Also add a tiny "Generate PDF" affordance directly in the invoice history row when `pdf_r2_key IS NULL` so super-admins don't have to drill in.
+## Stage B — Subscription cycle dates
 
-### 4. Auto-generate renewals 30 days out + email reminder
+Goal: the system knows when each subscription started and when it renews.
 
-New Postgres function on the external Supabase project:
+**Migration**
 
-```text
-generate_renewal_invoices(_lead_days int default 30)
-  → for every active subscription whose renewal_date - lead_days = today
-    and that has no draft/sent invoice for the upcoming period:
-      INSERT invoice (status='sent', period = next year, due_at = renewal_date)
-      INSERT line items from plan + addons + discount
-      RETURN list of (invoice_id, company_id)
+- Add to `company_subscriptions`:
+  - `subscription_start_date date NOT NULL DEFAULT current_date`
+  - `renewal_date date` (computed via trigger as `start + 1 year`; editable by super-admin)
+  - `auto_renew boolean NOT NULL DEFAULT true`
+- Backfill: `subscription_start_date = companies.created_at::date`, `renewal_date = start + 1 year`, `auto_renew = true`.
+- Trigger `set_renewal_date`: on insert or when `subscription_start_date` changes, recompute `renewal_date` if not explicitly set in the same UPDATE.
+
+**UI**
+
+- Billing tab on `/admin/companies/:id` adds a "Billing cycle" card under the profile card:
+  - Start date, renewal date, days until renewal, auto-renew toggle.
+  - "Edit dates" inline editor (super-admin only).
+- Read-only summary visible to tenant company admins on their `/billing` page header.
+
+**Done when**: cycle card shows correct dates for every company; toggling auto-renew persists.
+
+---
+
+## Stage C — Manual invoice generation (super-admin)
+
+Goal: super-admin can create an invoice for a company's next cycle and walk it through the existing PDF / status flow.
+
+**Migration**
+
+- Add snapshot columns to `invoices` (populated at issue time, never updated after):
+  - `bill_to_legal_name`, `bill_to_email`, `bill_to_contact_name`, `bill_to_phone`, `bill_to_address`, `bill_to_trn`, `bill_to_customer_code`
+- Add `invoice_events` audit table (`id`, `invoice_id`, `actor_user_id`, `event text`, `at timestamptz default now()`, `meta jsonb`). RLS: super-admin full; tenant SELECT for own company.
+- Add trigger `lock_paid_invoices`: blocks UPDATE on `invoices` once `status = 'paid'` except for `pdf_*` columns.
+
+**UI / logic**
+
+- Billing tab gains a **Generate invoice for next cycle** button (super-admin only). On click:
+  - Validates billing profile (calls Stage A helper). Inline error if missing required fields.
+  - Inserts `invoices` row with `status='draft'`, `period_start = renewal_date`, `period_end = renewal_date + 1 year`, `issued_at = null`, `due_at = renewal_date`, snapshots all `bill_to_*` fields.
+  - Inserts `invoice_line_items` from current plan + active add-ons + active discount.
+  - Logs `invoice_events.event = 'draft_created'`.
+  - Navigates to `/admin/billing/invoices/:id`.
+- Invoice history table on the Billing tab (number, period, status, total, issued, paid, link).
+- Quick "Generate PDF" affordance in each invoice row when `pdf_r2_key IS NULL`.
+- `AdminInvoiceDetail`: render `invoice_events` timeline; existing PDF / Issue / Mark Paid / Mark Overdue / Void buttons log events.
+
+**Done when**: super-admin can click Generate → review draft → Generate PDF → Issue → Mark Paid, and the timeline reflects every step.
+
+---
+
+## Stage D — Tenant billing visibility
+
+Goal: tenant company admins see only their company's invoices with download access.
+
+- `/billing` lists own invoices (RLS already enforces). Status column shows "Sent" for `sent`.
+- `Download PDF` per row when `pdf_r2_key` is set; otherwise muted "PDF not yet available."
+- No Generate / Issue / Mark Paid / Void controls for non-super-admins (guarded by `useAuth().isSuperAdmin`).
+- Header shows next renewal date + total + "Pay by bank deposit" instructions block (editable copy in Stage F email).
+
+**Done when**: a tenant user only sees own-company invoices, can download issued PDFs, and never sees admin controls.
+
+---
+
+## Stage E — Resend integration (one-off send helper)
+
+Goal: a single, reusable edge function on the external Supabase project for sending invoice emails via Resend. Used manually first; cron added in Stage F.
+
+**Secrets** (manual setup in Supabase Dashboard, not in repo)
+
+- `RESEND_API_KEY`
+- `RESEND_FROM_EMAIL` (e.g. `billing@yourdomain.com` — must be a verified Resend domain)
+- `APP_BASE_URL` (used to build links back to `/billing` in emails)
+
+**Edge Function `send-invoice-email`** (external Supabase, `verify_jwt = true`)
+
+- Body: `{ invoice_id: uuid, kind: 'payment_due' | 'reminder_7d' | 'due_today' | 'overdue_7d' | 'overdue_14d' | 'overdue_30d' }`
+- Authz: super-admin only (called by UI button + cron).
+- Loads invoice + snapshot fields + line items.
+- Renders branded HTML (inline, no template engine needed — small helper per `kind`).
+- POSTs to Resend `/emails`. Logs `invoice_events.event = 'email_sent'` with `meta = { kind, resend_id }`.
+
+**UI**
+
+- `AdminInvoiceDetail` adds **Send email** dropdown (super-admin only): pick a kind, send, confirm in timeline.
+
+**Done when**: super-admin can manually send any of the 6 email kinds for a specific invoice and see the event in the timeline.
+
+---
+
+## Stage F — Auto-generate renewals + reminder cron
+
+Goal: 30 days before renewal, an invoice is created, PDF rendered, and a payment-due email sent. Reminders and overdue notices fire on schedule.
+
+**Migration**
+
+- Postgres function `generate_renewal_invoices(_lead_days int default 30)` returns `setof uuid`:
+  - For each `company_subscriptions` where `auto_renew = true` AND `renewal_date - _lead_days = current_date` AND no `draft|sent` invoice exists for that upcoming period:
+    - Insert invoice (same shape as Stage C manual flow) with `status = 'sent'`, `issued_at = now()`.
+    - Insert line items from plan + add-ons + discount.
+    - Snapshot `bill_to_*` from `company_billing_profiles`.
+    - Insert `invoice_events.event = 'auto_generated'`.
+
+**Edge Function `auto-generate-renewal-invoices`** (external Supabase, `verify_jwt = false`, called by cron only via secret header check `X-Cron-Secret`)
+
+- Step 1: call `generate_renewal_invoices(30)`; for each returned id, call existing `request-invoice-pdf` logic (extract shared helper or invoke function), then `send-invoice-email(id, 'payment_due')`.
+- Step 2 (reminders, run same pass):
+  - 7 days before `due_at` + status `sent` → `reminder_7d`
+  - `due_at = today` + status `sent` → `due_today`
+  - 7 / 14 / 30 days past `due_at` + status `sent` → `overdue_7d|14d|30d`; at 7d also flip status to `overdue` and log event.
+- Idempotency: skip if an `invoice_events` row already exists for `(invoice_id, kind)` today.
+
+**Cron** (insert-tool SQL, not migration — project-specific URL/keys)
+
+```sql
+select cron.schedule(
+  'invoice-daily',
+  '0 8 * * *',                              -- 08:00 UTC daily
+  $$ select net.http_post(
+       url := 'https://<PROJECT_REF>.supabase.co/functions/v1/auto-generate-renewal-invoices',
+       headers := '{"Content-Type":"application/json","X-Cron-Secret":"<CRON_SECRET>"}'::jsonb,
+       body := '{}'::jsonb
+     ) $$
+);
 ```
 
-New external Supabase Edge Function `auto-generate-renewal-invoices`:
+Enable `pg_cron` + `pg_net` extensions first.
 
-1. Calls the SQL function above.
-2. For each created invoice → calls Cloudflare Worker `/generate-pdf` (same shared-secret path the existing `request-invoice-pdf` uses) so the PDF is ready immediately.
-3. For each created invoice → sends a "Payment due" email to the company's billing contact with the invoice number, amount, due date, and a download link that hits `get-invoice-download-url`.
+**Done when**: setting a company's `renewal_date` to today + 30 and running the function manually creates an invoice, renders the PDF, and emails the billing contact. Subsequent days fire reminders without duplicates.
 
-Schedule it daily with `pg_cron` + `pg_net` on the external Supabase project (the snippet goes via the insert tool, not a migration, because the URL and anon key are project-specific).
+---
 
-### 5. Email reminder follow-ups (cheap win)
-Same edge function, extra passes the same day it runs:
+## Stage G — Polish & docs
 
-- 7 days before due → "Reminder: payment due in 7 days"
-- 0 days (due today) → "Payment due today"
-- 7 / 14 / 30 days overdue → "Overdue notice", and on day-7+ also flip status `sent → overdue`.
+- Update `docs/01-features.md` and `docs/02-technical.md`: billing profile, auto-renewal, Resend, cron, reminder cadence.
+- Add a "Billing operations" runbook in `docs/`: how to mark paid after bank deposit confirmation, how to re-issue after void, how to disable auto-renew for a company.
+- Add a test mode toggle on the cron edge function (`?dry_run=1`) that logs what it would do without writing or emailing.
 
-All driven off `invoices.due_at` and `status` — no extra tables needed.
+---
 
-## Improvements I'd recommend on top of your asks
+## Open items requiring your input before Stage E
 
-1. **Don't add a `pending_payment` enum value.** Reusing `sent` keeps the existing edge functions, RLS, and admin UI working. Pure UI relabel.
-2. **Always issue with `due_at = renewal_date`**, not `issued_at + 30`. That way the invoice's due date is literally the day service renews, which is also when the reminder cadence makes sense.
-3. **Snapshot the line items at invoice creation.** `invoice_line_items` already copies description + price; never reach back to `company_subscriptions` to recompute later. Auditable + safe if pricing changes.
-4. **Lock paid invoices.** Add a trigger that blocks `UPDATE` on `invoices` (other than `pdf_*` columns) once `status = 'paid'`. Stops accidental edits to historical records.
-5. **Billing contact field on `companies`.** You already have `companies.email` from Stage 6. Use that as the reminder recipient; fall back to the company's admin user if null. Surface "Billing email" on the Billing tab so it's editable.
-6. **Manual override stays first-class.** Even with auto-generation on, the "Generate invoice for next cycle" button stays — needed for off-cycle invoices, pro-rated upgrades, and re-issues after a void.
-7. **Audit trail.** Tiny `invoice_events` table (`invoice_id`, `actor_user_id`, `event`, `at`, `meta jsonb`) logging issued / paid / voided / pdf_generated. Shows in a timeline on the invoice detail page — useful when a tenant disputes timing.
+- Confirm the Resend sender domain (e.g. `billing@rizonhire.com`) and that it's verified in Resend.
+- Confirm the `APP_BASE_URL` to embed in emails (`https://app.rizonhire.com`? the Lovable preview URL? custom domain?).
 
-## Open questions before I build
-
-1. **Email provider for reminders.** You said no Lovable Cloud, so this can't use the built-in transactional email infra. Which provider do you want the external edge function to call — Resend, Postmark, SendGrid, AWS SES, or the same Cloudflare-side path you use for PDFs? Whichever it is, I'll need the API key as a Supabase secret on the external project (`EMAIL_API_KEY`).
-2. **Status label.** Confirm you're OK with "Sent → Pending payment" relabel rather than adding a new enum value.
-3. **Auto-renew default.** Should existing companies default to `auto_renew = true` (auto invoices start flowing next cycle) or `false` (you manually opt in per company)?
-
-## Billing profile — recommended structure
-
-You shared these fields: `company_name`, `billing_email`, `billing_contact_name`, `billing_phone`, `billing_address`, `trn`, `customer_code`, `subscription_plan`.
-
-**Recommendation: new 1:1 table `company_billing_profiles`, not extra columns on `companies`.**
-
-Why a separate table:
-
-- `companies` is an operational/tenant table (slug, status, limits, features). Billing identity is a different concern with different RLS, different audit needs, and different access patterns (only super-admins + the billing contact should read it).
-- Keeps `companies` lean and avoids leaking TRN / billing address to every authenticated read of `companies`.
-- Makes it natural to **snapshot the billing profile onto each invoice at issue time** so historical invoices stay correct if the company later changes its address or TRN.
-- Easy to extend later (multiple billing contacts, PO numbers, payment terms) without bloating `companies`.
-
-### Schema
-
-```text
-company_billing_profiles
-  company_id           uuid PK / FK → companies.id (1:1)
-  legal_name           text         -- formal business name on the invoice
-  billing_email        text NOT NULL
-  billing_contact_name text
-  billing_phone        text
-  billing_address      text         -- multi-line; single text column is fine
-  trn                  text         -- tax registration number
-  customer_code        text UNIQUE  -- short human ref, e.g. CUST-000123
-  created_at, updated_at
-```
-
-Notes:
-
-- `company_name` stays on `companies.name`. `legal_name` here is for the invoice ("Acme Holdings Ltd" vs the operational tenant name "Acme").
-- `subscription_plan` does NOT belong here — it already lives on `company_subscriptions`. Reading it from a billing profile would drift. The Billing tab shows it joined in.
-- `customer_code` is auto-generated on insert (sequence + trigger, same pattern as `invoice_number`), but editable by super-admins for legacy customers.
-- Replaces the ad-hoc `companies.email` / `companies.address` columns added in Stage 6 — drop those after backfill.
-
-### RLS
-
-- Super-admin: full access.
-- Tenant: SELECT and UPDATE only where `company_id = get_user_company_id(auth.uid())` AND user is a company admin (use `has_role`). Regular tenant users see nothing.
-- No INSERT for tenants — super-admin creates the row when the company is created.
-
-### Invoice snapshotting
-
-Add to `invoices` (snapshot at issue time, never updated after):
-
-- `bill_to_legal_name text`
-- `bill_to_email text`
-- `bill_to_contact_name text`
-- `bill_to_phone text`
-- `bill_to_address text`
-- `bill_to_trn text`
-- `bill_to_customer_code text`
-
-Populated by the "Generate invoice for next cycle" button and by `auto-generate-renewal-invoices`. The PDF renderer reads these snapshot columns, never the live profile — so a reissued PDF for a year-old invoice still shows the address that was correct at the time.
-
-### How it slots into the flow
-
-1. **Company creation** (super-admin "Create company"): also creates an empty `company_billing_profiles` row with `billing_email` defaulted to the admin user's email. Super-admin can edit immediately.
-2. **`/admin/companies/:id` → new "Billing" tab**: two cards stacked above the cycle card —
-   - **Billing profile** (legal name, billing email, contact name, phone, address, TRN, customer code) — editable inline.
-   - **Billing cycle** (start, renewal, auto-renew).
-   - Then plan summary + invoice history below.
-3. **Generate invoice flow**: validates the billing profile has `billing_email`, `legal_name`, and `billing_address` set; blocks invoice creation with a clear inline error if not. Snapshots all `bill_to_*` fields onto the invoice row.
-4. **Email reminders**: `auto-generate-renewal-invoices` uses `invoice.bill_to_email` (the snapshot), with fallback to current `company_billing_profiles.billing_email`. Never falls back to a random user account.
-5. **Tenant `/billing`**: read-only view of the company's billing profile so the tenant admin can spot-check what will show on their invoice; "Request changes" CTA opens a mailto/contact form to the super-admin (since tenants don't self-edit TRN / legal name in most cases — but you can allow company admins to edit if you prefer; the RLS above already supports it).
-
-### Updated implementation order
-
-Insert as steps 1.a and 1.b before the existing step 2:
-
-1.a. Migration: `company_billing_profiles` table + sequence + trigger for `customer_code`; backfill one row per company; add snapshot columns to `invoices`; drop the temporary `companies.email` / `companies.address` added in Stage 6 (after backfill into the new table).
-1.b. UI: Billing profile card on the new Billing tab; super-admin "Create company" flow populates the row with defaults.
-
-## Implementation order (once you approve)
-
-1. Migration: `subscription_start_date`, `renewal_date`, `auto_renew` on `company_subscriptions`; backfill; trigger; `invoice_events` table; locked-paid trigger.
-2. `AdminCompanyDetail` → new **Billing** tab (cycle card, plan summary, Generate invoice button, invoice history).
-3. UI relabel `sent → Pending payment` everywhere (admin list, admin detail, tenant `/billing`).
-4. New external Supabase Edge Function `auto-generate-renewal-invoices` (code provided for manual paste into Dashboard editor).
-5. SQL snippet to schedule it daily via `pg_cron` + `pg_net` (run once via insert tool, not migration).
-6. Email template + send helper inside the same edge function, using the provider you pick in Q1.
-7. Documentation refresh (`docs/plan.md`, `docs/01-features.md`).
-
-No Lovable Cloud is touched at any step. All edge functions and cron live on your external Supabase project.
-# Stage 7 — Invoice PDF via External Supabase + Cloudflare Worker
-
-Wires the existing Cloudflare Worker (`https://api.rizonhire.com`) into the app through two new Supabase Edge Functions deployed to the **external** Supabase project (not Lovable Cloud). The frontend never talks to the Worker or R2 directly.
-
-## Architecture
-
-```text
-Browser ──(JWT)──► Supabase Edge Function ──(Bearer R2_WORKER_SECRET)──► Cloudflare Worker ──► R2
-```
-
-- `request-invoice-pdf` — super-admin only; generates/regenerates the PDF and persists `pdf_r2_key`, `pdf_generated_at`, `pdf_version` on the invoice.
-- `get-invoice-download-url` — super-admin OR tenant user owning the invoice; returns a short-lived signed URL.
-
-## Database
-
-Stage 6 (`invoices`, `invoice_line_items`) has not been migrated yet on the external Supabase. Ship a single SQL file that:
-
-1. Creates `invoices` with all Stage 6 columns plus `pdf_r2_key text`, `pdf_generated_at timestamptz`, `pdf_version integer default 0`.
-2. Creates `invoice_line_items` (`invoice_id`, `description`, `quantity`, `unit_price_cents`, `amount_cents`, `source`).
-3. Adds `email text` and `address text` to `companies` (needed by the PDF payload; currently absent).
-4. Enables RLS:
-   - Super-admins: full access on both tables.
-   - Tenant users: SELECT only where `company_id = get_user_company_id(auth.uid())`.
-5. Adds `invoice_number` sequence + trigger (`INV-YYYY-NNNNNN`).
-
-File: `supabase/migrations/<timestamp>_invoices.sql` — applied via `supabase db push` against the external project.
-
-## Edge Functions
-
-Both live under `supabase/functions/` and deploy with the Supabase CLI to the external project.
-
-### `supabase/functions/_shared/cors.ts`
-Shared CORS headers: `Access-Control-Allow-Headers: authorization, x-client-info, apikey, content-type`; methods `POST, OPTIONS`.
-
-### `supabase/functions/request-invoice-pdf/index.ts`
-- OPTIONS → CORS preflight.
-- Reads `Authorization` header; creates a user-scoped client with `SUPABASE_URL` + `SUPABASE_ANON_KEY` and `global.headers.Authorization` to resolve `auth.getUser()`. 401 if missing.
-- Calls existing `has_role(user.id, 'super_admin')` RPC. 403 if false.
-- Validates body `{ invoice_id: uuid }`. 400 if missing.
-- Switches to service-role client (`SUPABASE_SERVICE_ROLE_KEY`) for reads/writes:
-  - SELECT invoice; 404 if not found.
-  - SELECT line items.
-  - SELECT company (name, email, address).
-- Builds the exact payload specified in the request, POSTs to `${R2_WORKER_BASE_URL}/invoices/generate-pdf` with `Authorization: Bearer ${R2_WORKER_SECRET}`.
-- On Worker success: UPDATE invoice with `pdf_r2_key`, `pdf_version`, `pdf_generated_at = now()`. Returns the updated row.
-- Logs errors server-side; never echoes the secret.
-
-### `supabase/functions/get-invoice-download-url/index.ts`
-- OPTIONS → CORS preflight.
-- Auth check identical to above. 401 if missing.
-- Validates `{ invoice_id }`. 400 if missing.
-- Service-role SELECT of invoice. 404 if not found.
-- Access check:
-  - `has_role(user.id, 'super_admin')` → allow, OR
-  - `invoice.company_id == get_user_company_id(user.id)` → allow,
-  - else 403.
-- If `pdf_r2_key` is null → 400 `"PDF has not been generated yet."`.
-- GET `${R2_WORKER_BASE_URL}/invoices/${invoice_id}/download?key=${encodeURIComponent(pdf_r2_key)}` with `Authorization: Bearer ${R2_WORKER_SECRET}`.
-- Returns `{ url, expires_in }` to the client.
-
-### Secrets (set via CLI, never in repo)
-- `R2_WORKER_BASE_URL` = `https://api.rizonhire.com`
-- `R2_WORKER_SECRET` = user-provided
-- `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` are auto-provided by Supabase to Edge Functions.
-
-### `supabase/config.toml`
-Add per-function blocks for both functions with `verify_jwt = true` so Supabase enforces the JWT before our code runs.
-
-## Frontend
-
-### `src/lib/invoiceUrl.ts`
-```ts
-export async function getInvoiceDownloadUrl(invoiceId: string): Promise<string>
-```
-Wraps `supabase.functions.invoke("get-invoice-download-url", { body: { invoice_id } })`. Throws on error. Returns `data.url`.
-
-### `src/lib/requestInvoicePdf.ts`
-`requestInvoicePdf(invoiceId)` → invokes `request-invoice-pdf`, returns the updated invoice row for cache refresh.
-
-### Admin invoice detail — `/admin/billing/invoices/:id`
-(Stage 6 page; built alongside this stage.)
-- Header chips for `pdf_generated_at` and `pdf_version`.
-- Buttons (super-admin only):
-  - `Generate PDF` when `pdf_r2_key` is null.
-  - `Regenerate PDF` when `pdf_r2_key` exists.
-  - `Download PDF` when `pdf_r2_key` exists; calls `getInvoiceDownloadUrl` and opens the URL in a new tab.
-- Toasts on success/failure; React Query invalidation after generate.
-
-### Tenant billing — `/billing`
-- Invoice history row: `Download PDF` button when `pdf_r2_key` is set, otherwise muted `PDF not yet available.` label.
-- No Generate / Regenerate / Mark paid / Overdue / Void controls rendered for non-super-admins (guarded by `useAuth().isSuperAdmin`).
-
-## CLI deployment commands (for the user)
-
-```bash
-# MY_PROJECT_REF = Supabase Dashboard → Project Settings → General → "Reference ID"
-supabase login
-supabase link --project-ref MY_PROJECT_REF
-
-# Apply the migration to the external DB
-supabase db push
-
-# Set Edge Function secrets (one-time)
-supabase secrets set R2_WORKER_BASE_URL=https://api.rizonhire.com
-supabase secrets set R2_WORKER_SECRET=MY_REAL_SECRET
-
-# Deploy the two functions
-supabase functions deploy request-invoice-pdf
-supabase functions deploy get-invoice-download-url
-```
-
-## Testing checklist
-
-Admin:
-1. Open `/admin/billing/invoices/:id` for an invoice with no PDF → see `Generate PDF`.
-2. Click → row updates: `pdf_r2_key`, `pdf_generated_at`, `pdf_version=1`. Buttons swap to `Regenerate PDF` + `Download PDF`.
-3. Click `Regenerate PDF` → `pdf_version` increments, `pdf_generated_at` refreshed.
-4. Click `Download PDF` → new tab loads the signed R2 URL; PDF renders.
-
-Tenant:
-1. Sign in as tenant user. `/billing` shows only own-company invoices.
-2. Rows with `pdf_r2_key` show `Download PDF`; others show `PDF not yet available.`
-3. No Generate / Regenerate / Mark paid / Overdue / Void controls visible.
-4. Direct invoke of `get-invoice-download-url` with another company's `invoice_id` → 403.
-
-Security:
-1. Searching the frontend for `R2_WORKER_SECRET` or `api.rizonhire.com` returns no hits in invoice code (existing `getSignedVideoViewUrl` / `videoUrl.ts` for resumes/videos stay unchanged).
-2. Network tab shows only `*.supabase.co/functions/v1/...` calls from the browser; no direct calls to `api.rizonhire.com` for invoices.
-3. Existing resume/video Worker flow untouched.
-
-## Files
-
-New:
-- `supabase/migrations/<ts>_invoices.sql`
-- `supabase/functions/_shared/cors.ts`
-- `supabase/functions/request-invoice-pdf/index.ts`
-- `supabase/functions/get-invoice-download-url/index.ts`
-- `src/lib/invoiceUrl.ts`
-- `src/lib/requestInvoicePdf.ts`
-
-Edited:
-- `supabase/config.toml` — add function blocks
-- `src/pages/admin/AdminInvoiceDetail.tsx` (Stage 6 page) — add buttons + PDF metadata
-- `src/pages/Billing.tsx` (Stage 6 tenant page) — add download / empty state
-- `docs/02-technical.md`, `docs/01-features.md`, `docs/plan.md` — mark Stage 7 done; document new functions and `rizonhire-invoices` bucket
-
-Unchanged: Cloudflare Worker, existing `silverweb-ats-resumes` / `silverweb-ats-videos` flows.
+Once Stage A is approved, I'll start the migrations.
