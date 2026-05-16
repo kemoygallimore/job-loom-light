@@ -18,6 +18,8 @@ import AdminCompanies from "./pages/admin/AdminCompanies";
 import AdminPricing from "./pages/admin/AdminPricing";
 import AdminCompanyDetail from "./pages/admin/AdminCompanyDetail";
 import CandidateTagsAdmin from "./pages/admin/CandidateTagsAdmin";
+import AdminInvoiceDetail from "./pages/admin/AdminInvoiceDetail";
+import Billing from "./pages/Billing";
 import CareersPage from "./pages/careers/CareersPage";
 import JobDetailsPage from "./pages/careers/JobDetailsPage";
 import ScreeningJobs from "./pages/screening/ScreeningJobs";
@@ -104,11 +106,13 @@ const App = () => (
               <Route path="/screening" element={<ScreeningJobs />} />
               <Route path="/screening/:jobId/submissions" element={<ScreeningSubmissions />} />
               <Route path="/assessment" element={<Assessment />} />
+              <Route path="/billing" element={<Billing />} />
               <Route path="/admin" element={<AdminDashboard />}>
                 <Route index element={<AdminOverview />} />
                 <Route path="companies" element={<AdminCompanies />} />
                 <Route path="companies/:id" element={<AdminCompanyDetail />} />
                 <Route path="pricing" element={<AdminPricing />} />
+                <Route path="billing/invoices/:id" element={<AdminInvoiceDetail />} />
               </Route>
             </Route>
             <Route path="*" element={<NotFound />} />
