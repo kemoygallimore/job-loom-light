@@ -489,6 +489,13 @@ export default function AdminCompanyDetail() {
             )}
           </div>
         </TabsContent>
+
+        {/* BILLING TAB */}
+        <TabsContent value="billing" className="space-y-6 mt-6">
+          <div className="rounded-xl border bg-card p-6 max-w-3xl">
+            {id && <BillingProfileForm companyId={id} canEdit />}
+          </div>
+        </TabsContent>
       </Tabs>
     </div>
   );
