@@ -21,6 +21,7 @@ import CandidateTagsAdmin from "./pages/admin/CandidateTagsAdmin";
 import AdminInvoiceDetail from "./pages/admin/AdminInvoiceDetail";
 import AdminBilling from "./pages/admin/AdminBilling";
 import Billing from "./pages/Billing";
+import InvoiceDetail from "./pages/InvoiceDetail";
 import CareersPage from "./pages/careers/CareersPage";
 import JobDetailsPage from "./pages/careers/JobDetailsPage";
 import ScreeningJobs from "./pages/screening/ScreeningJobs";
@@ -108,6 +109,7 @@ const App = () => (
               <Route path="/screening/:jobId/submissions" element={<ScreeningSubmissions />} />
               <Route path="/assessment" element={<Assessment />} />
               <Route path="/billing" element={<Billing />} />
+              <Route path="/billing/invoices/:id" element={<InvoiceDetail />} />
               <Route path="/admin" element={<AdminDashboard />}>
                 <Route index element={<AdminOverview />} />
                 <Route path="companies" element={<AdminCompanies />} />

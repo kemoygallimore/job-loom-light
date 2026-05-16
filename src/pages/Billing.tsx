@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -6,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
 import { getInvoiceDownloadUrl } from "@/lib/invoiceUrl";
-import { Download } from "lucide-react";
+import { logInvoiceEvent } from "@/lib/invoices";
+import { Download, ExternalLink } from "lucide-react";
 import BillingProfileForm from "@/components/billing/BillingProfileForm";
 import BillingCycleCard from "@/components/billing/BillingCycleCard";
 
@@ -21,7 +23,7 @@ type Invoice = {
 };
 
 export default function Billing() {
-  const { profile, role } = useAuth();
+  const { profile, role, user } = useAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -33,6 +35,7 @@ export default function Billing() {
         .from("invoices")
         .select("id, invoice_number, status, currency, total_cents, issued_at, pdf_r2_key")
         .eq("company_id", profile.company_id)
+        .neq("status", "draft")
         .order("issued_at", { ascending: false });
       if (error) toast({ title: "Failed to load invoices", description: error.message, variant: "destructive" });
       setInvoices((data as Invoice[]) ?? []);
@@ -43,6 +46,7 @@ export default function Billing() {
   async function handleDownload(invoiceId: string) {
     try {
       const url = await getInvoiceDownloadUrl(invoiceId);
+      await logInvoiceEvent(invoiceId, "pdf_downloaded", { actor_user_id: user?.id ?? null });
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (e: any) {
       toast({ title: "Download failed", description: e.message, variant: "destructive" });
@@ -87,7 +91,12 @@ export default function Billing() {
               <TableBody>
                 {invoices.map((inv) => (
                   <TableRow key={inv.id}>
-                    <TableCell>{inv.invoice_number ?? inv.id.slice(0, 8)}</TableCell>
+                    <TableCell>
+                      <Link to={`/billing/invoices/${inv.id}`} className="inline-flex items-center gap-1 hover:underline">
+                        {inv.invoice_number ?? inv.id.slice(0, 8)}
+                        <ExternalLink className="h-3 w-3" />
+                      </Link>
+                    </TableCell>
                     <TableCell>{inv.issued_at ? new Date(inv.issued_at).toLocaleDateString() : "—"}</TableCell>
                     <TableCell>{inv.status ?? "—"}</TableCell>
                     <TableCell>{inv.currency} {(inv.total_cents ?? 0) / 100}</TableCell>
