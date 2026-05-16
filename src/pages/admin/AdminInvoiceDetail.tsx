@@ -8,7 +8,7 @@ import { toast } from "@/hooks/use-toast";
 import { getInvoiceDownloadUrl, requestInvoicePdf } from "@/lib/invoiceUrl";
 import { logInvoiceEvent } from "@/lib/invoices";
 import InvoiceEventsTimeline from "@/components/billing/InvoiceEventsTimeline";
-import { ArrowLeft, Download, FileText, RefreshCw, Send, CheckCircle2, AlertTriangle, Ban } from "lucide-react";
+import { ArrowLeft, Download, FileText, RefreshCw, Send, CheckCircle2, AlertTriangle, Ban, Mail } from "lucide-react";
 
 type Invoice = {
   id: string;
@@ -97,6 +97,29 @@ export default function AdminInvoiceDetail() {
     }
   }
 
+  async function handleEmail() {
+    if (!id || !invoice) return;
+    const to = invoice.bill_to_email;
+    if (!to) {
+      toast({ title: "No billing email on invoice", variant: "destructive" });
+      return;
+    }
+    if (!confirm(`Send this invoice to ${to}?`)) return;
+    setBusy(true);
+    try {
+      const { data, error } = await (supabase as any).functions.invoke("send-invoice-email", {
+        body: { invoice_id: id },
+      });
+      if (error) throw error;
+      toast({ title: "Invoice emailed", description: `Sent to ${to}` });
+      setEventsKey((k) => k + 1);
+    } catch (e: any) {
+      toast({ title: "Email failed", description: e.message, variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function updateStatus(patch: Record<string, any>, label: string, event: string) {
     if (!id) return;
     setBusy(true);
@@ -170,6 +193,11 @@ export default function AdminInvoiceDetail() {
           {hasPdf && (
             <Button onClick={handleDownload} variant="secondary">
               <Download className="h-4 w-4" /> Download PDF
+            </Button>
+          )}
+          {isSuperAdmin && status !== "draft" && (
+            <Button onClick={handleEmail} disabled={busy} variant="outline">
+              <Mail className="h-4 w-4" /> Email to customer
             </Button>
           )}
         </div>
