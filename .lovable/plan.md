@@ -92,6 +92,79 @@ All driven off `invoices.due_at` and `status` — no extra tables needed.
 2. **Status label.** Confirm you're OK with "Sent → Pending payment" relabel rather than adding a new enum value.
 3. **Auto-renew default.** Should existing companies default to `auto_renew = true` (auto invoices start flowing next cycle) or `false` (you manually opt in per company)?
 
+## Billing profile — recommended structure
+
+You shared these fields: `company_name`, `billing_email`, `billing_contact_name`, `billing_phone`, `billing_address`, `trn`, `customer_code`, `subscription_plan`.
+
+**Recommendation: new 1:1 table `company_billing_profiles`, not extra columns on `companies`.**
+
+Why a separate table:
+
+- `companies` is an operational/tenant table (slug, status, limits, features). Billing identity is a different concern with different RLS, different audit needs, and different access patterns (only super-admins + the billing contact should read it).
+- Keeps `companies` lean and avoids leaking TRN / billing address to every authenticated read of `companies`.
+- Makes it natural to **snapshot the billing profile onto each invoice at issue time** so historical invoices stay correct if the company later changes its address or TRN.
+- Easy to extend later (multiple billing contacts, PO numbers, payment terms) without bloating `companies`.
+
+### Schema
+
+```text
+company_billing_profiles
+  company_id           uuid PK / FK → companies.id (1:1)
+  legal_name           text         -- formal business name on the invoice
+  billing_email        text NOT NULL
+  billing_contact_name text
+  billing_phone        text
+  billing_address      text         -- multi-line; single text column is fine
+  trn                  text         -- tax registration number
+  customer_code        text UNIQUE  -- short human ref, e.g. CUST-000123
+  created_at, updated_at
+```
+
+Notes:
+
+- `company_name` stays on `companies.name`. `legal_name` here is for the invoice ("Acme Holdings Ltd" vs the operational tenant name "Acme").
+- `subscription_plan` does NOT belong here — it already lives on `company_subscriptions`. Reading it from a billing profile would drift. The Billing tab shows it joined in.
+- `customer_code` is auto-generated on insert (sequence + trigger, same pattern as `invoice_number`), but editable by super-admins for legacy customers.
+- Replaces the ad-hoc `companies.email` / `companies.address` columns added in Stage 6 — drop those after backfill.
+
+### RLS
+
+- Super-admin: full access.
+- Tenant: SELECT and UPDATE only where `company_id = get_user_company_id(auth.uid())` AND user is a company admin (use `has_role`). Regular tenant users see nothing.
+- No INSERT for tenants — super-admin creates the row when the company is created.
+
+### Invoice snapshotting
+
+Add to `invoices` (snapshot at issue time, never updated after):
+
+- `bill_to_legal_name text`
+- `bill_to_email text`
+- `bill_to_contact_name text`
+- `bill_to_phone text`
+- `bill_to_address text`
+- `bill_to_trn text`
+- `bill_to_customer_code text`
+
+Populated by the "Generate invoice for next cycle" button and by `auto-generate-renewal-invoices`. The PDF renderer reads these snapshot columns, never the live profile — so a reissued PDF for a year-old invoice still shows the address that was correct at the time.
+
+### How it slots into the flow
+
+1. **Company creation** (super-admin "Create company"): also creates an empty `company_billing_profiles` row with `billing_email` defaulted to the admin user's email. Super-admin can edit immediately.
+2. **`/admin/companies/:id` → new "Billing" tab**: two cards stacked above the cycle card —
+   - **Billing profile** (legal name, billing email, contact name, phone, address, TRN, customer code) — editable inline.
+   - **Billing cycle** (start, renewal, auto-renew).
+   - Then plan summary + invoice history below.
+3. **Generate invoice flow**: validates the billing profile has `billing_email`, `legal_name`, and `billing_address` set; blocks invoice creation with a clear inline error if not. Snapshots all `bill_to_*` fields onto the invoice row.
+4. **Email reminders**: `auto-generate-renewal-invoices` uses `invoice.bill_to_email` (the snapshot), with fallback to current `company_billing_profiles.billing_email`. Never falls back to a random user account.
+5. **Tenant `/billing`**: read-only view of the company's billing profile so the tenant admin can spot-check what will show on their invoice; "Request changes" CTA opens a mailto/contact form to the super-admin (since tenants don't self-edit TRN / legal name in most cases — but you can allow company admins to edit if you prefer; the RLS above already supports it).
+
+### Updated implementation order
+
+Insert as steps 1.a and 1.b before the existing step 2:
+
+1.a. Migration: `company_billing_profiles` table + sequence + trigger for `customer_code`; backfill one row per company; add snapshot columns to `invoices`; drop the temporary `companies.email` / `companies.address` added in Stage 6 (after backfill into the new table).
+1.b. UI: Billing profile card on the new Billing tab; super-admin "Create company" flow populates the row with defaults.
+
 ## Implementation order (once you approve)
 
 1. Migration: `subscription_start_date`, `renewal_date`, `auto_renew` on `company_subscriptions`; backfill; trigger; `invoice_events` table; locked-paid trigger.
