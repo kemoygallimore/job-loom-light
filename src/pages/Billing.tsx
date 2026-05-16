@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "@/hooks/use-toast";
 import { getInvoiceDownloadUrl } from "@/lib/invoiceUrl";
 import { Download } from "lucide-react";
+import BillingProfileForm from "@/components/billing/BillingProfileForm";
 
 type Invoice = {
   id: string;
@@ -19,7 +20,7 @@ type Invoice = {
 };
 
 export default function Billing() {
-  const { profile } = useAuth();
+  const { profile, role } = useAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -50,6 +51,13 @@ export default function Billing() {
   return (
     <div className="p-6 space-y-6">
       <h1 className="text-2xl font-semibold">Billing</h1>
+      {profile?.company_id && (
+        <Card>
+          <CardContent className="pt-6">
+            <BillingProfileForm companyId={profile.company_id} canEdit={role === "admin"} />
+          </CardContent>
+        </Card>
+      )}
       <Card>
         <CardHeader><CardTitle>Invoice history</CardTitle></CardHeader>
         <CardContent>
