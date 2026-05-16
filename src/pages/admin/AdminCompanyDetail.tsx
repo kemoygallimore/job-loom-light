@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { ArrowLeft, Save, Plus, Trash2 } from "lucide-react";
 import BillingProfileForm from "@/components/billing/BillingProfileForm";
+import BillingCycleCard from "@/components/billing/BillingCycleCard";
 
 interface Subscription {
   id?: string;
@@ -494,6 +495,9 @@ export default function AdminCompanyDetail() {
         <TabsContent value="billing" className="space-y-6 mt-6">
           <div className="rounded-xl border bg-card p-6 max-w-3xl">
             {id && <BillingProfileForm companyId={id} canEdit />}
+          </div>
+          <div className="rounded-xl border bg-card p-6 max-w-3xl">
+            {id && <BillingCycleCard companyId={id} canEdit />}
           </div>
         </TabsContent>
       </Tabs>
