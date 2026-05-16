@@ -8,6 +8,7 @@ import { toast } from "@/hooks/use-toast";
 import { getInvoiceDownloadUrl } from "@/lib/invoiceUrl";
 import { Download } from "lucide-react";
 import BillingProfileForm from "@/components/billing/BillingProfileForm";
+import BillingCycleCard from "@/components/billing/BillingCycleCard";
 
 type Invoice = {
   id: string;
@@ -55,6 +56,13 @@ export default function Billing() {
         <Card>
           <CardContent className="pt-6">
             <BillingProfileForm companyId={profile.company_id} canEdit={role === "admin"} />
+          </CardContent>
+        </Card>
+      )}
+      {profile?.company_id && (
+        <Card>
+          <CardContent className="pt-6">
+            <BillingCycleCard companyId={profile.company_id} canEdit={false} />
           </CardContent>
         </Card>
       )}
