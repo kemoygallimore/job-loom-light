@@ -1,165 +1,147 @@
-# Stage 5 + Annual-Only Migration + Improvements doc
+# Stage 7 — Invoice PDF via External Supabase + Cloudflare Worker
 
-This plan does three things in one approval:
-1. Apply the annual-only billing change to already-shipped Stages 2–4.
-2. Implement Stage 5 (non-core feature toggles).
-3. Drop a new `docs/improvements.md` file with concrete enhancement ideas for the rest of the build.
+Wires the existing Cloudflare Worker (`https://api.rizonhire.com`) into the app through two new Supabase Edge Functions deployed to the **external** Supabase project (not Lovable Cloud). The frontend never talks to the Worker or R2 directly.
 
-All schema changes live on the **external Supabase project** (same one as `plan_defaults`, `company_subscriptions`, `company_addons`). Because Lovable Cloud cannot run those migrations, the SQL is provided here and you run it manually before the frontend wires up.
+## Architecture
 
----
-
-## Part A — Annual-only migration (Stages 2, 3, 4)
-
-### SQL to run on external Supabase
-
-```sql
--- Stage 2: rename column on plan_defaults
-ALTER TABLE public.plan_defaults
-  RENAME COLUMN monthly_price_cents TO annual_price_cents;
-
--- Stage 3: drop billing_cycle, rename override price column
-ALTER TABLE public.company_subscriptions
-  DROP COLUMN IF EXISTS billing_cycle;
-ALTER TABLE public.company_subscriptions
-  RENAME COLUMN override_monthly_price_cents TO override_annual_price_cents;
+```text
+Browser ──(JWT)──► Supabase Edge Function ──(Bearer R2_WORKER_SECRET)──► Cloudflare Worker ──► R2
 ```
 
-(No data migration needed — the existing values are simply re-interpreted as annual.)
+- `request-invoice-pdf` — super-admin only; generates/regenerates the PDF and persists `pdf_r2_key`, `pdf_generated_at`, `pdf_version` on the invoice.
+- `get-invoice-download-url` — super-admin OR tenant user owning the invoice; returns a short-lived signed URL.
 
-### Frontend changes that follow the rename
+## Database
 
-- `src/pages/admin/AdminPricing.tsx`
-  - Interface field `monthly_price_cents` → `annual_price_cents`.
-  - Label "Monthly price" → "Annual price".
-- `src/pages/admin/AdminCompanyDetail.tsx`
-  - `Subscription` interface: drop `billing_cycle`, rename `override_monthly_price_cents` → `override_annual_price_cents`.
-  - `PlanDefaults` interface: rename `monthly_price_cents` → `annual_price_cents`.
-  - Remove the **Billing cycle** Select; relabel **Monthly price override** → **Annual price override**.
-  - `saveSubscription` payload: drop `billing_cycle`, rename the price field.
-  - `refresh()` default sub object: drop `billing_cycle`.
+Stage 6 (`invoices`, `invoice_line_items`) has not been migrated yet on the external Supabase. Ship a single SQL file that:
 
----
+1. Creates `invoices` with all Stage 6 columns plus `pdf_r2_key text`, `pdf_generated_at timestamptz`, `pdf_version integer default 0`.
+2. Creates `invoice_line_items` (`invoice_id`, `description`, `quantity`, `unit_price_cents`, `amount_cents`, `source`).
+3. Adds `email text` and `address text` to `companies` (needed by the PDF payload; currently absent).
+4. Enables RLS:
+   - Super-admins: full access on both tables.
+   - Tenant users: SELECT only where `company_id = get_user_company_id(auth.uid())`.
+5. Adds `invoice_number` sequence + trigger (`INV-YYYY-NNNNNN`).
 
-## Part B — Stage 5: Non-core feature toggles
+File: `supabase/migrations/<timestamp>_invoices.sql` — applied via `supabase db push` against the external project.
 
-### SQL to run on external Supabase
+## Edge Functions
 
-```sql
--- Per-tenant feature flags
-CREATE TABLE public.company_features (
-  company_id uuid PRIMARY KEY REFERENCES public.companies(id) ON DELETE CASCADE,
-  feature_assessment            boolean NOT NULL DEFAULT false,
-  feature_public_careers        boolean NOT NULL DEFAULT true,
-  feature_guest_feedback        boolean NOT NULL DEFAULT true,
-  feature_email_notifications   boolean NOT NULL DEFAULT false,
-  feature_custom_email_domain   boolean NOT NULL DEFAULT false,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
+Both live under `supabase/functions/` and deploy with the Supabase CLI to the external project.
 
-ALTER TABLE public.company_features ENABLE ROW LEVEL SECURITY;
+### `supabase/functions/_shared/cors.ts`
+Shared CORS headers: `Access-Control-Allow-Headers: authorization, x-client-info, apikey, content-type`; methods `POST, OPTIONS`.
 
-CREATE POLICY "Super admin manage features"
-  ON public.company_features FOR ALL
-  USING (public.has_role(auth.uid(), 'super_admin'))
-  WITH CHECK (public.has_role(auth.uid(), 'super_admin'));
+### `supabase/functions/request-invoice-pdf/index.ts`
+- OPTIONS → CORS preflight.
+- Reads `Authorization` header; creates a user-scoped client with `SUPABASE_URL` + `SUPABASE_ANON_KEY` and `global.headers.Authorization` to resolve `auth.getUser()`. 401 if missing.
+- Calls existing `has_role(user.id, 'super_admin')` RPC. 403 if false.
+- Validates body `{ invoice_id: uuid }`. 400 if missing.
+- Switches to service-role client (`SUPABASE_SERVICE_ROLE_KEY`) for reads/writes:
+  - SELECT invoice; 404 if not found.
+  - SELECT line items.
+  - SELECT company (name, email, address).
+- Builds the exact payload specified in the request, POSTs to `${R2_WORKER_BASE_URL}/invoices/generate-pdf` with `Authorization: Bearer ${R2_WORKER_SECRET}`.
+- On Worker success: UPDATE invoice with `pdf_r2_key`, `pdf_version`, `pdf_generated_at = now()`. Returns the updated row.
+- Logs errors server-side; never echoes the secret.
 
-CREATE POLICY "Tenant reads own features"
-  ON public.company_features FOR SELECT
-  USING (company_id = public.get_user_company_id(auth.uid()));
+### `supabase/functions/get-invoice-download-url/index.ts`
+- OPTIONS → CORS preflight.
+- Auth check identical to above. 401 if missing.
+- Validates `{ invoice_id }`. 400 if missing.
+- Service-role SELECT of invoice. 404 if not found.
+- Access check:
+  - `has_role(user.id, 'super_admin')` → allow, OR
+  - `invoice.company_id == get_user_company_id(user.id)` → allow,
+  - else 403.
+- If `pdf_r2_key` is null → 400 `"PDF has not been generated yet."`.
+- GET `${R2_WORKER_BASE_URL}/invoices/${invoice_id}/download?key=${encodeURIComponent(pdf_r2_key)}` with `Authorization: Bearer ${R2_WORKER_SECRET}`.
+- Returns `{ url, expires_in }` to the client.
 
--- Backfill from plan_defaults
-INSERT INTO public.company_features (
-  company_id,
-  feature_assessment, feature_public_careers, feature_guest_feedback,
-  feature_email_notifications, feature_custom_email_domain
-)
-SELECT c.id,
-  pd.default_feature_assessment, pd.default_feature_public_careers, pd.default_feature_guest_feedback,
-  pd.default_feature_email_notifications, pd.default_feature_custom_email_domain
-FROM public.companies c, public.plan_defaults pd
-ON CONFLICT (company_id) DO NOTHING;
+### Secrets (set via CLI, never in repo)
+- `R2_WORKER_BASE_URL` = `https://api.rizonhire.com`
+- `R2_WORKER_SECRET` = user-provided
+- `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` are auto-provided by Supabase to Edge Functions.
 
--- Helper: true/false for a single feature
-CREATE OR REPLACE FUNCTION public.is_feature_enabled(_company_id uuid, _feature text)
-RETURNS boolean
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public
-AS $$
-DECLARE v boolean;
-BEGIN
-  EXECUTE format('SELECT %I FROM public.company_features WHERE company_id = $1', 'feature_' || _feature)
-    INTO v USING _company_id;
-  RETURN COALESCE(v, false);
-END $$;
+### `supabase/config.toml`
+Add per-function blocks for both functions with `verify_jwt = true` so Supabase enforces the JWT before our code runs.
 
--- Gate the public careers RPC
-CREATE OR REPLACE FUNCTION public.get_public_company_by_slug(_slug text)
-RETURNS TABLE(id uuid, name text, slug text)
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
-AS $$
-  SELECT c.id, c.name, c.slug
-  FROM public.companies c
-  LEFT JOIN public.company_features f ON f.company_id = c.id
-  WHERE c.slug = _slug
-    AND COALESCE(f.feature_public_careers, true) = true
-    AND EXISTS (SELECT 1 FROM public.jobs j WHERE j.company_id = c.id AND j.status = 'open')
-  LIMIT 1;
-$$;
+## Frontend
+
+### `src/lib/invoiceUrl.ts`
+```ts
+export async function getInvoiceDownloadUrl(invoiceId: string): Promise<string>
+```
+Wraps `supabase.functions.invoke("get-invoice-download-url", { body: { invoice_id } })`. Throws on error. Returns `data.url`.
+
+### `src/lib/requestInvoicePdf.ts`
+`requestInvoicePdf(invoiceId)` → invokes `request-invoice-pdf`, returns the updated invoice row for cache refresh.
+
+### Admin invoice detail — `/admin/billing/invoices/:id`
+(Stage 6 page; built alongside this stage.)
+- Header chips for `pdf_generated_at` and `pdf_version`.
+- Buttons (super-admin only):
+  - `Generate PDF` when `pdf_r2_key` is null.
+  - `Regenerate PDF` when `pdf_r2_key` exists.
+  - `Download PDF` when `pdf_r2_key` exists; calls `getInvoiceDownloadUrl` and opens the URL in a new tab.
+- Toasts on success/failure; React Query invalidation after generate.
+
+### Tenant billing — `/billing`
+- Invoice history row: `Download PDF` button when `pdf_r2_key` is set, otherwise muted `PDF not yet available.` label.
+- No Generate / Regenerate / Mark paid / Overdue / Void controls rendered for non-super-admins (guarded by `useAuth().isSuperAdmin`).
+
+## CLI deployment commands (for the user)
+
+```bash
+# MY_PROJECT_REF = Supabase Dashboard → Project Settings → General → "Reference ID"
+supabase login
+supabase link --project-ref MY_PROJECT_REF
+
+# Apply the migration to the external DB
+supabase db push
+
+# Set Edge Function secrets (one-time)
+supabase secrets set R2_WORKER_BASE_URL=https://api.rizonhire.com
+supabase secrets set R2_WORKER_SECRET=MY_REAL_SECRET
+
+# Deploy the two functions
+supabase functions deploy request-invoice-pdf
+supabase functions deploy get-invoice-download-url
 ```
 
-(Note: `feedback_links` public SELECT policy stays as-is for now — gating is done in the public feedback page UI by checking the feature flag on load. Public-feedback hard gate at the RLS level is listed in the improvements doc as a follow-up.)
+## Testing checklist
 
-### Frontend work
+Admin:
+1. Open `/admin/billing/invoices/:id` for an invoice with no PDF → see `Generate PDF`.
+2. Click → row updates: `pdf_r2_key`, `pdf_generated_at`, `pdf_version=1`. Buttons swap to `Regenerate PDF` + `Download PDF`.
+3. Click `Regenerate PDF` → `pdf_version` increments, `pdf_generated_at` refreshed.
+4. Click `Download PDF` → new tab loads the signed R2 URL; PDF renders.
 
-**New: `src/hooks/useFeatureFlags.ts`**
-- Loads `company_features` for the current user's company once, exposes `{ assessment, public_careers, guest_feedback, email_notifications, custom_email_domain, loading }`.
-- Used by sidebar and gated pages.
+Tenant:
+1. Sign in as tenant user. `/billing` shows only own-company invoices.
+2. Rows with `pdf_r2_key` show `Download PDF`; others show `PDF not yet available.`
+3. No Generate / Regenerate / Mark paid / Overdue / Void controls visible.
+4. Direct invoke of `get-invoice-download-url` with another company's `invoice_id` → 403.
 
-**Edits:**
+Security:
+1. Searching the frontend for `R2_WORKER_SECRET` or `api.rizonhire.com` returns no hits in invoice code (existing `getSignedVideoViewUrl` / `videoUrl.ts` for resumes/videos stay unchanged).
+2. Network tab shows only `*.supabase.co/functions/v1/...` calls from the browser; no direct calls to `api.rizonhire.com` for invoices.
+3. Existing resume/video Worker flow untouched.
 
-- `src/components/AppLayout.tsx` — hide the **Assessment** sidebar link when `assessment` is off.
-- `src/pages/Assessment.tsx` — render NotFound (or "Feature not available" panel) when off.
-- `src/pages/careers/CareersPage.tsx` & `JobDetailsPage.tsx` — already get nothing back from `get_public_company_by_slug` when off; show a clean "This careers page is not available" state instead of a generic 404.
-- `src/components/candidate/InterviewFeedback.tsx` (and any "Create guest feedback link" UI) — hide the create-link control when `guest_feedback` is off.
-- `src/pages/feedback/PublicFeedback.tsx` — on load, look up the link's company and check `is_feature_enabled(company_id, 'guest_feedback')` via RPC; show "This feedback link is no longer available" if disabled.
-- Email Notifications / Custom Email Domain — no functional impact yet; show a small "Coming soon" badge wherever they're surfaced.
+## Files
 
-**`src/pages/admin/AdminCompanyDetail.tsx` — new Features tab:**
-- Third tab between Subscription and Add-ons.
-- Loads `company_features` for the tenant; renders 5 `Switch` rows.
-- Saves via `upsert` on `company_features` keyed by `company_id`.
+New:
+- `supabase/migrations/<ts>_invoices.sql`
+- `supabase/functions/_shared/cors.ts`
+- `supabase/functions/request-invoice-pdf/index.ts`
+- `supabase/functions/get-invoice-download-url/index.ts`
+- `src/lib/invoiceUrl.ts`
+- `src/lib/requestInvoicePdf.ts`
 
----
+Edited:
+- `supabase/config.toml` — add function blocks
+- `src/pages/admin/AdminInvoiceDetail.tsx` (Stage 6 page) — add buttons + PDF metadata
+- `src/pages/Billing.tsx` (Stage 6 tenant page) — add download / empty state
+- `docs/02-technical.md`, `docs/01-features.md`, `docs/plan.md` — mark Stage 7 done; document new functions and `rizonhire-invoices` bucket
 
-## Part C — `docs/improvements.md`
-
-Create a new file capturing follow-ups so they don't get lost. Contents include:
-
-- **Hard-gate guest feedback at RLS** — extend `feedback_links` SELECT policy to join `company_features` instead of relying on UI.
-- **Stripe/payment integration** for actual annual billing collection (currently invoices are records, not charges).
-- **Audit log** for super-admin actions on subscriptions, add-ons, features (compliance).
-- **Plan templates** — multiple `plan_defaults` rows ("Starter / Growth / Scale") instead of one global default; tenants pick a plan_id.
-- **Proration logic** for mid-cycle add-on changes once Stripe is in.
-- **Email notifications add-on activation** — when toggled on, configure transactional email provider per tenant.
-- **Custom email domain** — DNS verification flow + per-tenant SMTP settings.
-- **Feature-flag rollout improvements** — gradual rollout %, time-bounded toggles, audit trail of who flipped what.
-- **Tenant self-service billing** — allow company admins (not just super admins) to view subscription, add-ons, and invoices on `/billing` (Stage 6 ships read-only; later allow upgrades).
-- **Replace `companies.max_open_jobs`** entirely with the RPC once all callers are migrated; drop the column.
-- **Webhook for invoice events** — outbound webhooks when invoices are issued/paid for tenant integrations.
-- **PDF caching strategy** — short-lived signed URL cache to avoid hitting the Worker on every render.
-- **Test coverage** — Vitest specs for `is_feature_enabled`, `get_company_job_limit`, and the feature-flag hook.
-
----
-
-## Order of operations
-
-1. You run **Part A** SQL on external Supabase, confirm.
-2. You run **Part B** SQL on external Supabase, confirm.
-3. I push all frontend changes (Stage 5 + the annual rename cleanup) in one commit.
-4. I create `docs/improvements.md`.
-
-## File map
-
-- New: `src/hooks/useFeatureFlags.ts`, `docs/improvements.md`
-- Edited: `src/pages/admin/AdminPricing.tsx`, `src/pages/admin/AdminCompanyDetail.tsx`, `src/components/AppLayout.tsx`, `src/pages/Assessment.tsx`, `src/pages/careers/CareersPage.tsx`, `src/pages/careers/JobDetailsPage.tsx`, `src/pages/feedback/PublicFeedback.tsx`, `src/components/candidate/InterviewFeedback.tsx`, `docs/plan.md` (mark Stage 5 done)
+Unchanged: Cloudflare Worker, existing `silverweb-ats-resumes` / `silverweb-ats-videos` flows.
