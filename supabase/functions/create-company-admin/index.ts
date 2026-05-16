@@ -77,6 +77,26 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Failed to assign role: " + roleError.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Seed a billing profile row so invoicing has a bill-to identity.
+    // Idempotent: upsert by company_id; preserves existing fields if already set.
+    const { data: companyRow } = await adminClient
+      .from("companies")
+      .select("name")
+      .eq("id", company_id)
+      .maybeSingle();
+
+    await adminClient
+      .from("company_billing_profiles")
+      .upsert(
+        {
+          company_id,
+          legal_name: companyRow?.name ?? null,
+          billing_email: admin_email,
+          billing_contact_name: admin_name,
+        },
+        { onConflict: "company_id", ignoreDuplicates: false },
+      );
+
     return new Response(JSON.stringify({ success: true, user_id: newUser.user.id }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
