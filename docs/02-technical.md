@@ -157,3 +157,60 @@ npx playwright test
 - Default Supabase query limit is 1,000 rows — paginate dashboards beyond that scale.
 - `src/integrations/supabase/client.ts` and `types.ts` are auto-generated; the project aliases `client` to `externalClient.ts`.
 - Roles must NEVER be moved onto `profiles` — keep them in `user_roles` to avoid privilege escalation.
+
+## Billing Subsystem
+
+### Tables
+
+- `company_billing_profiles` (1:1 with `companies`) — invoice identity snapshot source
+- `company_subscriptions` — plan, add-ons, discount, `subscription_start_date`,
+  `renewal_date`, `auto_renew`
+- `company_addons` — active add-on quantities
+- `plan_defaults` — single-row default plan price/currency
+- `invoices` — status enum (`draft|sent|paid|overdue|void`), snapshotted `bill_to_*`
+  fields, `pdf_r2_key`, `payment_method`, `payment_reference`, `reminders_sent` (jsonb)
+- `invoice_line_items` — per-invoice charges (plan, addon, discount)
+- `invoice_events` — append-only audit timeline
+
+### Triggers
+
+- `set_renewal_date` — recomputes `renewal_date = start + 1 year` when start changes
+- `lock_paid_invoices` — blocks updates to paid invoices except `pdf_*` and `reminders_sent`
+- `generate_customer_code` — auto-assigns `CUST-000123` style codes
+
+### Edge functions (external Supabase project)
+
+| Function | Auth | Purpose |
+|---|---|---|
+| `get-invoice-download-url` | JWT | Returns short-lived signed R2 URL for the invoice PDF |
+| `request-invoice-pdf` | super-admin JWT | Renders/regenerates PDF on R2, updates invoice |
+| `send-invoice-email` | super-admin JWT or `x-cron-secret` | Sends payment-due email via Resend |
+| `mark-invoice-paid` | super-admin JWT | Sets paid, advances `renewal_date`, sends receipt |
+| `billing-auto-renewal` | super-admin JWT or `x-cron-secret` | Drafts invoices in renewal window |
+| `billing-send-reminders` | super-admin JWT or `x-cron-secret` | Sends pre-due/due/overdue emails |
+
+Both cron functions accept `{ "dry_run": true }` to inspect what they would do.
+
+### Required secrets (external project)
+
+`RESEND_API_KEY`, `RESEND_FROM`, `CRON_SECRET`, `R2_WORKER_BASE_URL`, `R2_WORKER_SECRET`.
+
+### Daily schedule (pg_cron, run in external SQL editor)
+
+```sql
+select cron.schedule('billing-auto-renewal-daily', '0 8 * * *', $$
+  select net.http_post(
+    url := 'https://jfiyvvigvknfemqfnucl.supabase.co/functions/v1/billing-auto-renewal',
+    headers := jsonb_build_object('Content-Type','application/json','x-cron-secret','<CRON_SECRET>'),
+    body := '{"window_days":30,"auto_issue":true,"auto_email":true}'::jsonb
+  );
+$$);
+
+select cron.schedule('billing-reminders-daily', '15 8 * * *', $$
+  select net.http_post(
+    url := 'https://jfiyvvigvknfemqfnucl.supabase.co/functions/v1/billing-send-reminders',
+    headers := jsonb_build_object('Content-Type','application/json','x-cron-secret','<CRON_SECRET>'),
+    body := '{}'::jsonb
+  );
+$$);
+```
