@@ -4,6 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { getInvoiceDownloadUrl, requestInvoicePdf } from "@/lib/invoiceUrl";
 import { logInvoiceEvent } from "@/lib/invoices";
@@ -34,6 +37,8 @@ type Invoice = {
   bill_to_address: string | null;
   bill_to_trn: string | null;
   bill_to_customer_code: string | null;
+  payment_method: string | null;
+  payment_reference: string | null;
 };
 
 type LineItem = {
@@ -54,6 +59,10 @@ export default function AdminInvoiceDetail() {
   const [eventsKey, setEventsKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [payOpen, setPayOpen] = useState(false);
+  const [payMethod, setPayMethod] = useState("");
+  const [payReference, setPayReference] = useState("");
+  const [payDate, setPayDate] = useState(() => new Date().toISOString().slice(0, 10));
 
   async function load() {
     if (!id) return;
@@ -136,12 +145,42 @@ export default function AdminInvoiceDetail() {
   }
 
   const issue = () => updateStatus({ status: "sent", issued_at: new Date().toISOString() }, "Invoice issued", "issued");
-  const markPaid = () => updateStatus({ status: "paid", paid_at: new Date().toISOString() }, "Marked as paid", "marked_paid");
   const markOverdue = () => updateStatus({ status: "overdue" }, "Marked as overdue", "marked_overdue");
   const voidInvoice = () => {
     if (!confirm("Void this invoice? This cannot be undone.")) return;
     return updateStatus({ status: "void" }, "Invoice voided", "voided");
   };
+
+  async function submitMarkPaid() {
+    if (!id) return;
+    setBusy(true);
+    try {
+      const { data, error } = await (supabase as any).functions.invoke("mark-invoice-paid", {
+        body: {
+          invoice_id: id,
+          payment_method: payMethod || null,
+          payment_reference: payReference || null,
+          paid_at: payDate ? new Date(payDate + "T00:00:00Z").toISOString() : undefined,
+          send_receipt: true,
+        },
+      });
+      if (error) throw error;
+      toast({
+        title: "Invoice marked paid",
+        description: data?.advanced
+          ? `Subscription advanced to ${data.advanced.to}`
+          : "Receipt emailed to customer.",
+      });
+      setPayOpen(false);
+      setPayMethod(""); setPayReference("");
+      setEventsKey((k) => k + 1);
+      await load();
+    } catch (e: any) {
+      toast({ title: "Mark paid failed", description: e.message, variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
+  }
 
   if (loading) return <div className="p-6 text-muted-foreground">Loading invoice…</div>;
   if (!invoice) return <div className="p-6">Invoice not found.</div>;
@@ -170,7 +209,7 @@ export default function AdminInvoiceDetail() {
             </Button>
           )}
           {canMarkPaid && (
-            <Button onClick={markPaid} disabled={busy} variant="default">
+            <Button onClick={() => setPayOpen(true)} disabled={busy} variant="default">
               <CheckCircle2 className="h-4 w-4" /> Mark paid
             </Button>
           )}
@@ -272,6 +311,33 @@ export default function AdminInvoiceDetail() {
       </Card>
 
       <InvoiceEventsTimeline invoiceId={invoice.id} refreshKey={eventsKey} />
+
+      <Dialog open={payOpen} onOpenChange={setPayOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Mark invoice as paid</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="pay-date">Payment date</Label>
+              <Input id="pay-date" type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="pay-method">Payment method</Label>
+              <Input id="pay-method" placeholder="e.g. Bank transfer, Stripe, Cheque" value={payMethod} onChange={(e) => setPayMethod(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="pay-ref">Reference</Label>
+              <Input id="pay-ref" placeholder="Transaction id / cheque #" value={payReference} onChange={(e) => setPayReference(e.target.value)} />
+            </div>
+            <p className="text-xs text-muted-foreground">A receipt will be emailed to {invoice.bill_to_email ?? "the billing contact"}.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPayOpen(false)} disabled={busy}>Cancel</Button>
+            <Button onClick={submitMarkPaid} disabled={busy}>Confirm payment</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
