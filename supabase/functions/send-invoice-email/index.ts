@@ -46,22 +46,27 @@ Deno.serve(async (req) => {
 
     if (!RESEND_API_KEY) return json({ error: "RESEND_API_KEY not configured" }, 500);
 
-    // --- Auth ---
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
-
-    const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: userData, error: userErr } = await userClient.auth.getUser();
-    if (userErr || !userData?.user) return json({ error: "Unauthorized" }, 401);
-    const userId = userData.user.id;
-
-    const { data: isSuper, error: roleErr } = await userClient.rpc("has_role", {
-      _user_id: userId, _role: "super_admin",
-    });
-    if (roleErr) return json({ error: "Authorization check failed" }, 500);
-    if (!isSuper) return json({ error: "Forbidden" }, 403);
+    // --- Auth: super_admin JWT OR x-cron-secret (internal callers) ---
+    const CRON_SECRET = Deno.env.get("CRON_SECRET");
+    const cronHeader = req.headers.get("x-cron-secret");
+    let userId: string | null = null;
+    if (CRON_SECRET && cronHeader && cronHeader === CRON_SECRET) {
+      // trusted internal caller
+    } else {
+      const authHeader = req.headers.get("Authorization");
+      if (!authHeader?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
+      const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: userData, error: userErr } = await userClient.auth.getUser();
+      if (userErr || !userData?.user) return json({ error: "Unauthorized" }, 401);
+      userId = userData.user.id;
+      const { data: isSuper, error: roleErr } = await userClient.rpc("has_role", {
+        _user_id: userId, _role: "super_admin",
+      });
+      if (roleErr) return json({ error: "Authorization check failed" }, 500);
+      if (!isSuper) return json({ error: "Forbidden" }, 403);
+    }
 
     // --- Input ---
     const body = await req.json().catch(() => null);
