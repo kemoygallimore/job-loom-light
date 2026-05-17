@@ -109,7 +109,30 @@ RizonHire is a **multi-tenant Applicant Tracking System (ATS)** with built-in vi
 - **Lovable Cloud** (managed Supabase) backend
 - **Cloudflare R2** private buckets for resumes and screening videos via Cloudflare Worker (no public URLs)
 - Realtime-capable schema for future live updates
-- Edge functions: `create-company-admin`, `screening-cleanup`
+- Edge functions (external Supabase project): `create-company-admin`, `screening-cleanup`,
+  `get-invoice-download-url`, `request-invoice-pdf`, `send-invoice-email`,
+  `billing-auto-renewal`, `billing-send-reminders`, `mark-invoice-paid`
+
+## 16. Billing & Invoicing
+
+- Per-company **billing profile** (`company_billing_profiles`) with legal name, billing email,
+  contact, address, TRN, and auto-generated customer code
+- Annual **subscription cycle** dates on `company_subscriptions`
+  (`subscription_start_date`, `renewal_date`, `auto_renew`)
+- **Invoices** with snapshotted bill-to fields, line items, status flow
+  (`draft` → `sent` → `paid` / `overdue` / `void`), and PDF generation on R2
+- **Invoice events** timeline (`invoice_events`) recording every action
+- **Tenant billing page** (`/billing`): own-company invoices, signed PDF download,
+  next renewal date, bank-deposit payment instructions
+- **Super-admin billing tools** (`/admin/companies/:id` → Billing tab):
+  - Generate invoice for next cycle (validates billing profile)
+  - Issue / Mark paid (with payment method + reference) / Void
+  - Send branded emails via Resend (`payment_due`, reminders, receipts)
+- **Daily cron jobs**:
+  - `billing-auto-renewal` — drafts invoices ~30 days before renewal
+  - `billing-send-reminders` — pre-due (7d), due-today, overdue (every 7d, cap 4)
+  - Both support `?dry_run=1` for safe inspection
+- Paid invoices are immutable (`lock_paid_invoices` trigger) except for reminder metadata
 
 ## 15. Branding & UX
 

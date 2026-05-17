@@ -125,13 +125,18 @@ Deno.serve(async (req) => {
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+  const body = await req.json().catch(() => ({}));
+  const dryRun: boolean = !!body?.dry_run;
+
   const today = new Date().toISOString().slice(0, 10);
 
   // Auto-mark overdue
-  await admin.from("invoices")
-    .update({ status: "overdue" })
-    .lt("due_at", today)
-    .eq("status", "sent");
+  if (!dryRun) {
+    await admin.from("invoices")
+      .update({ status: "overdue" })
+      .lt("due_at", today)
+      .eq("status", "sent");
+  }
 
   const { data: invoices, error } = await admin
     .from("invoices")
@@ -159,6 +164,11 @@ Deno.serve(async (req) => {
     }
 
     if (!kind) { results.push({ invoice_id: inv.id, skipped: true }); continue; }
+
+    if (dryRun) {
+      results.push({ invoice_id: inv.id, kind, would_send_to: inv.bill_to_email });
+      continue;
+    }
 
     const res = await sendReminderEmail(inv, kind);
     if (!res.ok) {

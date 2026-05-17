@@ -156,6 +156,7 @@ Deno.serve(async (req) => {
   const windowDays: number = Math.max(1, Math.min(120, Number(body?.window_days ?? 30)));
   const autoIssue: boolean = !!body?.auto_issue;
   const autoEmail: boolean = !!body?.auto_email;
+  const dryRun: boolean = !!body?.dry_run;
 
   const today = new Date().toISOString().slice(0, 10);
   const cutoff = new Date();
@@ -169,6 +170,13 @@ Deno.serve(async (req) => {
     .gte("renewal_date", today)
     .lte("renewal_date", cutoffStr);
   if (error) return json({ error: error.message }, 500);
+
+  if (dryRun) {
+    return json({
+      success: true, dry_run: true, window_days: windowDays,
+      would_process: subs ?? [],
+    });
+  }
 
   const results: any[] = [];
   for (const s of subs ?? []) {
