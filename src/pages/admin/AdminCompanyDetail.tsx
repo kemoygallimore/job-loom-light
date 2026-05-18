@@ -506,6 +506,11 @@ export default function AdminCompanyDetail() {
             {id && <CompanyInvoicesCard companyId={id} />}
           </div>
         </TabsContent>
+
+        {/* EMAIL DOMAIN TAB */}
+        <TabsContent value="email-domain" className="space-y-6 mt-6">
+          {id && <CompanyEmailDomainTab companyId={id} />}
+        </TabsContent>
       </Tabs>
     </div>
   );
