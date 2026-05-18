@@ -14,6 +14,7 @@ import { ArrowLeft, Save, Plus, Trash2 } from "lucide-react";
 import BillingProfileForm from "@/components/billing/BillingProfileForm";
 import BillingCycleCard from "@/components/billing/BillingCycleCard";
 import CompanyInvoicesCard from "@/components/billing/CompanyInvoicesCard";
+import CompanyEmailDomainTab from "@/components/admin/CompanyEmailDomainTab";
 
 interface Subscription {
   id?: string;
@@ -272,6 +273,7 @@ export default function AdminCompanyDetail() {
           <TabsTrigger value="features">Features</TabsTrigger>
           <TabsTrigger value="addons">Add-ons</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
+          <TabsTrigger value="email-domain">Email Domain</TabsTrigger>
         </TabsList>
 
         {/* SUBSCRIPTION TAB */}
