@@ -17,6 +17,7 @@ import {
   Briefcase,
   DollarSign,
   Receipt,
+  Mail,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,6 +41,7 @@ const superAdminNav = [
   { to: "/admin/companies", label: "Companies", icon: Building2 },
   { to: "/admin/pricing", label: "Pricing", icon: DollarSign },
   { to: "/admin/billing", label: "Billing", icon: Receipt },
+  { to: "/admin/email-templates", label: "Email Templates", icon: Mail },
 ];
 
 export default function AppLayout() {

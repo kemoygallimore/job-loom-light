@@ -411,6 +411,22 @@ export default function PublicJobApplication() {
 
       if (appError) throw appError;
 
+      // Fire-and-forget thank-you email — never block submission on email failures.
+      supabase.functions
+        .invoke("send-candidate-email", {
+          body: {
+            template_key: "application_received",
+            to: normalizedEmail,
+            company_id: company.id,
+            variables: {
+              candidate_name: name.trim(),
+              company_name: company.name,
+              job_title: job.title,
+            },
+          },
+        })
+        .catch((err) => console.error("application email failed:", err));
+
       setSubmitted(true);
     } catch (err: any) {
       console.error("Submit error:", err);

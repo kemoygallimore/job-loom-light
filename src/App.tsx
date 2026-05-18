@@ -20,6 +20,7 @@ import AdminCompanyDetail from "./pages/admin/AdminCompanyDetail";
 import CandidateTagsAdmin from "./pages/admin/CandidateTagsAdmin";
 import AdminInvoiceDetail from "./pages/admin/AdminInvoiceDetail";
 import AdminBilling from "./pages/admin/AdminBilling";
+import AdminEmailTemplates from "./pages/admin/AdminEmailTemplates";
 import Billing from "./pages/Billing";
 import InvoiceDetail from "./pages/InvoiceDetail";
 import CareersPage from "./pages/careers/CareersPage";
@@ -117,6 +118,7 @@ const App = () => (
                 <Route path="pricing" element={<AdminPricing />} />
                 <Route path="billing" element={<AdminBilling />} />
                 <Route path="billing/invoices/:id" element={<AdminInvoiceDetail />} />
+                <Route path="email-templates" element={<AdminEmailTemplates />} />
               </Route>
             </Route>
             <Route path="*" element={<NotFound />} />
