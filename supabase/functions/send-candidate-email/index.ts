@@ -57,10 +57,26 @@ Deno.serve(async (req) => {
     const html = render(tpl.html_body, variables);
     const text = tpl.text_body ? render(tpl.text_body, variables) : undefined;
 
+    // Resolve sender per company (Stage 7)
+    let fromAddress = FROM_ADDRESS;
+    let replyTo: string | undefined;
+    if (company_id) {
+      const { data: co } = await admin
+        .from("companies")
+        .select("name, email_domain, email_domain_status, email_from_name, email_reply_to")
+        .eq("id", company_id)
+        .maybeSingle();
+      if (co?.email_domain && co.email_domain_status === "verified") {
+        const displayName = (co.email_from_name || co.name || "Careers").replace(/[<>"]/g, "");
+        fromAddress = `${displayName} <no-reply@${co.email_domain}>`;
+        replyTo = co.email_reply_to || undefined;
+      }
+    }
+
     const resendRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${RESEND_API_KEY}` },
-      body: JSON.stringify({ from: FROM_ADDRESS, to: [to], subject, html, text }),
+      body: JSON.stringify({ from: fromAddress, to: [to], subject, html, text, reply_to: replyTo }),
     });
 
     const resendData = await resendRes.json().catch(() => ({} as any));
@@ -70,6 +86,7 @@ Deno.serve(async (req) => {
         template_key, recipient_email: to, company_id: company_id ?? null,
         application_id: application_id ?? null, status: "failed",
         error_message: JSON.stringify(resendData).slice(0, 1000), context: variables,
+        from_address: fromAddress, reply_to: replyTo ?? null,
       });
       return new Response(JSON.stringify({ error: "Resend failed", details: resendData }), {
         status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -80,6 +97,7 @@ Deno.serve(async (req) => {
       template_key, recipient_email: to, company_id: company_id ?? null,
       application_id: application_id ?? null, status: "sent",
       provider_message_id: resendData?.id ?? null, context: variables,
+      from_address: fromAddress, reply_to: replyTo ?? null,
     });
 
     return new Response(JSON.stringify({ ok: true, id: resendData?.id }), {
