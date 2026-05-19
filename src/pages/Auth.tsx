@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { ArrowRight, Loader2 } from "lucide-react";
-import rizonhireLogo from "@/assets/RH logo white.png";
+import rizonhireLogo from "@/assets/RIZONHire_logo_White.png";
 
 export default function Auth() {
   const [loading, setLoading] = useState(false);
