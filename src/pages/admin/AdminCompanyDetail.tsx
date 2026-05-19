@@ -15,6 +15,9 @@ import BillingProfileForm from "@/components/billing/BillingProfileForm";
 import BillingCycleCard from "@/components/billing/BillingCycleCard";
 import CompanyInvoicesCard from "@/components/billing/CompanyInvoicesCard";
 import CompanyEmailDomainTab from "@/components/admin/CompanyEmailDomainTab";
+import CompanyUsersTab from "@/components/admin/CompanyUsersTab";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Pencil } from "lucide-react";
 
 interface Subscription {
   id?: string;
