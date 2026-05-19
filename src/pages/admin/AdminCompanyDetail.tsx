@@ -551,11 +551,6 @@ export default function AdminCompanyDetail() {
         <TabsContent value="users" className="space-y-6 mt-6">
           {id && <CompanyUsersTab companyId={id} seatLimit={seatLimit} />}
         </TabsContent>
-
-        {/* POLICIES TAB */}
-        <TabsContent value="policies" className="space-y-6 mt-6">
-          {id && <CompanyPolicyTab companyId={id} />}
-        </TabsContent>
       </Tabs>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
