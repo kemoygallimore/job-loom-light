@@ -26,9 +26,14 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import {
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
-import rizonhireLogo from "@/assets/RH logo white.png";
+import rizonhireLogo from "@/assets/RIZONHire_logo_White.png";
 
 const atsNavItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -120,9 +125,7 @@ export default function AppLayout() {
         <div
           className={`flex items-center gap-2.5 border-b border-sidebar-border h-14 ${collapsed ? "justify-center px-2" : "px-5"}`}
         >
-          {!collapsed && (
-            <img src={rizonhireLogo} alt="RizonHire" className="h-12 w-auto" />
-          )}
+          {!collapsed && <img src={rizonhireLogo} alt="RizonHire" className="h-12 w-auto" />}
           <button
             onClick={() => setCollapsed(!collapsed)}
             className={`hidden lg:flex items-center justify-center w-8 h-8 rounded-md text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors ${collapsed ? "" : "ml-auto"}`}
@@ -211,7 +214,7 @@ export default function AppLayout() {
                 className={`w-full flex items-center gap-2 rounded-lg text-left hover:bg-sidebar-accent/50 transition-colors ${
                   collapsed ? "justify-center p-2" : "px-2 py-2"
                 }`}
-                title={collapsed ? profile?.name ?? "Account" : undefined}
+                title={collapsed ? (profile?.name ?? "Account") : undefined}
               >
                 <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center text-xs font-semibold flex-shrink-0">
                   {(profile?.name ?? "?").slice(0, 1).toUpperCase()}
@@ -233,18 +236,24 @@ export default function AppLayout() {
                 <div className="text-xs text-muted-foreground truncate">{profile?.email}</div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {!isSuperAdmin && (role === "admin") && (
+              {!isSuperAdmin && role === "admin" && (
                 <DropdownMenuItem asChild>
-                  <Link to="/team"><Users className="w-4 h-4 mr-2" /> Team</Link>
+                  <Link to="/team">
+                    <Users className="w-4 h-4 mr-2" /> Team
+                  </Link>
                 </DropdownMenuItem>
               )}
               {!isSuperAdmin && (
                 <DropdownMenuItem asChild>
-                  <Link to="/billing"><Receipt className="w-4 h-4 mr-2" /> Billing</Link>
+                  <Link to="/billing">
+                    <Receipt className="w-4 h-4 mr-2" /> Billing
+                  </Link>
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem asChild>
-                <Link to="/legal/data-protection"><FileText className="w-4 h-4 mr-2" /> Data Protection</Link>
+                <Link to="/legal/data-protection">
+                  <FileText className="w-4 h-4 mr-2" /> Data Protection
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive">
