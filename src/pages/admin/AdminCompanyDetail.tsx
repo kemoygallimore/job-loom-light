@@ -94,6 +94,11 @@ export default function AdminCompanyDetail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const [editOpen, setEditOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editStatus, setEditStatus] = useState("active");
+  const [editBusy, setEditBusy] = useState(false);
+
   // computed limits via RPC
   const [jobLimit, setJobLimit] = useState<number | null>(null);
   const [seatLimit, setSeatLimit] = useState<number | null>(null);
@@ -146,6 +151,29 @@ export default function AdminCompanyDetail() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  const openEdit = () => {
+    setEditName(company?.name ?? "");
+    setEditStatus(company?.status ?? "active");
+    setEditOpen(true);
+  };
+
+  const saveCompany = async () => {
+    if (!id || !editName.trim()) {
+      toast.error("Name is required");
+      return;
+    }
+    setEditBusy(true);
+    const { error } = await supabase
+      .from("companies")
+      .update({ name: editName.trim(), status: editStatus } as any)
+      .eq("id", id);
+    setEditBusy(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Company updated");
+    setEditOpen(false);
+    refresh();
+  };
 
   const saveSubscription = async () => {
     if (!sub || !id) return;
