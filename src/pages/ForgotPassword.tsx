@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { ArrowLeft, Loader2, MailCheck } from "lucide-react";
-import rizonhireLogo from "@/assets/RH logo black.png";
+import rizonhireLogo from "@/assets/RIZONHire_logo_Black.png";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -31,7 +31,7 @@ export default function ForgotPassword() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-6">
       <div className="w-full max-w-sm animate-fade-in">
-        <img src={rizonhireLogo} alt="RizonHire" className="h-12 w-auto mb-10" />
+        <img src={rizonhireLogo} alt="RizonHire" className="w-40 h-auto mb-10" />
 
         {sent ? (
           <div className="text-center space-y-3">
