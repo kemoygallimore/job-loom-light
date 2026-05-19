@@ -22,6 +22,7 @@ import AdminInvoiceDetail from "./pages/admin/AdminInvoiceDetail";
 import AdminBilling from "./pages/admin/AdminBilling";
 import AdminEmailTemplates from "./pages/admin/AdminEmailTemplates";
 import Billing from "./pages/Billing";
+import Team from "./pages/Team";
 import InvoiceDetail from "./pages/InvoiceDetail";
 import CareersPage from "./pages/careers/CareersPage";
 import JobDetailsPage from "./pages/careers/JobDetailsPage";
@@ -111,6 +112,7 @@ const App = () => (
               <Route path="/assessment" element={<Assessment />} />
               <Route path="/billing" element={<Billing />} />
               <Route path="/billing/invoices/:id" element={<InvoiceDetail />} />
+              <Route path="/team" element={<Team />} />
               <Route path="/admin" element={<AdminDashboard />}>
                 <Route index element={<AdminOverview />} />
                 <Route path="companies" element={<AdminCompanies />} />

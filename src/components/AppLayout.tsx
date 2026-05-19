@@ -18,10 +18,16 @@ import {
   DollarSign,
   Receipt,
   Mail,
+  ChevronUp,
+  User as UserIcon,
+  FileText,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
 import rizonhireLogo from "@/assets/RH logo white.png";
 
 const atsNavItems = [
@@ -52,6 +58,7 @@ export default function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [suspended, setSuspended] = useState(false);
   const [companyChecked, setCompanyChecked] = useState(false);
+  const [companySlug, setCompanySlug] = useState<string | null>(null);
 
   const isSuperAdmin = role === "super_admin";
 
@@ -63,10 +70,11 @@ export default function AppLayout() {
     (async () => {
       const { data } = await (supabase as any)
         .from("companies")
-        .select("status")
+        .select("status, slug")
         .eq("id", profile.company_id)
         .maybeSingle();
       setSuspended(data?.status === "suspended");
+      setCompanySlug(data?.slug ?? null);
       setCompanyChecked(true);
     })();
   }, [isSuperAdmin, profile?.company_id]);
@@ -93,11 +101,12 @@ export default function AppLayout() {
   }
 
   const topLinks = isSuperAdmin ? superAdminNav : [...atsNavItems, ...screeningNavItems];
-  const tenantBottom = [
-    ...(flags.assessment ? [assessmentNavItem] : []),
-    { to: "/billing", label: "Billing", icon: Receipt },
-  ];
+  const tenantBottom = flags.assessment ? [assessmentNavItem] : [];
   const bottomLinks = isSuperAdmin ? [] : tenantBottom;
+
+  const dataProtectionHref = companySlug
+    ? `/legal/data-protection?company=${companySlug}`
+    : "/legal/data-protection";
 
   return (
     <div className="min-h-screen flex w-full">
@@ -201,28 +210,53 @@ export default function AppLayout() {
 
         {/* User */}
         <div className={`border-t border-sidebar-border ${collapsed ? "px-2 py-3" : "px-4 py-3"}`}>
-          {!collapsed ? (
-            <>
-              <div className="text-sm font-medium truncate">{profile?.name}</div>
-              <div className="text-xs text-sidebar-foreground/40 truncate capitalize">{role ?? "user"}</div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={signOut}
-                className="mt-2 w-full justify-start text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 px-0"
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className={`w-full flex items-center gap-2 rounded-lg text-left hover:bg-sidebar-accent/50 transition-colors ${
+                  collapsed ? "justify-center p-2" : "px-2 py-2"
+                }`}
+                title={collapsed ? profile?.name ?? "Account" : undefined}
               >
+                <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center text-xs font-semibold flex-shrink-0">
+                  {(profile?.name ?? "?").slice(0, 1).toUpperCase()}
+                </div>
+                {!collapsed && (
+                  <>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium truncate">{profile?.name}</div>
+                      <div className="text-xs text-sidebar-foreground/40 truncate capitalize">{role ?? "user"}</div>
+                    </div>
+                    <ChevronUp className="w-4 h-4 text-sidebar-foreground/40 flex-shrink-0" />
+                  </>
+                )}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="top" align="start" className="w-56">
+              <DropdownMenuLabel className="font-normal">
+                <div className="text-sm font-medium truncate">{profile?.name}</div>
+                <div className="text-xs text-muted-foreground truncate">{profile?.email}</div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {!isSuperAdmin && (role === "admin") && (
+                <DropdownMenuItem asChild>
+                  <Link to="/team"><Users className="w-4 h-4 mr-2" /> Team</Link>
+                </DropdownMenuItem>
+              )}
+              {!isSuperAdmin && (
+                <DropdownMenuItem asChild>
+                  <Link to="/billing"><Receipt className="w-4 h-4 mr-2" /> Billing</Link>
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem asChild>
+                <Link to={dataProtectionHref}><FileText className="w-4 h-4 mr-2" /> Data Protection</Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive">
                 <LogOut className="w-4 h-4 mr-2" /> Sign out
-              </Button>
-            </>
-          ) : (
-            <button
-              onClick={signOut}
-              className="flex items-center justify-center w-full rounded-lg py-2 text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
-              title="Sign out"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-          )}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </aside>
 
