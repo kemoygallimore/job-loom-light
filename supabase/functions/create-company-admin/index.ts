@@ -42,11 +42,25 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Forbidden: super_admin only" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { company_id, admin_name, admin_email, admin_password } = await req.json();
+    const body = await req.json();
+    const { company_id, admin_name, admin_email, admin_password } = body;
+    const role: "admin" | "recruiter" = body.role === "recruiter" ? "recruiter" : "admin";
 
     if (!company_id || !admin_name || !admin_email || !admin_password) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+
+    // Seat enforcement: count active profiles vs. seat limit.
+    try {
+      const { data: seatLimit } = await adminClient.rpc("get_company_seat_limit", { _company_id: company_id });
+      const { data: usedSeats } = await adminClient.rpc("count_active_company_seats", { _company_id: company_id });
+      if (typeof seatLimit === "number" && typeof usedSeats === "number" && usedSeats >= seatLimit) {
+        return new Response(
+          JSON.stringify({ error: `Seat limit reached (${usedSeats}/${seatLimit}). Add seats via Add-ons.` }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    } catch (_) { /* if RPCs missing, skip enforcement */ }
 
     // Create auth user with service role (won't affect caller's session)
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
@@ -68,10 +82,10 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Failed to create profile: " + profileError.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Assign admin role
+    // Assign role (admin or recruiter)
     const { error: roleError } = await adminClient
       .from("user_roles")
-      .insert({ user_id: newUser.user.id, role: "admin" });
+      .insert({ user_id: newUser.user.id, role });
 
     if (roleError) {
       return new Response(JSON.stringify({ error: "Failed to assign role: " + roleError.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
