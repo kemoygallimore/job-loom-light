@@ -15,6 +15,9 @@ import BillingProfileForm from "@/components/billing/BillingProfileForm";
 import BillingCycleCard from "@/components/billing/BillingCycleCard";
 import CompanyInvoicesCard from "@/components/billing/CompanyInvoicesCard";
 import CompanyEmailDomainTab from "@/components/admin/CompanyEmailDomainTab";
+import CompanyUsersTab from "@/components/admin/CompanyUsersTab";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Pencil } from "lucide-react";
 
 interface Subscription {
   id?: string;
@@ -91,6 +94,11 @@ export default function AdminCompanyDetail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const [editOpen, setEditOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editStatus, setEditStatus] = useState("active");
+  const [editBusy, setEditBusy] = useState(false);
+
   // computed limits via RPC
   const [jobLimit, setJobLimit] = useState<number | null>(null);
   const [seatLimit, setSeatLimit] = useState<number | null>(null);
@@ -143,6 +151,29 @@ export default function AdminCompanyDetail() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  const openEdit = () => {
+    setEditName(company?.name ?? "");
+    setEditStatus(company?.status ?? "active");
+    setEditOpen(true);
+  };
+
+  const saveCompany = async () => {
+    if (!id || !editName.trim()) {
+      toast.error("Name is required");
+      return;
+    }
+    setEditBusy(true);
+    const { error } = await supabase
+      .from("companies")
+      .update({ name: editName.trim(), status: editStatus } as any)
+      .eq("id", id);
+    setEditBusy(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Company updated");
+    setEditOpen(false);
+    refresh();
+  };
 
   const saveSubscription = async () => {
     if (!sub || !id) return;
@@ -265,6 +296,9 @@ export default function AdminCompanyDetail() {
             </span>
           </div>
         </div>
+        <Button variant="outline" size="sm" onClick={openEdit}>
+          <Pencil className="w-3.5 h-3.5 mr-1.5" /> Edit company
+        </Button>
       </div>
 
       <Tabs defaultValue="subscription" className="animate-fade-in" style={{ animationDelay: "80ms" }}>
@@ -272,6 +306,7 @@ export default function AdminCompanyDetail() {
           <TabsTrigger value="subscription">Subscription</TabsTrigger>
           <TabsTrigger value="features">Features</TabsTrigger>
           <TabsTrigger value="addons">Add-ons</TabsTrigger>
+          <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
           <TabsTrigger value="email-domain">Email Domain</TabsTrigger>
         </TabsList>
@@ -511,7 +546,43 @@ export default function AdminCompanyDetail() {
         <TabsContent value="email-domain" className="space-y-6 mt-6">
           {id && <CompanyEmailDomainTab companyId={id} />}
         </TabsContent>
+
+        {/* USERS TAB */}
+        <TabsContent value="users" className="space-y-6 mt-6">
+          {id && <CompanyUsersTab companyId={id} seatLimit={seatLimit} />}
+        </TabsContent>
       </Tabs>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Edit company</DialogTitle></DialogHeader>
+          <div className="space-y-3 mt-2">
+            <div className="space-y-1.5">
+              <Label className="text-sm">Company name</Label>
+              <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm">Status</Label>
+              <Select value={editStatus} onValueChange={setEditStatus}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="suspended">Suspended</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Slug stays the same to keep existing public career page URLs working.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditOpen(false)}>Cancel</Button>
+            <Button onClick={saveCompany} disabled={editBusy}>
+              <Save className="w-3.5 h-3.5 mr-1.5" /> {editBusy ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
