@@ -1,4 +1,4 @@
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useEffect, useState } from "react";
 import DOMPurify from "dompurify";
@@ -6,24 +6,21 @@ import { supabase } from "@/integrations/supabase/client";
 import { DEFAULT_DATA_PROTECTION_HTML } from "@/lib/defaultDataProtection";
 
 export default function DataProtection() {
-  const [params] = useSearchParams();
-  const slug = params.get("company");
-  const [companyName, setCompanyName] = useState<string | null>(null);
+  const [title, setTitle] = useState<string>("Data Protection Agreement");
   const [html, setHtml] = useState<string>(DEFAULT_DATA_PROTECTION_HTML);
   const [updatedAt, setUpdatedAt] = useState<Date>(new Date());
 
   useEffect(() => {
-    if (!slug) return;
     (async () => {
-      const { data } = await (supabase as any).rpc("get_public_company_policy", { _slug: slug });
+      const { data } = await (supabase as any).rpc("get_public_platform_policy", { _key: "data_protection" });
       const row = Array.isArray(data) ? data[0] : data;
       if (row) {
-        setCompanyName(row.company_name ?? null);
-        if (row.data_protection_html) setHtml(row.data_protection_html);
+        if (row.title) setTitle(row.title);
+        if (row.content_html) setHtml(row.content_html);
         if (row.updated_at) setUpdatedAt(new Date(row.updated_at));
       }
     })();
-  }, [slug]);
+  }, []);
 
   const safe = DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
 
@@ -37,9 +34,7 @@ export default function DataProtection() {
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Back
           </Link>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-            {companyName ? `${companyName} — Data Protection Agreement` : "Data Protection Agreement"}
-          </h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{title}</h1>
           <p className="text-sm text-muted-foreground mt-2">
             Last updated: {updatedAt.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}
           </p>

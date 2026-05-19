@@ -16,7 +16,6 @@ import BillingCycleCard from "@/components/billing/BillingCycleCard";
 import CompanyInvoicesCard from "@/components/billing/CompanyInvoicesCard";
 import CompanyEmailDomainTab from "@/components/admin/CompanyEmailDomainTab";
 import CompanyUsersTab from "@/components/admin/CompanyUsersTab";
-import CompanyPolicyTab from "@/components/admin/CompanyPolicyTab";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Pencil } from "lucide-react";
 
@@ -310,7 +309,6 @@ export default function AdminCompanyDetail() {
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
           <TabsTrigger value="email-domain">Email Domain</TabsTrigger>
-          <TabsTrigger value="policies">Policies</TabsTrigger>
         </TabsList>
 
         {/* SUBSCRIPTION TAB */}
