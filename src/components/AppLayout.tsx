@@ -33,7 +33,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
-import rizonhireLogo from "@/assets/RIZONHire_logo_White.png";
+import rizonhireLogoWhite from "@/assets/RIZONHire_logo_White.png";
+import rizonhireLogoBlack from "@/assets/RIZONHire_logo_Black.png";
 
 const atsNavItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -123,19 +124,25 @@ export default function AppLayout() {
       >
         {/* Logo */}
         <div
-          className={`flex items-center gap-2.5 border-b border-sidebar-border h-14 ${collapsed ? "justify-center px-2" : "px-5"}`}
+          className={`flex items-center gap-2 border-b border-sidebar-border h-14 ${collapsed ? "justify-center px-2" : "pl-4 pr-2"}`}
         >
-          {!collapsed && <img src={rizonhireLogo} alt="RizonHire" className="h-12 w-auto" />}
+          {!collapsed && (
+            <img
+              src={rizonhireLogoWhite}
+              alt="RizonHire"
+              className="w-32 h-auto min-w-0 flex-shrink"
+            />
+          )}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className={`hidden lg:flex items-center justify-center w-8 h-8 rounded-md text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors ${collapsed ? "" : "ml-auto"}`}
+            className={`hidden lg:flex items-center justify-center w-8 h-8 rounded-md text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 transition-colors flex-shrink-0 ${collapsed ? "" : "ml-auto"}`}
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             <ChevronLeft className={`w-4 h-4 transition-transform duration-300 ${collapsed ? "rotate-180" : ""}`} />
           </button>
           <button
             onClick={() => setMobileOpen(false)}
-            className="ml-auto lg:hidden text-sidebar-foreground/60 hover:text-sidebar-foreground"
+            className="ml-auto lg:hidden text-sidebar-foreground/60 hover:text-sidebar-foreground flex-shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
@@ -278,7 +285,7 @@ export default function AppLayout() {
           <button onClick={() => setMobileOpen(true)} className="active:scale-95 transition-transform">
             <Menu className="w-5 h-5" />
           </button>
-          <img src={rizonhireLogo} alt="RizonHire" className="ml-3 h-6 w-auto" />
+          <img src={rizonhireLogoBlack} alt="RizonHire" className="ml-3 w-24 h-auto" />
         </header>
         <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-auto">
           <Outlet />
