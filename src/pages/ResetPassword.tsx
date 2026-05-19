@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { ArrowLeft, Loader2, CheckCircle } from "lucide-react";
-import rizonhireLogo from "@/assets/RH logo black.png";
+import rizonhireLogo from "@/assets/RIZONHire_logo_Black.png";
 
 export default function ResetPassword() {
   const [password, setPassword] = useState("");
@@ -57,7 +57,7 @@ export default function ResetPassword() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-6">
         <div className="w-full max-w-sm text-center space-y-4">
-          <img src={rizonhireLogo} alt="RizonHire" className="h-8 w-auto mx-auto" />
+          <img src={rizonhireLogo} alt="RizonHire" className="w-32 h-auto mx-auto" />
           <p className="text-muted-foreground text-sm">Verifying your reset link…</p>
           <Loader2 className="w-5 h-5 animate-spin mx-auto text-muted-foreground" />
         </div>
@@ -68,7 +68,7 @@ export default function ResetPassword() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-6">
       <div className="w-full max-w-sm animate-fade-in">
-        <img src={rizonhireLogo} alt="RizonHire" className="h-8 w-auto mb-10" />
+        <img src={rizonhireLogo} alt="RizonHire" className="w-32 h-auto mb-10" />
         <h2 className="text-2xl font-bold">Set new password</h2>
         <p className="text-muted-foreground mt-1.5 text-sm">Enter your new password below</p>
 
