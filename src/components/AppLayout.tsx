@@ -159,7 +159,10 @@ export default function AppLayout() {
           )}
           {topLinks.map((item) => {
             const active =
-              location.pathname === item.to || (item.to !== "/admin" && location.pathname.startsWith(item.to));
+              item.to === "/"
+                ? location.pathname === "/"
+                : location.pathname === item.to ||
+                  (item.to !== "/admin" && location.pathname.startsWith(item.to + "/"));
             return (
               <Link
                 key={item.to}
@@ -186,7 +189,11 @@ export default function AppLayout() {
           {bottomLinks.length > 0 && (
             <div className="pt-2 mt-2 border-t border-sidebar-border/50 space-y-0.5">
               {bottomLinks.map((item) => {
-                const active = location.pathname === item.to || location.pathname.startsWith(item.to);
+              const active =
+                item.to === "/"
+                  ? location.pathname === "/"
+                  : location.pathname === item.to ||
+                    location.pathname.startsWith(item.to + "/");
                 return (
                   <Link
                     key={item.to}
