@@ -451,6 +451,57 @@ export type Database = {
           },
         ]
       }
+      platform_policies: {
+        Row: {
+          content_html: string | null
+          key: string
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          content_html?: string | null
+          key: string
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          content_html?: string | null
+          key?: string
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      platform_policy_versions: {
+        Row: {
+          content_html: string | null
+          id: string
+          key: string
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          content_html?: string | null
+          id?: string
+          key: string
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          content_html?: string | null
+          id?: string
+          key?: string
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           company_id: string | null
@@ -677,6 +728,15 @@ export type Database = {
         Returns: {
           id: string
           name: string
+        }[]
+      }
+      get_public_platform_policy: {
+        Args: { _key: string }
+        Returns: {
+          content_html: string
+          key: string
+          title: string
+          updated_at: string
         }[]
       }
       get_user_company_id: { Args: { _user_id: string }; Returns: string }

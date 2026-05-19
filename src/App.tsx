@@ -21,6 +21,7 @@ import CandidateTagsAdmin from "./pages/admin/CandidateTagsAdmin";
 import AdminInvoiceDetail from "./pages/admin/AdminInvoiceDetail";
 import AdminBilling from "./pages/admin/AdminBilling";
 import AdminEmailTemplates from "./pages/admin/AdminEmailTemplates";
+import AdminPolicies from "./pages/admin/AdminPolicies";
 import Billing from "./pages/Billing";
 import Team from "./pages/Team";
 import InvoiceDetail from "./pages/InvoiceDetail";
@@ -121,6 +122,7 @@ const App = () => (
                 <Route path="billing" element={<AdminBilling />} />
                 <Route path="billing/invoices/:id" element={<AdminInvoiceDetail />} />
                 <Route path="email-templates" element={<AdminEmailTemplates />} />
+                <Route path="policies" element={<AdminPolicies />} />
               </Route>
             </Route>
             <Route path="*" element={<NotFound />} />

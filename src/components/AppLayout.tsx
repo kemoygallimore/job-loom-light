@@ -48,6 +48,7 @@ const superAdminNav = [
   { to: "/admin/pricing", label: "Pricing", icon: DollarSign },
   { to: "/admin/billing", label: "Billing", icon: Receipt },
   { to: "/admin/email-templates", label: "Email Templates", icon: Mail },
+  { to: "/admin/policies", label: "Policies", icon: FileText },
 ];
 
 export default function AppLayout() {
@@ -58,7 +59,6 @@ export default function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [suspended, setSuspended] = useState(false);
   const [companyChecked, setCompanyChecked] = useState(false);
-  const [companySlug, setCompanySlug] = useState<string | null>(null);
 
   const isSuperAdmin = role === "super_admin";
 
@@ -70,11 +70,10 @@ export default function AppLayout() {
     (async () => {
       const { data } = await (supabase as any)
         .from("companies")
-        .select("status, slug")
+        .select("status")
         .eq("id", profile.company_id)
         .maybeSingle();
       setSuspended(data?.status === "suspended");
-      setCompanySlug(data?.slug ?? null);
       setCompanyChecked(true);
     })();
   }, [isSuperAdmin, profile?.company_id]);
@@ -103,10 +102,6 @@ export default function AppLayout() {
   const topLinks = isSuperAdmin ? superAdminNav : [...atsNavItems, ...screeningNavItems];
   const tenantBottom = flags.assessment ? [assessmentNavItem] : [];
   const bottomLinks = isSuperAdmin ? [] : tenantBottom;
-
-  const dataProtectionHref = companySlug
-    ? `/legal/data-protection?company=${companySlug}`
-    : "/legal/data-protection";
 
   return (
     <div className="min-h-screen flex w-full">
@@ -249,7 +244,7 @@ export default function AppLayout() {
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem asChild>
-                <Link to={dataProtectionHref}><FileText className="w-4 h-4 mr-2" /> Data Protection</Link>
+                <Link to="/legal/data-protection"><FileText className="w-4 h-4 mr-2" /> Data Protection</Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive">
