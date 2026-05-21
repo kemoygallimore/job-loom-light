@@ -594,6 +594,7 @@ export default function PublicJobApplication() {
                 Street Address <span className="text-destructive">*</span>
               </Label>
               <Input
+                id="streetAddress"
                 value={streetAddress}
                 onChange={(e) => {
                   setStreetAddress(e.target.value);
@@ -639,6 +640,7 @@ export default function PublicJobApplication() {
                 </Label>
                 {parishOptions.length > 0 ? (
                   <Select
+                    id="parishState"
                     value={parishState}
                     onValueChange={(v) => {
                       setParishState(v);
