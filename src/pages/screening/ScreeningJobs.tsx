@@ -15,6 +15,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { CalendarIcon } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface ScreeningJob {
   id: string;
@@ -42,6 +43,7 @@ export default function ScreeningJobs() {
   const [editQuestion, setEditQuestion] = useState("");
   const [editExpiresAt, setEditExpiresAt] = useState<Date | undefined>(undefined);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [view, setView] = useState<"active" | "all">("active");
 
   const load = async () => {
     setLoading(true);
@@ -126,6 +128,8 @@ export default function ScreeningJobs() {
   };
 
   const isExpired = (date: string) => !isAfter(new Date(date), new Date());
+
+  const visibleJobs = view === "active" ? jobs.filter((j) => !isExpired(j.expires_at)) : jobs;
 
   const openEdit = (job: ScreeningJob) => {
     setEditJob(job);
@@ -221,6 +225,13 @@ export default function ScreeningJobs() {
         </Dialog>
       </div>
 
+      <Tabs value={view} onValueChange={(v) => setView(v as "active" | "all")} className="animate-fade-in">
+        <TabsList>
+          <TabsTrigger value="active">Active</TabsTrigger>
+          <TabsTrigger value="all">All</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       <div className="bg-card rounded-xl border overflow-hidden animate-fade-in" style={{ animationDelay: "80ms", boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.04)" }}>
         <Table>
           <TableHeader>
@@ -234,7 +245,7 @@ export default function ScreeningJobs() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {jobs.map(job => (
+            {visibleJobs.map(job => (
               <TableRow key={job.id} className="group">
                 <TableCell className="font-medium">{job.title}</TableCell>
                 <TableCell className="text-muted-foreground text-sm max-w-xs truncate">{job.question.slice(0, 50)}{job.question.length > 50 ? '…' : ''}</TableCell>
@@ -266,10 +277,12 @@ export default function ScreeningJobs() {
                 </TableCell>
               </TableRow>
             ))}
-            {!loading && jobs.length === 0 && (
+            {!loading && visibleJobs.length === 0 && (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
-                  No screening jobs yet. Create your first one to get started.
+                  {view === "active" && jobs.length > 0
+                    ? "No active screening jobs. Switch to All to see expired jobs."
+                    : "No screening jobs yet. Create your first one to get started."}
                 </TableCell>
               </TableRow>
             )}

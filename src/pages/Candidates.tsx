@@ -23,6 +23,7 @@ import { useNavigate } from "react-router-dom";
 import CandidateFilters from "@/components/candidate/CandidateFilters";
 import CandidateQuickActions from "@/components/candidate/CandidateQuickActions";
 import { fetchTagsForCandidates, getTagColorClasses, type CandidateTag } from "@/lib/candidateTags";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface CandidateWithContext {
   id: string;
@@ -42,6 +43,7 @@ interface CandidateWithContext {
   latest_app_id: string | null;
   latest_job_id: string | null;
   latest_job_title: string | null;
+  latest_job_status: string | null;
   latest_stage: string | null;
   latest_updated_at: string | null;
   application_count: number;
@@ -87,6 +89,7 @@ export default function Candidates() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [view, setView] = useState<"active" | "all">("active");
 
   // Filters
   const [stageFilter, setStageFilter] = useState("all");
@@ -120,7 +123,7 @@ export default function Candidates() {
     try {
       const [cRes, aRes, jRes] = await Promise.all([
         supabase.from("candidates").select("*").order("created_at", { ascending: false }),
-        supabase.from("applications").select("id, candidate_id, stage, updated_at, created_at, job_id, jobs(title)").order("updated_at", { ascending: false }),
+        supabase.from("applications").select("id, candidate_id, stage, updated_at, created_at, job_id, jobs(title, status)").order("updated_at", { ascending: false }),
         supabase.from("jobs").select("id, title").order("title"),
       ]);
 
@@ -145,6 +148,7 @@ export default function Candidates() {
           latest_app_id: latest?.id ?? null,
           latest_job_id: latest?.job_id ?? null,
           latest_job_title: (latest as any)?.jobs?.title ?? null,
+          latest_job_status: (latest as any)?.jobs?.status ?? null,
           latest_stage: latest?.stage ?? null,
           latest_updated_at: latest?.updated_at ?? null,
           application_count: apps.length,
@@ -168,6 +172,10 @@ export default function Candidates() {
 
   const filtered = useMemo(() => {
     let result = candidates;
+
+    if (view === "active") {
+      result = result.filter((c) => c.latest_job_status === "open");
+    }
 
     // Text search
     if (search.trim()) {
@@ -215,7 +223,7 @@ export default function Candidates() {
     }
 
     return result;
-  }, [candidates, search, stageFilter, jobFilter, parishFilter, dateFrom, dateTo, repeatOnly]);
+  }, [candidates, search, stageFilter, jobFilter, parishFilter, dateFrom, dateTo, repeatOnly, view]);
 
   const parishOptions = useMemo(() => {
     const set = new Set<string>();
@@ -247,6 +255,14 @@ export default function Candidates() {
           )}
         </div>
       </div>
+
+      {/* View toggle */}
+      <Tabs value={view} onValueChange={(v) => setView(v as "active" | "all")} className="animate-fade-in">
+        <TabsList>
+          <TabsTrigger value="active">Active Jobs</TabsTrigger>
+          <TabsTrigger value="all">All Candidates</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {/* Search */}
       <div className="relative max-w-md animate-fade-in" style={{ animationDelay: "60ms" }}>
@@ -331,9 +347,6 @@ export default function Candidates() {
                 <TableRow key={c.id} className="group cursor-pointer" onClick={() => navigate(`/candidates/${c.id}`)}>
                   <TableCell>
                     <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                        <User className="w-3.5 h-3.5 text-muted-foreground" />
-                      </div>
                       <div className="min-w-0">
                         <span className="font-medium">{c.name}</span>
                         {c.application_count > 1 && (
