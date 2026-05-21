@@ -115,9 +115,7 @@ export default function CareersPage() {
                   {company?.name}
                 </h1>
               </div>
-              <p className="text-muted-foreground">
-                We're hiring! Explore our open positions and join the team.
-              </p>
+              <p className="text-muted-foreground">We're hiring! Explore our open positions and join the team.</p>
             </div>
           )}
         </div>
@@ -127,7 +125,7 @@ export default function CareersPage() {
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
         {loading ? (
           <div className="space-y-4">
-            {[1, 2, 3].map(i => (
+            {[1, 2, 3].map((i) => (
               <Skeleton key={i} className="h-32 rounded-xl" />
             ))}
           </div>
@@ -174,7 +172,7 @@ export default function CareersPage() {
       <footer className="border-t mt-auto">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 text-center">
           <p className="text-xs text-muted-foreground/50">
-            Powered by <span className="font-medium">HireFlow</span>
+            Powered by <span className="font-medium">RizonHire</span>
           </p>
         </div>
       </footer>
