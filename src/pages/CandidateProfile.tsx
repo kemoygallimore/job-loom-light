@@ -466,11 +466,11 @@ export default function CandidateProfile() {
 
       {/* Tabs: Notes / Interview Feedback / Resume History */}
       <Tabs defaultValue="notes" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 max-w-2xl">
-          <TabsTrigger value="notes">Notes</TabsTrigger>
-          <TabsTrigger value="feedback">Interview Feedback</TabsTrigger>
-          <TabsTrigger value="resumes">Resume History</TabsTrigger>
-          <TabsTrigger value="documents">Documents</TabsTrigger>
+        <TabsList className="flex w-full max-w-2xl h-auto overflow-x-auto justify-start sm:grid sm:grid-cols-4">
+          <TabsTrigger value="notes" className="whitespace-nowrap flex-shrink-0 sm:flex-1">Notes</TabsTrigger>
+          <TabsTrigger value="feedback" className="whitespace-nowrap flex-shrink-0 sm:flex-1">Interview Feedback</TabsTrigger>
+          <TabsTrigger value="resumes" className="whitespace-nowrap flex-shrink-0 sm:flex-1">Resume History</TabsTrigger>
+          <TabsTrigger value="documents" className="whitespace-nowrap flex-shrink-0 sm:flex-1">Documents</TabsTrigger>
         </TabsList>
 
         <TabsContent value="notes" className="mt-4">
