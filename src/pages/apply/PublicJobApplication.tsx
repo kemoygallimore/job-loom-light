@@ -640,14 +640,13 @@ export default function PublicJobApplication() {
                 </Label>
                 {parishOptions.length > 0 ? (
                   <Select
-                    id="parishState"
                     value={parishState}
                     onValueChange={(v) => {
                       setParishState(v);
                       setErrors((p) => ({ ...p, parishState: "" }));
                     }}
                   >
-                    <SelectTrigger className={errors.parishState ? "border-destructive" : ""}>
+                    <SelectTrigger id="parishState" className={errors.parishState ? "border-destructive" : ""}>
                       <SelectValue placeholder="Select parish/state" />
                     </SelectTrigger>
                     <SelectContent>
