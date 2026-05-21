@@ -347,9 +347,6 @@ export default function Candidates() {
                 <TableRow key={c.id} className="group cursor-pointer" onClick={() => navigate(`/candidates/${c.id}`)}>
                   <TableCell>
                     <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                        <User className="w-3.5 h-3.5 text-muted-foreground" />
-                      </div>
                       <div className="min-w-0">
                         <span className="font-medium">{c.name}</span>
                         {c.application_count > 1 && (
