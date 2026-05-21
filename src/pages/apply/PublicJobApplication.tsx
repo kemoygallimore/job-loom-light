@@ -475,7 +475,7 @@ export default function PublicJobApplication() {
       <div className="min-h-screen flex items-center justify-center bg-background px-4">
         <div className="text-center animate-fade-in">
           <CheckCircle2 className="w-16 h-16 text-emerald-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold">Application Submitted!</h1>
+          <h1 className="text-2xl font-bold" data-testid="application-success-message">Application Submitted!</h1>
           <p className="text-muted-foreground text-sm mt-2 max-w-sm mx-auto">
             Thank you for applying to <span className="font-medium text-foreground">{job?.title}</span>. We'll review
             your application and get back to you soon.
@@ -515,6 +515,7 @@ export default function PublicJobApplication() {
             </Label>
             <Input
               id="name"
+              data-testid="applicant-full-name"
               value={name}
               onChange={(e) => {
                 setName(e.target.value);
@@ -534,6 +535,7 @@ export default function PublicJobApplication() {
             <Input
               id="email"
               type="email"
+              data-testid="applicant-email"
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
@@ -553,6 +555,7 @@ export default function PublicJobApplication() {
             <Input
               id="phone"
               type="tel"
+              data-testid="applicant-phone"
               value={phone}
               onChange={(e) => {
                 setPhone(e.target.value);
@@ -573,6 +576,7 @@ export default function PublicJobApplication() {
             <Input
               id="linkedin"
               type="url"
+              data-testid="applicant-linkedin"
               value={linkedinUrl}
               onChange={(e) => {
                 setLinkedinUrl(e.target.value);
@@ -595,6 +599,7 @@ export default function PublicJobApplication() {
               </Label>
               <Input
                 id="streetAddress"
+                data-testid="applicant-street-address"
                 value={streetAddress}
                 onChange={(e) => {
                   setStreetAddress(e.target.value);
@@ -619,7 +624,7 @@ export default function PublicJobApplication() {
                     setErrors((p) => ({ ...p, country: "" }));
                   }}
                 >
-                  <SelectTrigger className={errors.country ? "border-destructive" : ""}>
+                  <SelectTrigger data-testid="applicant-country-trigger" className={errors.country ? "border-destructive" : ""}>
                     <SelectValue placeholder="Select country" />
                   </SelectTrigger>
                   <SelectContent>
@@ -646,7 +651,7 @@ export default function PublicJobApplication() {
                       setErrors((p) => ({ ...p, parishState: "" }));
                     }}
                   >
-                    <SelectTrigger id="parishState" className={errors.parishState ? "border-destructive" : ""}>
+                    <SelectTrigger id="parishState" data-testid="applicant-parish-state-trigger" className={errors.parishState ? "border-destructive" : ""}>
                       <SelectValue placeholder="Select parish/state" />
                     </SelectTrigger>
                     <SelectContent>
@@ -659,6 +664,7 @@ export default function PublicJobApplication() {
                   </Select>
                 ) : (
                   <Input
+                    data-testid="applicant-parish-state-trigger"
                     value={parishState}
                     onChange={(e) => {
                       setParishState(e.target.value);
@@ -685,7 +691,7 @@ export default function PublicJobApplication() {
                 setErrors((p) => ({ ...p, educationLevel: "" }));
               }}
             >
-              <SelectTrigger className={errors.educationLevel ? "border-destructive" : ""}>
+              <SelectTrigger data-testid="applicant-education-level-trigger" className={errors.educationLevel ? "border-destructive" : ""}>
                 <SelectValue placeholder="Select education level" />
               </SelectTrigger>
               <SelectContent>
@@ -707,6 +713,7 @@ export default function PublicJobApplication() {
             <input
               ref={fileInputRef}
               type="file"
+              data-testid="applicant-resume-upload"
               accept=".pdf,.doc,.docx"
               className="hidden"
               onChange={(e) => {
@@ -747,6 +754,7 @@ export default function PublicJobApplication() {
             <div className="flex items-start gap-2.5 rounded-lg border bg-muted/30 p-3">
               <Checkbox
                 id="terms"
+                data-testid="applicant-consent-checkbox"
                 checked={agreedToTerms}
                 onCheckedChange={(v) => {
                   setAgreedToTerms(v === true);
@@ -772,6 +780,7 @@ export default function PublicJobApplication() {
 
           <Button
             type="submit"
+            data-testid="applicant-submit-button"
             className="w-full h-11 active:scale-[0.97] transition-transform"
             disabled={submitting || !agreedToTerms}
           >
