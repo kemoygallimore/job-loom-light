@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { getSignedVideoViewUrl } from "@/lib/getSignedVideoViewUrl";
+import { deleteScreeningVideosFromR2 } from "@/lib/deleteScreeningVideoFromR2";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -134,6 +135,17 @@ export default function ScreeningSubmissions() {
 
   const handleDelete = async (sub: Submission) => {
     setDeletingId(sub.id);
+
+    // Best-effort delete the R2 object first. Use object key if present, fall
+    // back to legacy video_url (which may be a bare key for older rows).
+    const key = sub.video_object_key ?? sub.video_url ?? "";
+    let r2Warning: string | null = null;
+    try {
+      await deleteScreeningVideosFromR2([{ bucket: sub.video_bucket, key }]);
+    } catch (err: any) {
+      r2Warning = err?.message || "Failed to delete video file from storage";
+    }
+
     const { error } = await supabase
       .from("screening_submissions")
       .delete()
@@ -143,7 +155,11 @@ export default function ScreeningSubmissions() {
       toast.error(error.message);
       return;
     }
-    toast.success("Screening video deleted");
+    if (r2Warning) {
+      toast.warning(`Submission removed, but storage cleanup failed: ${r2Warning}`);
+    } else {
+      toast.success("Screening video deleted");
+    }
     setSubmissions((prev) => prev.filter((s) => s.id !== sub.id));
   };
 
