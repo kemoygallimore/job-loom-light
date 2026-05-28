@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Copy, Check, Video, Eye, ExternalLink, Pencil } from "lucide-react";
+import { Plus, Copy, Check, Video, Eye, ExternalLink, Pencil, Trash2 } from "lucide-react";
 import { format, addDays, isAfter } from "date-fns";
 import { Link } from "react-router-dom";
 import { Calendar } from "@/components/ui/calendar";
@@ -16,6 +16,18 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { CalendarIcon } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { deleteScreeningVideosFromR2 } from "@/lib/deleteScreeningVideoFromR2";
 
 interface ScreeningJob {
   id: string;
@@ -30,7 +42,7 @@ interface ScreeningJob {
 }
 
 export default function ScreeningJobs() {
-  const { profile, user } = useAuth();
+  const { profile, user, role } = useAuth();
   const [jobs, setJobs] = useState<ScreeningJob[]>([]);
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -44,6 +56,7 @@ export default function ScreeningJobs() {
   const [editExpiresAt, setEditExpiresAt] = useState<Date | undefined>(undefined);
   const [savingEdit, setSavingEdit] = useState(false);
   const [view, setView] = useState<"active" | "all">("active");
+  const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -164,6 +177,56 @@ export default function ScreeningJobs() {
     load();
   };
 
+  const handleDeleteJob = async (job: ScreeningJob) => {
+    setDeletingJobId(job.id);
+    try {
+      // 1. Gather all submissions for this job (to delete videos from R2)
+      const { data: subs, error: fetchErr } = await supabase
+        .from("screening_submissions")
+        .select("video_bucket, video_object_key, video_url")
+        .eq("screening_job_id", job.id);
+      if (fetchErr) throw new Error(fetchErr.message);
+
+      // 2. Best-effort R2 cleanup
+      let r2Warning: string | null = null;
+      try {
+        await deleteScreeningVideosFromR2(
+          (subs ?? []).map((s: any) => ({
+            bucket: s.video_bucket,
+            key: s.video_object_key ?? s.video_url ?? "",
+          })),
+        );
+      } catch (err: any) {
+        r2Warning = err?.message || "Failed to delete some video files from storage";
+      }
+
+      // 3. Delete submission rows
+      const { error: subDelErr } = await supabase
+        .from("screening_submissions")
+        .delete()
+        .eq("screening_job_id", job.id);
+      if (subDelErr) throw new Error(subDelErr.message);
+
+      // 4. Delete the screening job itself
+      const { error: jobDelErr } = await supabase
+        .from("screening_jobs")
+        .delete()
+        .eq("id", job.id);
+      if (jobDelErr) throw new Error(jobDelErr.message);
+
+      if (r2Warning) {
+        toast.warning(`Screening job removed, but storage cleanup failed: ${r2Warning}`);
+      } else {
+        toast.success("Screening job and all submissions deleted");
+      }
+      setJobs((prev) => prev.filter((j) => j.id !== job.id));
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to delete screening job");
+    } finally {
+      setDeletingJobId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3 animate-fade-in">
@@ -273,6 +336,42 @@ export default function ScreeningJobs() {
                         <Eye className="w-3.5 h-3.5" />
                       </Button>
                     </Link>
+                    {role === "admin" && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            disabled={deletingJobId === job.id}
+                            title="Delete screening job"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete this screening job?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will permanently remove{" "}
+                              <span className="font-medium text-foreground">{job.title}</span>,{" "}
+                              all {job.submission_count ?? 0} video submission
+                              {(job.submission_count ?? 0) === 1 ? "" : "s"}, their ratings, notes,
+                              and the video files from storage. This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              onClick={() => handleDeleteJob(job)}
+                            >
+                              Delete job
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
