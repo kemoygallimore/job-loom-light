@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { ArrowRight, Loader2 } from "lucide-react";
 import rizonhireLogoWhite from "@/assets/RIZONHire_logo_White.png";
 import rizonhireLogoBlack from "@/assets/RIZONHire_logo_Black.png";
+import rizonhireLogoBlue from "@/assets/rizonhire blue logo.png";
 
 export default function Auth() {
   const [loading, setLoading] = useState(false);
@@ -33,7 +34,7 @@ export default function Auth() {
       {/* Left panel — branding */}
       <div className="hidden lg:flex lg:w-[45%] bg-sidebar text-sidebar-foreground flex-col justify-between p-10">
         <div className="flex items-center gap-2.5">
-          <img src={rizonhireLogoWhite} alt="RizonHire" className="w-36 h-auto" />
+          <img src={rizonhireLogoBlue} alt="RizonHire" className="w-36 h-auto" />
         </div>
         <div className="animate-fade-in-up">
           <h1 className="text-3xl font-bold leading-tight" style={{ lineHeight: "1.15" }}>

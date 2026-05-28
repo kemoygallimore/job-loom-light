@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import rizonhireLogoWhite from "@/assets/RIZONHire_logo_White.png";
 import rizonhireLogoBlack from "@/assets/RIZONHire_logo_Black.png";
+import rizonhireLogoBlue from "@/assets/rizonhire blue logo.png";
 
 const atsNavItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -126,13 +127,7 @@ export default function AppLayout() {
         <div
           className={`flex items-center gap-2 border-b border-sidebar-border h-14 ${collapsed ? "justify-center px-2" : "pl-4 pr-2"}`}
         >
-          {!collapsed && (
-            <img
-              src={rizonhireLogoWhite}
-              alt="RizonHire"
-              className="w-32 h-auto min-w-0 flex-shrink"
-            />
-          )}
+          {!collapsed && <img src={rizonhireLogoBlue} alt="RizonHire" className="w-32 h-auto min-w-0 flex-shrink" />}
           <button
             onClick={() => setCollapsed(!collapsed)}
             className={`hidden lg:flex items-center justify-center w-8 h-8 rounded-md text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 transition-colors flex-shrink-0 ${collapsed ? "" : "ml-auto"}`}
@@ -189,11 +184,10 @@ export default function AppLayout() {
           {bottomLinks.length > 0 && (
             <div className="pt-2 mt-2 border-t border-sidebar-border/50 space-y-0.5">
               {bottomLinks.map((item) => {
-              const active =
-                item.to === "/"
-                  ? location.pathname === "/"
-                  : location.pathname === item.to ||
-                    location.pathname.startsWith(item.to + "/");
+                const active =
+                  item.to === "/"
+                    ? location.pathname === "/"
+                    : location.pathname === item.to || location.pathname.startsWith(item.to + "/");
                 return (
                   <Link
                     key={item.to}
