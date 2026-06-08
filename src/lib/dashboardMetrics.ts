@@ -65,3 +65,29 @@ export function staleApplications<T extends { stage: string; updated_at: string 
   const cutoff = new Date(now.getTime() - days * 86400000);
   return rows.filter((r) => r.stage !== "hired" && r.stage !== "rejected" && new Date(r.updated_at) < cutoff);
 }
+
+export function timeToFill<
+  A extends { stage: string; job_id: string; updated_at: string },
+  J extends { id: string; created_at: string },
+>(apps: A[], jobs: J[], from: Date | null, to: Date | null = null): number | null {
+  const firstHireByJob = new Map<string, Date>();
+  for (const a of apps) {
+    if (a.stage !== "hired") continue;
+    const d = new Date(a.updated_at);
+    const existing = firstHireByJob.get(a.job_id);
+    if (!existing || d < existing) firstHireByJob.set(a.job_id, d);
+  }
+  const jobById = new Map(jobs.map((j) => [j.id, j] as const));
+  const diffs: number[] = [];
+  for (const [jobId, filledAt] of firstHireByJob) {
+    if (from && filledAt < from) continue;
+    if (to && filledAt >= to) continue;
+    const job = jobById.get(jobId);
+    if (!job) continue;
+    const opened = new Date(job.created_at);
+    const d = (filledAt.getTime() - opened.getTime()) / 86400000;
+    if (isFinite(d) && d >= 0) diffs.push(d);
+  }
+  if (diffs.length === 0) return null;
+  return diffs.reduce((s, n) => s + n, 0) / diffs.length;
+}
