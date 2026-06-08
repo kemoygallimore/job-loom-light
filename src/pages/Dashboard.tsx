@@ -3,15 +3,20 @@ import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Briefcase, Users, FileText, Trophy, Clock, AlertCircle } from "lucide-react";
-import {
-  Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid,
-} from "recharts";
+import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BentoGrid, BentoTile } from "@/components/dashboard/BentoGrid";
 import { KpiTile } from "@/components/dashboard/KpiTile";
 import { RangeFilter } from "@/components/dashboard/RangeFilter";
 import {
-  RangeKey, rangeBounds, rangeToDays, inRange, deltaPct, bucketByDay, avgDaysBetween, staleApplications,
+  RangeKey,
+  rangeBounds,
+  rangeToDays,
+  inRange,
+  deltaPct,
+  bucketByDay,
+  avgDaysBetween,
+  staleApplications,
 } from "@/lib/dashboardMetrics";
 
 const STAGE_COLORS: Record<string, string> = {
@@ -39,7 +44,17 @@ const STAGE_LABELS: Record<string, string> = {
   rejected: "Rejected",
 };
 
-const STAGE_ORDER = ["applied", "shortlisted", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"];
+const STAGE_ORDER = [
+  "applied",
+  "shortlisted",
+  "screening",
+  "scheduling",
+  "1st_interview",
+  "2nd_interview",
+  "offer",
+  "hired",
+  "rejected",
+];
 
 interface AppRow {
   stage: string;
@@ -86,13 +101,23 @@ export default function Dashboard() {
   const days = rangeToDays(range);
 
   const inCurrent = useMemo(() => (from ? inRange(scopedAll, "created_at", from) : scopedAll), [scopedAll, from]);
-  const inPrevious = useMemo(() => (prevFrom && prevTo ? inRange(scopedAll, "created_at", prevFrom, prevTo) : []), [scopedAll, prevFrom, prevTo]);
+  const inPrevious = useMemo(
+    () => (prevFrom && prevTo ? inRange(scopedAll, "created_at", prevFrom, prevTo) : []),
+    [scopedAll, prevFrom, prevTo],
+  );
 
   const applicantsCurrent = new Set(inCurrent.map((a) => a.candidate_id)).size;
   const applicantsPrev = new Set(inPrevious.map((a) => a.candidate_id)).size;
 
   const hiresCurrent = scopedAll.filter((a) => a.stage === "hired" && (!from || new Date(a.updated_at) >= from)).length;
-  const hiresPrev = scopedAll.filter((a) => a.stage === "hired" && prevFrom && prevTo && new Date(a.updated_at) >= prevFrom && new Date(a.updated_at) < prevTo).length;
+  const hiresPrev = scopedAll.filter(
+    (a) =>
+      a.stage === "hired" &&
+      prevFrom &&
+      prevTo &&
+      new Date(a.updated_at) >= prevFrom &&
+      new Date(a.updated_at) < prevTo,
+  ).length;
 
   const openJobs = jobs.filter((j) => j.status === "open").length;
 
@@ -141,17 +166,22 @@ export default function Dashboard() {
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1.5">
             <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Time range</label>
-            <div><RangeFilter value={range} onChange={setRange} /></div>
+            <div>
+              <RangeFilter value={range} onChange={setRange} />
+            </div>
           </div>
           <div className="space-y-1.5">
             <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Filter by job</label>
             <Select value={jobFilter} onValueChange={setJobFilter}>
-              <SelectTrigger className="w-[240px]"><SelectValue placeholder="All jobs" /></SelectTrigger>
+              <SelectTrigger className="w-[240px]">
+                <SelectValue placeholder="All jobs" />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All jobs</SelectItem>
                 {jobs.map((j) => (
                   <SelectItem key={j.id} value={j.id}>
-                    {j.title}{j.status !== "open" ? " (closed)" : ""}
+                    {j.title}
+                    {j.status !== "open" ? " (closed)" : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -185,7 +215,13 @@ export default function Dashboard() {
         </BentoTile>
 
         <BentoTile delay={120}>
-          <KpiTile label="Open jobs" value={openJobs} icon={Briefcase} iconAccent="bg-accent/10 text-accent" loading={loading} />
+          <KpiTile
+            label="Open jobs"
+            value={openJobs}
+            icon={Briefcase}
+            iconAccent="bg-accent/10 text-accent"
+            loading={loading}
+          />
         </BentoTile>
 
         <BentoTile delay={180}>
@@ -248,36 +284,37 @@ export default function Dashboard() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v: string) => v.slice(5)} minTickGap={20} />
-                <YAxis tickLine={false} axisLine={false} allowDecimals={false} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} />
-                <Area type="monotone" dataKey="count" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#appsGrad)" />
+                <XAxis
+                  dataKey="date"
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                  tickFormatter={(v: string) => v.slice(5)}
+                  minTickGap={20}
+                />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  allowDecimals={false}
+                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: 8,
+                    fontSize: 12,
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="count"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={2}
+                  fill="url(#appsGrad)"
+                />
               </AreaChart>
             </ResponsiveContainer>
-          </div>
-        </BentoTile>
-
-        {/* Stale candidates */}
-        <BentoTile colSpan={2} rowSpan={2} delay={420}>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold flex items-center gap-1.5">
-              <AlertCircle className="w-4 h-4 text-amber-600" /> Stale candidates
-            </h2>
-            <span className="text-xs text-muted-foreground">No update &gt;14d</span>
-          </div>
-          <div className="flex-1 space-y-2 overflow-auto">
-            {stale.length === 0 && (
-              <p className="text-sm text-muted-foreground py-6 text-center">Everyone's moving — no stale candidates.</p>
-            )}
-            {stale.map((s) => (
-              <div key={s.candidate_id + s.job} className="flex items-center justify-between py-2 border-b last:border-0">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">{s.candidate}</p>
-                  <p className="text-xs text-muted-foreground truncate">{s.job} · {s.stage}</p>
-                </div>
-                <span className="text-xs font-semibold text-amber-600 whitespace-nowrap">{s.days}d</span>
-              </div>
-            ))}
           </div>
         </BentoTile>
       </BentoGrid>
