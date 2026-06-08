@@ -67,7 +67,7 @@ interface AppRow {
 
 export default function Dashboard() {
   const { profile, role } = useAuth();
-  const [jobs, setJobs] = useState<{ id: string; title: string; status: string }[]>([]);
+  const [jobs, setJobs] = useState<{ id: string; title: string; status: string; created_at: string }[]>([]);
   const [appRows, setAppRows] = useState<AppRow[]>([]);
   const [candidates, setCandidates] = useState<{ id: string; name: string }[]>([]);
   const [jobFilter, setJobFilter] = useState<string>("all");
@@ -79,7 +79,7 @@ export default function Dashboard() {
     const load = async () => {
       setLoading(true);
       const [jobsRes, candidatesRes, appsRes] = await Promise.all([
-        supabase.from("jobs").select("id, title, status").order("created_at", { ascending: false }),
+        supabase.from("jobs").select("id, title, status, created_at").order("created_at", { ascending: false }),
         supabase.from("candidates").select("id, name"),
         supabase.from("applications").select("stage, job_id, candidate_id, created_at, updated_at"),
       ]);
