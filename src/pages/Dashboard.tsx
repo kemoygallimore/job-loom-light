@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Briefcase, Users, FileText, Trophy, Clock, AlertCircle } from "lucide-react";
+import { Briefcase, Users, FileText, Trophy, Clock, AlertCircle, CalendarCheck } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BentoGrid, BentoTile } from "@/components/dashboard/BentoGrid";
@@ -17,6 +17,7 @@ import {
   bucketByDay,
   avgDaysBetween,
   staleApplications,
+  timeToFill,
 } from "@/lib/dashboardMetrics";
 
 const STAGE_COLORS: Record<string, string> = {
@@ -125,6 +126,19 @@ export default function Dashboard() {
     scopedAll.filter((a) => a.stage === "hired" && (!from || new Date(a.updated_at) >= from)),
     "created_at",
     "updated_at",
+  );
+
+  const scopedJobs = useMemo(
+    () => (jobFilter === "all" ? jobs : jobs.filter((j) => j.id === jobFilter)),
+    [jobs, jobFilter],
+  );
+  const tftCurrent = useMemo(
+    () => timeToFill(scopedAll, scopedJobs, from, null),
+    [scopedAll, scopedJobs, from],
+  );
+  const tftPrev = useMemo(
+    () => timeToFill(scopedAll, scopedJobs, prevFrom, prevTo),
+    [scopedAll, scopedJobs, prevFrom, prevTo],
   );
 
   const sparkDays = days ?? 30;
@@ -264,6 +278,22 @@ export default function Dashboard() {
             suffix={avgTTH != null ? "days" : undefined}
             icon={Clock}
             iconAccent="bg-primary/10 text-primary"
+            loading={loading}
+          />
+        </BentoTile>
+
+        <BentoTile colSpan={2} delay={330}>
+          <KpiTile
+            label="Time to fill"
+            value={tftCurrent != null ? tftCurrent.toFixed(1) : "—"}
+            suffix={tftCurrent != null ? "days" : undefined}
+            delta={
+              range === "all" || tftCurrent == null || tftPrev == null
+                ? null
+                : deltaPct(tftCurrent, tftPrev)
+            }
+            icon={CalendarCheck}
+            iconAccent="bg-cyan-500/10 text-cyan-600"
             loading={loading}
           />
         </BentoTile>
