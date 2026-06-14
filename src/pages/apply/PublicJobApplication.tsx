@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { CheckCircle2, FileText, Loader2, AlertCircle, Upload, X, Building2, Linkedin } from "lucide-react";
 import { uploadResumeToR2 } from "@/lib/uploadResumeToR2";
+import { uploadToStorage } from "@/lib/uploadToStorage";
 const EDUCATION_LEVELS = [
   "Primary Level Education",
   "Trade Certificate",
@@ -197,9 +198,15 @@ export default function PublicJobApplication() {
   const [parishState, setParishState] = useState("");
   const [educationLevel, setEducationLevel] = useState("");
   const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [additionalFiles, setAdditionalFiles] = useState<File[]>([]);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const additionalFilesInputRef = useRef<HTMLInputElement>(null);
+
+  const MAX_ADDITIONAL_FILES = 10;
+  const MAX_ADDITIONAL_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+  const ADDITIONAL_ACCEPT = ".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt";
 
   const parishOptions = PARISHES_BY_COUNTRY[country] ?? [];
 
@@ -253,6 +260,12 @@ export default function PublicJobApplication() {
     if (!parishState) e.parishState = "Parish/State is required";
     if (!educationLevel) e.educationLevel = "Education level is required";
     if (!resumeFile) e.resume = "Resume is required";
+    if (additionalFiles.some((f) => f.size > MAX_ADDITIONAL_FILE_BYTES)) {
+      e.additionalFiles = "Each additional document must be 10 MB or smaller";
+    }
+    if (additionalFiles.length > MAX_ADDITIONAL_FILES) {
+      e.additionalFiles = `You can upload at most ${MAX_ADDITIONAL_FILES} additional documents`;
+    }
     if (!agreedToTerms) e.terms = "You must agree to the Data Protection Agreement to continue";
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -410,6 +423,33 @@ export default function PublicJobApplication() {
       });
 
       if (appError) throw appError;
+
+      // Upload additional documents (best-effort; failures logged but do not block submission)
+      for (const file of additionalFiles) {
+        try {
+          const docResult = await uploadToStorage({
+            file,
+            companyId: company.id,
+            jobId: job.id,
+            candidateId,
+            category: "document",
+          });
+          const { error: docInsertError } = await supabase.from("candidate_files").insert({
+            company_id: company.id,
+            candidate_id: candidateId,
+            job_id: job.id,
+            category: "document",
+            bucket: docResult.bucket,
+            file_key: docResult.key,
+            file_name: docResult.fileName,
+            file_type: docResult.fileType,
+            file_size: docResult.fileSize,
+          });
+          if (docInsertError) console.error("Additional document insert failed:", docInsertError);
+        } catch (docErr) {
+          console.error("Additional document upload failed:", docErr);
+        }
+      }
 
       // Fire-and-forget thank-you email — never block submission on email failures.
       supabase.functions
@@ -747,6 +787,73 @@ export default function PublicJobApplication() {
               </button>
             )}
             {errors.resume && <p className="text-xs text-destructive">{errors.resume}</p>}
+          </div>
+
+          {/* Additional documents (optional) */}
+          <div className="space-y-1.5">
+            <Label className="text-sm flex items-center gap-1.5">
+              Additional Documents <span className="text-muted-foreground font-normal">(optional)</span>
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              If the job description asks for any extra documents (cover letter, certificates, portfolio,
+              references, etc.), upload them here. Up to {MAX_ADDITIONAL_FILES} files, 10&nbsp;MB each.
+            </p>
+            <input
+              ref={additionalFilesInputRef}
+              type="file"
+              multiple
+              data-testid="applicant-additional-docs-upload"
+              accept={ADDITIONAL_ACCEPT}
+              className="hidden"
+              onChange={(e) => {
+                const picked = Array.from(e.target.files ?? []);
+                setAdditionalFiles((prev) => {
+                  const combined = [...prev, ...picked].slice(0, MAX_ADDITIONAL_FILES);
+                  return combined;
+                });
+                setErrors((p) => ({ ...p, additionalFiles: "" }));
+                if (additionalFilesInputRef.current) additionalFilesInputRef.current.value = "";
+              }}
+            />
+            {additionalFiles.length > 0 && (
+              <div className="space-y-2">
+                {additionalFiles.map((f, idx) => (
+                  <div
+                    key={`${f.name}-${idx}`}
+                    className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2.5"
+                  >
+                    <FileText className="w-4 h-4 text-primary flex-shrink-0" />
+                    <span className="text-sm truncate flex-1">{f.name}</span>
+                    <span className="text-xs text-muted-foreground tabular-nums flex-shrink-0">
+                      {(f.size / 1024 / 1024).toFixed(2)} MB
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setAdditionalFiles((prev) => prev.filter((_, i) => i !== idx))
+                      }
+                      className="text-muted-foreground hover:text-foreground"
+                      aria-label={`Remove ${f.name}`}
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {additionalFiles.length < MAX_ADDITIONAL_FILES && (
+              <button
+                type="button"
+                onClick={() => additionalFilesInputRef.current?.click()}
+                className={`w-full flex items-center justify-center gap-2 rounded-lg border-2 border-dashed py-5 text-sm text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors ${errors.additionalFiles ? "border-destructive" : ""}`}
+              >
+                <Upload className="w-4 h-4" />
+                {additionalFiles.length === 0 ? "Upload additional documents" : "Add more documents"}
+              </button>
+            )}
+            {errors.additionalFiles && (
+              <p className="text-xs text-destructive">{errors.additionalFiles}</p>
+            )}
           </div>
 
           {/* Data protection consent */}
