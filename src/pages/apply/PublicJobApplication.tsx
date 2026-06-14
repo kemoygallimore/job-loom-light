@@ -424,6 +424,33 @@ export default function PublicJobApplication() {
 
       if (appError) throw appError;
 
+      // Upload additional documents (best-effort; failures logged but do not block submission)
+      for (const file of additionalFiles) {
+        try {
+          const docResult = await uploadToStorage({
+            file,
+            companyId: company.id,
+            jobId: job.id,
+            candidateId,
+            category: "document",
+          });
+          const { error: docInsertError } = await supabase.from("candidate_files").insert({
+            company_id: company.id,
+            candidate_id: candidateId,
+            job_id: job.id,
+            category: "document",
+            bucket: docResult.bucket,
+            file_key: docResult.key,
+            file_name: docResult.fileName,
+            file_type: docResult.fileType,
+            file_size: docResult.fileSize,
+          });
+          if (docInsertError) console.error("Additional document insert failed:", docInsertError);
+        } catch (docErr) {
+          console.error("Additional document upload failed:", docErr);
+        }
+      }
+
       // Fire-and-forget thank-you email — never block submission on email failures.
       supabase.functions
         .invoke("send-candidate-email", {
