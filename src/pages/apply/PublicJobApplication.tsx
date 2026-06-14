@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { CheckCircle2, FileText, Loader2, AlertCircle, Upload, X, Building2, Linkedin } from "lucide-react";
 import { uploadResumeToR2 } from "@/lib/uploadResumeToR2";
+import { uploadToStorage } from "@/lib/uploadToStorage";
 const EDUCATION_LEVELS = [
   "Primary Level Education",
   "Trade Certificate",
@@ -197,9 +198,15 @@ export default function PublicJobApplication() {
   const [parishState, setParishState] = useState("");
   const [educationLevel, setEducationLevel] = useState("");
   const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [additionalFiles, setAdditionalFiles] = useState<File[]>([]);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const additionalFilesInputRef = useRef<HTMLInputElement>(null);
+
+  const MAX_ADDITIONAL_FILES = 10;
+  const MAX_ADDITIONAL_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+  const ADDITIONAL_ACCEPT = ".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt";
 
   const parishOptions = PARISHES_BY_COUNTRY[country] ?? [];
 
@@ -253,6 +260,12 @@ export default function PublicJobApplication() {
     if (!parishState) e.parishState = "Parish/State is required";
     if (!educationLevel) e.educationLevel = "Education level is required";
     if (!resumeFile) e.resume = "Resume is required";
+    if (additionalFiles.some((f) => f.size > MAX_ADDITIONAL_FILE_BYTES)) {
+      e.additionalFiles = "Each additional document must be 10 MB or smaller";
+    }
+    if (additionalFiles.length > MAX_ADDITIONAL_FILES) {
+      e.additionalFiles = `You can upload at most ${MAX_ADDITIONAL_FILES} additional documents`;
+    }
     if (!agreedToTerms) e.terms = "You must agree to the Data Protection Agreement to continue";
     setErrors(e);
     return Object.keys(e).length === 0;
