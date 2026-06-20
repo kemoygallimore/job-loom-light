@@ -3,13 +3,16 @@ import { User, Briefcase } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getTagColorClasses, type CandidateTag } from "@/lib/candidateTags";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface Props {
   app: Application;
   isDragging: boolean;
+  selected?: boolean;
+  onToggle?: (id: string, checked: boolean) => void;
 }
 
-export default function KanbanCard({ app, isDragging }: Props) {
+export default function KanbanCard({ app, isDragging, selected, onToggle }: Props) {
   const [tags, setTags] = useState<CandidateTag[]>([]);
 
   useEffect(() => {
@@ -28,6 +31,9 @@ export default function KanbanCard({ app, isDragging }: Props) {
   return (
     <div className={`kanban-card ${isDragging ? "dragging" : ""}`}>
       <div className="flex items-start gap-2.5">
+        <div onClick={(e) => e.stopPropagation()} className="pt-1">
+          <Checkbox checked={!!selected} onCheckedChange={(v) => onToggle?.(app.id, v === true)} />
+        </div>
         <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center flex-shrink-0 mt-0.5">
           <User className="w-3.5 h-3.5 text-muted-foreground" />
         </div>

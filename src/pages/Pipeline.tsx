@@ -5,6 +5,17 @@ import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+  AlertDialogDescription,
+} from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
@@ -34,6 +45,8 @@ export default function Pipeline() {
   const [newJobId, setNewJobId] = useState("");
   const [newCandidateId, setNewCandidateId] = useState("");
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -101,6 +114,29 @@ export default function Pipeline() {
     setNewJobId("");
     setNewCandidateId("");
     load();
+  };
+
+  const toggleSelected = (id: string, checked: boolean) => {
+    setSelectedIds(prev => {
+      if (checked) return Array.from(new Set([...prev, id]));
+      return prev.filter(x => x !== id);
+    });
+  };
+
+  const clearSelection = () => setSelectedIds([]);
+
+  const handleBulkReject = async () => {
+    if (!profile) return;
+    if (selectedIds.length === 0) return;
+    const { error } = await supabase.from("applications").update({ stage: "rejected" }).in("id", selectedIds);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setApplications(prev => prev.map(a => selectedIds.includes(a.id) ? { ...a, stage: "rejected" as any } : a));
+    toast.success(`Rejected ${selectedIds.length} candidates`);
+    clearSelection();
+    setConfirmOpen(false);
   };
 
   const filtered = selectedJobFilter === "all" ? applications : applications.filter(a => a.job_id === selectedJobFilter);
@@ -189,6 +225,27 @@ export default function Pipeline() {
               </form>
             </DialogContent>
           </Dialog>
+            <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+              <AlertDialogTrigger asChild>
+                <Button className="bg-destructive text-destructive-foreground" disabled={selectedIds.length === 0}>
+                  Reject selected
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Reject {selectedIds.length} candidate{selectedIds.length === 1 ? "" : "s"}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will move the selected candidates to the rejected stage. This action can be undone by changing their stage manually.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction className="bg-destructive text-destructive-foreground" onClick={handleBulkReject}>
+                    Yes, reject
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
         </div>
       </div>
 
@@ -235,7 +292,7 @@ export default function Pipeline() {
                               {...provided.dragHandleProps}
                               onClick={() => setSelectedApp(app)}
                             >
-                              <KanbanCard app={app} isDragging={snapshot.isDragging} />
+                              <KanbanCard app={app} isDragging={snapshot.isDragging} selected={selectedIds.includes(app.id)} onToggle={toggleSelected} />
                             </div>
                           )}
                         </Draggable>
