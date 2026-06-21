@@ -17,8 +17,7 @@ import {
   AlertDialogDescription,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import KanbanCard from "@/components/pipeline/KanbanCard";
 import CandidatePanel from "@/components/pipeline/CandidatePanel";
@@ -49,12 +48,6 @@ export default function Pipeline() {
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [matchingConfirmOpen, setMatchingConfirmOpen] = useState(false);
-  const [matchingCount, setMatchingCount] = useState<number | null>(null);
-  const [matchingTyped, setMatchingTyped] = useState("");
-  const [stageConfirmOpen, setStageConfirmOpen] = useState(false);
-  const [stageToReject, setStageToReject] = useState<Stage | null>(null);
-  const [stageMatchingCount, setStageMatchingCount] = useState<number | null>(null);
   const [currentBulkActionId, setCurrentBulkActionId] = useState<string | null>(null);
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
 
@@ -156,90 +149,7 @@ export default function Pipeline() {
     clearSelection();
   };
 
-  const confirmThreshold = 50;
 
-  const handleRejectAllMatchingClick = async () => {
-    if (!profile) return;
-    // Build simple filter for server (only job filter supported for now)
-    const filter: any = {};
-    if (selectedJobFilter !== "all") filter.job_id = selectedJobFilter;
-
-    const { data, error } = await supabase.functions.invoke("bulk-reject-applications", {
-      body: { filter, company_id: profile.company_id, dryRun: true },
-    });
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    const total = (data as any)?.total ?? 0;
-    setMatchingCount(total);
-    setMatchingTyped("");
-    setMatchingConfirmOpen(true);
-  };
-
-  const handleStageRejectClick = async (stage: Stage) => {
-    if (!profile) return;
-    const filter: any = { stage };
-
-    const { data, error } = await supabase.functions.invoke("bulk-reject-applications", {
-      body: { filter, company_id: profile.company_id, dryRun: true },
-    });
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    const total = (data as any)?.total ?? 0;
-    if (total === 0) {
-      toast(`No candidates found in ${stageLabels[stage]} stage`);
-      return;
-    }
-    setStageMatchingCount(total);
-    setStageToReject(stage);
-    setStageConfirmOpen(true);
-  };
-
-  const handleConfirmRejectStage = async () => {
-    if (!profile || !stageToReject) return;
-    const filter: any = { stage: stageToReject };
-    const { data, error } = await supabase.functions.invoke("bulk-reject-applications", {
-      body: { filter, company_id: profile.company_id },
-    });
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    const bulkId = (data as any)?.bulk_action_id ?? null;
-    if (bulkId) {
-      setCurrentBulkActionId(bulkId);
-      setBulkDialogOpen(true);
-    }
-    toast.success(`Started rejecting ${stageMatchingCount ?? 0} candidate${(stageMatchingCount ?? 0) === 1 ? '' : 's'}`);
-    setStageConfirmOpen(false);
-    setStageToReject(null);
-    setStageMatchingCount(null);
-  };
-
-  const handleConfirmRejectMatching = async () => {
-    if (!profile || matchingCount === null) return;
-    const filter: any = {};
-    if (selectedJobFilter !== "all") filter.job_id = selectedJobFilter;
-    const { data, error } = await supabase.functions.invoke("bulk-reject-applications", {
-      body: { filter, company_id: profile.company_id },
-    });
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    const bulkId = (data as any)?.bulk_action_id ?? null;
-    if (bulkId) {
-      setCurrentBulkActionId(bulkId);
-      setBulkDialogOpen(true);
-    }
-    toast.success(`Started rejecting ${matchingCount} candidates`);
-    setMatchingConfirmOpen(false);
-    setMatchingCount(null);
-    // load() will run when job completes via onComplete
-  };
 
   const filtered = selectedJobFilter === "all" ? applications : applications.filter(a => a.job_id === selectedJobFilter);
 
@@ -327,12 +237,6 @@ export default function Pipeline() {
               </form>
             </DialogContent>
           </Dialog>
-          <Button onClick={() => setSelectedIds(filtered.map(a => a.id))} disabled={filtered.length === 0}>
-            Select all visible ({filtered.length})
-          </Button>
-          <Button onClick={handleRejectAllMatchingClick} disabled={applications.length === 0} className="bg-destructive text-destructive-foreground">
-            Reject all matching
-          </Button>
             <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
               <AlertDialogTrigger asChild>
                 <Button className="bg-destructive text-destructive-foreground" disabled={selectedIds.length === 0}>
@@ -349,48 +253,6 @@ export default function Pipeline() {
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction className="bg-destructive text-destructive-foreground" onClick={handleBulkReject}>
-                    Yes, reject
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-            <AlertDialog open={matchingConfirmOpen} onOpenChange={setMatchingConfirmOpen}>
-              <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Reject {matchingCount ?? 0} matching candidate{(matchingCount ?? 0) === 1 ? "" : "s"}?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will move matching candidates to the rejected stage. This action can be undone if you have audit records enabled.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                {matchingCount !== null && matchingCount > confirmThreshold && (
-                  <div className="p-3">
-                    <Label>Type <span className="font-mono">REJECT</span> to confirm</Label>
-                    <Input value={matchingTyped} onChange={(e) => setMatchingTyped((e.target as HTMLInputElement).value)} />
-                  </div>
-                )}
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    className="bg-destructive text-destructive-foreground"
-                    onClick={handleConfirmRejectMatching}
-                    disabled={matchingCount !== null && matchingCount > confirmThreshold && matchingTyped !== "REJECT"}
-                  >
-                    Yes, reject
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-            <AlertDialog open={stageConfirmOpen} onOpenChange={setStageConfirmOpen}>
-              <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Reject {stageMatchingCount ?? 0} candidate{(stageMatchingCount ?? 0) === 1 ? "" : "s"} in {stageToReject ? stageLabels[stageToReject] : 'this stage'}?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will move all candidates in this stage to the rejected stage. This action can be undone using the audit undo flow.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction className="bg-destructive text-destructive-foreground" onClick={handleConfirmRejectStage}>
                     Yes, reject
                   </AlertDialogAction>
                 </AlertDialogFooter>
@@ -432,15 +294,7 @@ export default function Pipeline() {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground tabular-nums bg-background/80 rounded-md px-1.5 py-0.5">{stageApps.length}</span>
-                        {stage !== "rejected" && (
-                          <Button
-                            className="bg-destructive text-destructive-foreground text-xs px-2 py-1"
-                            onClick={(e) => { e.stopPropagation(); handleStageRejectClick(stage); }}
-                            disabled={stageApps.length === 0}
-                          >
-                            Reject all
-                          </Button>
-                        )}
+                        { /* per-stage bulk actions removed — only manual multi-select remains */ }
                       </div>
                     </div>
                     <div className="space-y-2 min-h-[80px]">
