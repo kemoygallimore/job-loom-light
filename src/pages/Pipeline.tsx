@@ -49,6 +49,9 @@ export default function Pipeline() {
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [rejectAllOpen, setRejectAllOpen] = useState(false);
+  const [rejectAllTarget, setRejectAllTarget] = useState<{ stage: Stage; ids: string[] } | null>(null);
+  const [bulkRejecting, setBulkRejecting] = useState(false);
   
 
   const load = useCallback(async () => {
@@ -128,13 +131,15 @@ export default function Pipeline() {
 
   const clearSelection = () => setSelectedIds([]);
 
-  const handleBulkReject = async () => {
+  const rejectApplications = async (idsToReject: string[], onSuccess?: () => void) => {
     if (!profile) return;
-    if (selectedIds.length === 0) return;
-    setConfirmOpen(false);
+    if (idsToReject.length === 0 || bulkRejecting) return;
+
+    setBulkRejecting(true);
 
     try {
-      const chunks = chunkArray(selectedIds, 200);
+      const targetIdSet = new Set(idsToReject);
+      const chunks = chunkArray(idsToReject, 200);
       for (const chunk of chunks) {
         const { error } = await supabase
           .from("applications")
@@ -145,13 +150,43 @@ export default function Pipeline() {
           throw error;
         }
       }
-      setApplications(prev => prev.map(a => selectedIds.includes(a.id) ? { ...a, stage: "rejected" as Stage } : a));
-      toast.success(`Rejected ${selectedIds.length} candidate${selectedIds.length === 1 ? "" : "s"}`);
-      clearSelection();
+      setApplications(prev => prev.map(a => targetIdSet.has(a.id) ? { ...a, stage: "rejected" as Stage } : a));
+      onSuccess?.();
     } catch (err: any) {
       toast.error(err?.message ?? "Failed to reject candidates");
       load();
+    } finally {
+      setBulkRejecting(false);
     }
+  };
+
+  const handleBulkReject = async () => {
+    if (selectedIds.length === 0) return;
+    setConfirmOpen(false);
+
+    await rejectApplications(selectedIds, () => {
+      toast.success(`Rejected ${selectedIds.length} candidate${selectedIds.length === 1 ? "" : "s"}`);
+      clearSelection();
+    });
+  };
+
+  const openRejectAll = (stage: Stage, ids: string[]) => {
+    if (ids.length === 0) return;
+    setRejectAllTarget({ stage, ids });
+    setRejectAllOpen(true);
+  };
+
+  const handleRejectAll = async () => {
+    if (!rejectAllTarget) return;
+    const { stage, ids } = rejectAllTarget;
+    setRejectAllOpen(false);
+
+    await rejectApplications(ids, () => {
+      const targetIdSet = new Set(ids);
+      setSelectedIds(prev => prev.filter(id => !targetIdSet.has(id)));
+      toast.success(`Rejected all ${ids.length} candidate${ids.length === 1 ? "" : "s"} in ${stageLabels[stage]}`);
+    });
+    setRejectAllTarget(null);
   };
 
 
@@ -244,7 +279,7 @@ export default function Pipeline() {
           </Dialog>
             <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
               <AlertDialogTrigger asChild>
-                <Button className="bg-destructive text-destructive-foreground" disabled={selectedIds.length === 0}>
+                <Button className="bg-destructive text-destructive-foreground" disabled={selectedIds.length === 0 || bulkRejecting}>
                   Reject selected
                 </Button>
               </AlertDialogTrigger>
@@ -259,6 +294,36 @@ export default function Pipeline() {
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction className="bg-destructive text-destructive-foreground" onClick={handleBulkReject}>
                     Yes, reject
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <AlertDialog
+              open={rejectAllOpen}
+              onOpenChange={(open) => {
+                setRejectAllOpen(open);
+                if (!open) setRejectAllTarget(null);
+              }}
+            >
+              <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    Reject all {rejectAllTarget ? stageLabels[rejectAllTarget.stage] : "stage"} candidates?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {rejectAllTarget
+                      ? `This will move ${rejectAllTarget.ids.length} candidate${rejectAllTarget.ids.length === 1 ? "" : "s"} in ${stageLabels[rejectAllTarget.stage]} to the rejected stage.`
+                      : "This will move the visible candidates to the rejected stage."}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={bulkRejecting}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground"
+                    onClick={handleRejectAll}
+                    disabled={bulkRejecting}
+                  >
+                    Yes, reject all
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -298,8 +363,22 @@ export default function Pipeline() {
                         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{stageLabels[stage]}</h3>
                       </div>
                       <div className="flex items-center gap-2">
+                        {stage !== "hired" && stage !== "rejected" && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                            disabled={stageApps.length === 0 || bulkRejecting}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openRejectAll(stage, stageApps.map((app) => app.id));
+                            }}
+                          >
+                            Reject all
+                          </Button>
+                        )}
                         <span className="text-xs text-muted-foreground tabular-nums bg-background/80 rounded-md px-1.5 py-0.5">{stageApps.length}</span>
-                        { /* per-stage bulk actions removed — only manual multi-select remains */ }
                       </div>
                     </div>
                     <div className="space-y-2 min-h-[80px]">
