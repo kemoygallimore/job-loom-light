@@ -22,7 +22,7 @@ import { Label } from "@/components/ui/label";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import KanbanCard from "@/components/pipeline/KanbanCard";
 import CandidatePanel from "@/components/pipeline/CandidatePanel";
-import BulkProgressDialog from "@/components/pipeline/BulkProgressDialog";
+import { chunkArray } from "@/lib/utils";
 
 const STAGES = ["applied", "shortlisted", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"] as const;
 type Stage = typeof STAGES[number];
@@ -49,8 +49,7 @@ export default function Pipeline() {
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [currentBulkActionId, setCurrentBulkActionId] = useState<string | null>(null);
-  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
+  
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -133,21 +132,26 @@ export default function Pipeline() {
     if (!profile) return;
     if (selectedIds.length === 0) return;
     setConfirmOpen(false);
-    const payload = { ids: selectedIds, company_id: profile.company_id };
-    const { data, error } = await supabase.functions.invoke("bulk-reject-applications", { body: payload });
-    if (error) {
-      toast.error(error.message);
-      return;
+
+    try {
+      const chunks = chunkArray(selectedIds, 200);
+      for (const chunk of chunks) {
+        const { error } = await supabase
+          .from("applications")
+          .update({ stage: "rejected" as Stage })
+          .in("id", chunk)
+          .eq("company_id", profile.company_id);
+        if (error) {
+          throw error;
+        }
+      }
+      setApplications(prev => prev.map(a => selectedIds.includes(a.id) ? { ...a, stage: "rejected" as Stage } : a));
+      toast.success(`Rejected ${selectedIds.length} candidate${selectedIds.length === 1 ? "" : "s"}`);
+      clearSelection();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to reject candidates");
+      load();
     }
-    const bulkId = (data as any)?.bulk_action_id ?? null;
-    if (bulkId) {
-      setCurrentBulkActionId(bulkId);
-      setBulkDialogOpen(true);
-    }
-    // optimistic UX update
-    setApplications(prev => prev.map(a => selectedIds.includes(a.id) ? { ...a, stage: "rejected" as any } : a));
-    toast.success(`Started rejecting ${selectedIds.length} candidates`);
-    clearSelection();
   };
 
 
@@ -339,12 +343,6 @@ export default function Pipeline() {
           }}
         />
       )}
-      <BulkProgressDialog
-        bulkActionId={currentBulkActionId}
-        isOpen={bulkDialogOpen}
-        onClose={() => setBulkDialogOpen(false)}
-        onComplete={() => { setBulkDialogOpen(false); setCurrentBulkActionId(null); load(); }}
-      />
     </div>
   );
 }
