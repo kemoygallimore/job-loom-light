@@ -17,6 +17,7 @@ import {
   AlertDialogDescription,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import KanbanCard from "@/components/pipeline/KanbanCard";

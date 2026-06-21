@@ -28,7 +28,7 @@ export default function BulkProgressDialog({ bulkActionId, isOpen, onClose, onCo
 
     const fetchStatus = async () => {
       try {
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
           .from("bulk_actions")
           .select("id, status, processed_count, total_count, error_count, started_at, finished_at")
           .eq("id", bulkActionId)
