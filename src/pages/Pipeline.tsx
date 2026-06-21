@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import KanbanCard from "@/components/pipeline/KanbanCard";
 import CandidatePanel from "@/components/pipeline/CandidatePanel";
+import BulkProgressDialog from "@/components/pipeline/BulkProgressDialog";
 
 const STAGES = ["applied", "shortlisted", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"] as const;
 type Stage = typeof STAGES[number];
@@ -51,6 +52,11 @@ export default function Pipeline() {
   const [matchingConfirmOpen, setMatchingConfirmOpen] = useState(false);
   const [matchingCount, setMatchingCount] = useState<number | null>(null);
   const [matchingTyped, setMatchingTyped] = useState("");
+  const [stageConfirmOpen, setStageConfirmOpen] = useState(false);
+  const [stageToReject, setStageToReject] = useState<Stage | null>(null);
+  const [stageMatchingCount, setStageMatchingCount] = useState<number | null>(null);
+  const [currentBulkActionId, setCurrentBulkActionId] = useState<string | null>(null);
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -134,13 +140,19 @@ export default function Pipeline() {
     if (selectedIds.length === 0) return;
     setConfirmOpen(false);
     const payload = { ids: selectedIds, company_id: profile.company_id };
-    const { error } = await supabase.functions.invoke("bulk-reject-applications", { body: payload });
+    const { data, error } = await supabase.functions.invoke("bulk-reject-applications", { body: payload });
     if (error) {
       toast.error(error.message);
       return;
     }
+    const bulkId = (data as any)?.bulk_action_id ?? null;
+    if (bulkId) {
+      setCurrentBulkActionId(bulkId);
+      setBulkDialogOpen(true);
+    }
+    // optimistic UX update
     setApplications(prev => prev.map(a => selectedIds.includes(a.id) ? { ...a, stage: "rejected" as any } : a));
-    toast.success(`Rejected ${selectedIds.length} candidates`);
+    toast.success(`Started rejecting ${selectedIds.length} candidates`);
     clearSelection();
   };
 
@@ -165,21 +177,68 @@ export default function Pipeline() {
     setMatchingConfirmOpen(true);
   };
 
-  const handleConfirmRejectMatching = async () => {
-    if (!profile || matchingCount === null) return;
-    const filter: any = {};
-    if (selectedJobFilter !== "all") filter.job_id = selectedJobFilter;
-    const { error } = await supabase.functions.invoke("bulk-reject-applications", {
+  const handleStageRejectClick = async (stage: Stage) => {
+    if (!profile) return;
+    const filter: any = { stage };
+
+    const { data, error } = await supabase.functions.invoke("bulk-reject-applications", {
+      body: { filter, company_id: profile.company_id, dryRun: true },
+    });
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    const total = (data as any)?.total ?? 0;
+    if (total === 0) {
+      toast(`No candidates found in ${stageLabels[stage]} stage`);
+      return;
+    }
+    setStageMatchingCount(total);
+    setStageToReject(stage);
+    setStageConfirmOpen(true);
+  };
+
+  const handleConfirmRejectStage = async () => {
+    if (!profile || !stageToReject) return;
+    const filter: any = { stage: stageToReject };
+    const { data, error } = await supabase.functions.invoke("bulk-reject-applications", {
       body: { filter, company_id: profile.company_id },
     });
     if (error) {
       toast.error(error.message);
       return;
     }
-    toast.success(`Rejected ${matchingCount} candidates`);
+    const bulkId = (data as any)?.bulk_action_id ?? null;
+    if (bulkId) {
+      setCurrentBulkActionId(bulkId);
+      setBulkDialogOpen(true);
+    }
+    toast.success(`Started rejecting ${stageMatchingCount ?? 0} candidate${(stageMatchingCount ?? 0) === 1 ? '' : 's'}`);
+    setStageConfirmOpen(false);
+    setStageToReject(null);
+    setStageMatchingCount(null);
+  };
+
+  const handleConfirmRejectMatching = async () => {
+    if (!profile || matchingCount === null) return;
+    const filter: any = {};
+    if (selectedJobFilter !== "all") filter.job_id = selectedJobFilter;
+    const { data, error } = await supabase.functions.invoke("bulk-reject-applications", {
+      body: { filter, company_id: profile.company_id },
+    });
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    const bulkId = (data as any)?.bulk_action_id ?? null;
+    if (bulkId) {
+      setCurrentBulkActionId(bulkId);
+      setBulkDialogOpen(true);
+    }
+    toast.success(`Started rejecting ${matchingCount} candidates`);
     setMatchingConfirmOpen(false);
     setMatchingCount(null);
-    load();
+    // load() will run when job completes via onComplete
   };
 
   const filtered = selectedJobFilter === "all" ? applications : applications.filter(a => a.job_id === selectedJobFilter);
@@ -321,6 +380,22 @@ export default function Pipeline() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+            <AlertDialog open={stageConfirmOpen} onOpenChange={setStageConfirmOpen}>
+              <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Reject {stageMatchingCount ?? 0} candidate{(stageMatchingCount ?? 0) === 1 ? "" : "s"} in {stageToReject ? stageLabels[stageToReject] : 'this stage'}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will move all candidates in this stage to the rejected stage. This action can be undone using the audit undo flow.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction className="bg-destructive text-destructive-foreground" onClick={handleConfirmRejectStage}>
+                    Yes, reject
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
         </div>
       </div>
 
@@ -355,7 +430,18 @@ export default function Pipeline() {
                         <div className={`w-2 h-2 rounded-full badge-${stage}`} style={{ background: `var(--stage-${stage})` }} />
                         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{stageLabels[stage]}</h3>
                       </div>
-                      <span className="text-xs text-muted-foreground tabular-nums bg-background/80 rounded-md px-1.5 py-0.5">{stageApps.length}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground tabular-nums bg-background/80 rounded-md px-1.5 py-0.5">{stageApps.length}</span>
+                        {stage !== "rejected" && (
+                          <Button
+                            className="bg-destructive text-destructive-foreground text-xs px-2 py-1"
+                            onClick={(e) => { e.stopPropagation(); handleStageRejectClick(stage); }}
+                            disabled={stageApps.length === 0}
+                          >
+                            Reject all
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     <div className="space-y-2 min-h-[80px]">
                       {stageApps.map((app, idx) => (
@@ -398,6 +484,12 @@ export default function Pipeline() {
           }}
         />
       )}
+      <BulkProgressDialog
+        bulkActionId={currentBulkActionId}
+        isOpen={bulkDialogOpen}
+        onClose={() => setBulkDialogOpen(false)}
+        onComplete={() => { setBulkDialogOpen(false); setCurrentBulkActionId(null); load(); }}
+      />
     </div>
   );
 }
