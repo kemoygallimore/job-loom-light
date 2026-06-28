@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Mail, Save, Send, Eye } from "lucide-react";
+import { sanitizeRichHtml } from "@/lib/sanitizeHtml";
 
 interface Template {
   id: string;
@@ -92,10 +93,10 @@ export default function AdminEmailTemplates() {
     setSending(true);
     const { error } = await supabase.functions.invoke("send-candidate-email", {
       body: {
+        mode: "test",
         template_key: selected.key,
         to: testEmail.trim(),
         variables: sampleData,
-        test: true,
       },
     });
     setSending(false);
@@ -179,7 +180,7 @@ export default function AdminEmailTemplates() {
               {preview ? (
                 <div
                   className="prose prose-sm max-w-none border rounded-md p-4 bg-card min-h-[200px]"
-                  dangerouslySetInnerHTML={{ __html: render(selected.html_body) }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(render(selected.html_body)) }}
                 />
               ) : (
                 <Textarea

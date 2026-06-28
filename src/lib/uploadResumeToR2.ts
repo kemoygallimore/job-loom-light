@@ -19,14 +19,6 @@ export async function uploadResumeToR2({
   companyId,
   candidateId,
 }: UploadResumeToR2Params): Promise<UploadResumeToR2Result> {
-  console.log("uploadResumeToR2:start", {
-    filename: file.name,
-    contentType: file.type,
-    size: file.size,
-    companyId,
-    candidateId,
-  });
-
   const presignRes = await fetch(`${WORKER_URL}/presign-upload`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -40,17 +32,12 @@ export async function uploadResumeToR2({
     }),
   });
 
-  console.log("presignRes.status", presignRes.status);
-
   if (!presignRes.ok) {
     const errorText = await presignRes.text();
-    console.error("presign-upload failed:", errorText);
     throw new Error(`Failed to get upload URL: ${errorText}`);
   }
 
   const { uploadUrl, key, bucket } = await presignRes.json();
-
-  console.log("presign-upload success", { key, bucket, hasUploadUrl: !!uploadUrl });
 
   if (!uploadUrl || !key || !bucket) {
     throw new Error("Invalid Worker response");
@@ -62,11 +49,8 @@ export async function uploadResumeToR2({
     body: file,
   });
 
-  console.log("uploadRes.status", uploadRes.status);
-
   if (!uploadRes.ok) {
     const errorText = await uploadRes.text();
-    console.error("R2 upload failed:", errorText);
     throw new Error(`Failed to upload resume: ${errorText}`);
   }
 

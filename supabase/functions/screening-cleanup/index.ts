@@ -2,13 +2,32 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.99.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function authorize(req: Request): Response | null {
+  const secret = Deno.env.get("CRON_SECRET");
+  if (!secret) return json({ error: "CRON_SECRET not configured" }, 500);
+  if (req.headers.get("x-cron-secret") !== secret) return json({ error: "Unauthorized" }, 401);
+  return null;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+
+  const authError = authorize(req);
+  if (authError) return authError;
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -49,9 +68,9 @@ Deno.serve(async (req) => {
 
         if (subs) {
           const filePaths = subs
-            .map((s: any) => {
+            .map((s: { video_url?: string | null }) => {
               try {
-                const url = new URL(s.video_url);
+                const url = new URL(s.video_url ?? "");
                 const parts = url.pathname.split("/screening-videos/");
                 return parts[1] || null;
               } catch {
@@ -70,17 +89,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(
-      JSON.stringify({
+    return json(
+      {
         success: true,
         cleaned: oldJobs?.length || 0,
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      },
     );
-  } catch (error: any) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+  } catch (error: unknown) {
+    return json({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
   }
 });

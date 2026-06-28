@@ -1,9 +1,9 @@
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useEffect, useState } from "react";
-import DOMPurify from "dompurify";
 import { supabase } from "@/integrations/supabase/client";
 import { DEFAULT_DATA_PROTECTION_HTML } from "@/lib/defaultDataProtection";
+import { sanitizeRichHtml } from "@/lib/sanitizeHtml";
 
 export default function DataProtection() {
   const [title, setTitle] = useState<string>("Data Protection Agreement");
@@ -22,7 +22,7 @@ export default function DataProtection() {
     })();
   }, []);
 
-  const safe = DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+  const safe = sanitizeRichHtml(html);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">

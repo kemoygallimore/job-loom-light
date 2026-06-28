@@ -11,9 +11,10 @@ The existing `RESEND_API_KEY` secret must have **Domains** read/write permission
 ## 3. Deploy edge functions
 ```
 supabase functions deploy manage-company-domain --project-ref <EXTERNAL_REF>
-supabase functions deploy send-candidate-email --project-ref <EXTERNAL_REF> --no-verify-jwt
+supabase functions deploy send-candidate-email --project-ref <EXTERNAL_REF>
 ```
 `manage-company-domain` keeps JWT verification on (super-admin only).
+`send-candidate-email` also keeps JWT verification on; the public application flow uses the constrained `application_received` mode and super-admins use the `test` mode.
 
 ## 4. Operator runbook
 1. Super-admin → Companies → open a tenant → **Email Domain** tab.

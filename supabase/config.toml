@@ -1,4 +1,7 @@
 project_id = "xkyuybfxdxxzzfdjftss"
 
 [functions.send-candidate-email]
+verify_jwt = true
+
+[functions.screening-cleanup]
 verify_jwt = false
