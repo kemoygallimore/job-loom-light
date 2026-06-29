@@ -31,5 +31,5 @@
   },
   "include": [
     "src"
-  ]
+, "tests/e2e", "playwright.config.e2e.ts"  ]
 }

@@ -1,5 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.99.3";
 
+const DEFAULT_R2_WORKER_BASE_URL = "https://api.rizonhire.com";
+const DEFAULT_VIDEO_BUCKET = "silverweb-ats-videos";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
@@ -20,6 +23,58 @@ function authorize(req: Request): Response | null {
   return null;
 }
 
+function getR2Target(submission: {
+  video_bucket?: string | null;
+  video_object_key?: string | null;
+  video_url?: string | null;
+}) {
+  const key = (submission.video_object_key || submission.video_url || "").trim();
+  if (!key || /^https?:\/\//i.test(key)) return null;
+  return {
+    bucket: submission.video_bucket || DEFAULT_VIDEO_BUCKET,
+    key,
+  };
+}
+
+async function deleteR2Objects(
+  submissions: Array<{ video_bucket?: string | null; video_object_key?: string | null; video_url?: string | null }>,
+) {
+  const workerBaseUrl = (Deno.env.get("R2_WORKER_BASE_URL") || DEFAULT_R2_WORKER_BASE_URL).replace(/\/+$/, "");
+  const workerSecret = Deno.env.get("R2_WORKER_SECRET");
+  const byBucket = new Map<string, Set<string>>();
+
+  for (const submission of submissions) {
+    const target = getR2Target(submission);
+    if (!target) continue;
+    const keys = byBucket.get(target.bucket) ?? new Set<string>();
+    keys.add(target.key);
+    byBucket.set(target.bucket, keys);
+  }
+
+  let deleted = 0;
+  for (const [bucket, keysSet] of byBucket) {
+    const keys = Array.from(keysSet);
+    if (keys.length === 0) continue;
+
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (workerSecret) headers.Authorization = `Bearer ${workerSecret}`;
+
+    const res = await fetch(`${workerBaseUrl}/delete-object`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ bucket, keys }),
+    });
+
+    if (!res.ok && res.status !== 404) {
+      const details = await res.text().catch(() => "");
+      throw new Error(`R2 delete failed for ${bucket}: ${res.status} ${details}`.trim());
+    }
+    deleted += keys.length;
+  }
+
+  return deleted;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -37,6 +92,7 @@ Deno.serve(async (req) => {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 60);
     const cutoffISO = cutoff.toISOString();
+    let deletedVideoObjects = 0;
 
     // 1. Find old screening jobs
     const { data: oldJobs } = await supabase
@@ -60,28 +116,14 @@ Deno.serve(async (req) => {
           total_submissions: count || 0,
         });
 
-        // Delete video files from storage
+        // Delete video files from Cloudflare R2 before removing database rows.
         const { data: subs } = await supabase
           .from("screening_submissions")
-          .select("video_url")
+          .select("video_bucket, video_object_key, video_url")
           .eq("screening_job_id", job.id);
 
         if (subs) {
-          const filePaths = subs
-            .map((s: { video_url?: string | null }) => {
-              try {
-                const url = new URL(s.video_url ?? "");
-                const parts = url.pathname.split("/screening-videos/");
-                return parts[1] || null;
-              } catch {
-                return null;
-              }
-            })
-            .filter(Boolean) as string[];
-
-          if (filePaths.length > 0) {
-            await supabase.storage.from("screening-videos").remove(filePaths);
-          }
+          deletedVideoObjects += await deleteR2Objects(subs);
         }
 
         // Delete the job (cascade deletes submissions)
@@ -93,6 +135,7 @@ Deno.serve(async (req) => {
       {
         success: true,
         cleaned: oldJobs?.length || 0,
+        deletedVideoObjects,
       },
     );
   } catch (error: unknown) {

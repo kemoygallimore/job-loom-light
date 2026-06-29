@@ -97,14 +97,15 @@ supabase/
   - INSERT into `screening_submissions` only with `privacy_consent=true` and a non-expired `screening_job`.
   - SELECT `feedback_links` while `expires_at > now()`.
 
-## Storage Buckets
+## Cloudflare R2 Buckets
 
 | Bucket | Visibility | Contents |
 |---|---|---|
-| `resumes` | Private | Candidate CVs |
-| `screening-videos` | Private | Video screening submissions |
+| `silverweb-ats-resumes` | Private | Candidate CVs and supporting documents |
+| `silverweb-ats-videos` | Private | Video screening submissions |
 
-All access is mediated through the Cloudflare Worker; the app fetches short-lived signed URLs (`getSignedVideoViewUrl`, `fileUrl`).
+All file access is mediated through the Cloudflare Worker at `https://api.rizonhire.com`; the app stores only R2 bucket names and object keys in Supabase tables.
+Legacy Supabase Storage buckets (`resumes`, `screening-videos`) should remain private and policy-free until they are confirmed empty, then deleted with `scripts/delete-supabase-storage-buckets.mjs`.
 
 ## Edge Functions
 
@@ -199,6 +200,8 @@ The billing cron functions accept `{ "dry_run": true }` to inspect what they wou
 
 `ALLOWED_ORIGINS` should include only the production app origin plus local development origins, for example:
 `https://app.rizonhire.com,http://localhost:8080,http://127.0.0.1:8080`.
+
+`screening-cleanup` uses `R2_WORKER_BASE_URL` and `R2_WORKER_SECRET` to delete old video objects from Cloudflare R2 before deleting their database rows.
 
 ### Daily schedule (pg_cron, run in external SQL editor)
 
