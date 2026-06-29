@@ -416,16 +416,14 @@ export default function PublicJobApplication() {
       }
 
       // 3. Create application
-      const { data: application, error: appError } = await supabase
+      const { error: appError } = await supabase
         .from("applications")
         .insert({
           company_id: company.id,
           job_id: job.id,
           candidate_id: candidateId,
           stage: "applied",
-        })
-        .select("id")
-        .single();
+        });
 
       if (appError) throw appError;
 
@@ -455,16 +453,6 @@ export default function PublicJobApplication() {
           console.error("Additional document upload failed:", docErr);
         }
       }
-
-      // Fire-and-forget thank-you email — never block submission on email failures.
-      supabase.functions
-        .invoke("send-candidate-email", {
-          body: {
-            mode: "application_received",
-            application_id: application.id,
-          },
-        })
-        .catch((err) => console.error("application email failed:", err));
 
       setSubmitted(true);
     } catch (err: any) {
