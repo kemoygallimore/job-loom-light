@@ -24,6 +24,7 @@ import AdminEmailTemplates from "./pages/admin/AdminEmailTemplates";
 import AdminPolicies from "./pages/admin/AdminPolicies";
 import Billing from "./pages/Billing";
 import Team from "./pages/Team";
+import CompanyEmailTemplates from "./pages/settings/CompanyEmailTemplates";
 import InvoiceDetail from "./pages/InvoiceDetail";
 import CareersPage from "./pages/careers/CareersPage";
 import JobDetailsPage from "./pages/careers/JobDetailsPage";
@@ -114,6 +115,7 @@ const App = () => (
               <Route path="/billing" element={<Billing />} />
               <Route path="/billing/invoices/:id" element={<InvoiceDetail />} />
               <Route path="/team" element={<Team />} />
+              <Route path="/settings/email-templates" element={<CompanyEmailTemplates />} />
               <Route path="/admin" element={<AdminDashboard />}>
                 <Route index element={<AdminOverview />} />
                 <Route path="companies" element={<AdminCompanies />} />

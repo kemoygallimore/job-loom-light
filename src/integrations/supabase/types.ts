@@ -260,26 +260,104 @@ export type Database = {
       companies: {
         Row: {
           created_at: string
+          email_domain: string | null
+          email_domain_status: string | null
+          email_from_name: string | null
+          email_provider_domain_id: string | null
+          email_reply_to: string | null
           id: string
           max_open_jobs: number
           name: string
           slug: string
+          status: string | null
         }
         Insert: {
           created_at?: string
+          email_domain?: string | null
+          email_domain_status?: string | null
+          email_from_name?: string | null
+          email_provider_domain_id?: string | null
+          email_reply_to?: string | null
           id?: string
           max_open_jobs?: number
           name: string
           slug: string
+          status?: string | null
         }
         Update: {
           created_at?: string
+          email_domain?: string | null
+          email_domain_status?: string | null
+          email_from_name?: string | null
+          email_provider_domain_id?: string | null
+          email_reply_to?: string | null
           id?: string
           max_open_jobs?: number
           name?: string
           slug?: string
+          status?: string | null
         }
         Relationships: []
+      }
+      company_email_templates: {
+        Row: {
+          company_id: string
+          created_at: string
+          html_body: string
+          id: string
+          is_active: boolean
+          key: string
+          name: string
+          subject: string
+          text_body: string | null
+          updated_at: string
+          updated_by: string | null
+          variables: Json
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          html_body: string
+          id?: string
+          is_active?: boolean
+          key: string
+          name: string
+          subject: string
+          text_body?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          variables?: Json
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          html_body?: string
+          id?: string
+          is_active?: boolean
+          key?: string
+          name?: string
+          subject?: string
+          text_body?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          variables?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_email_templates_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_email_templates_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       feedback_links: {
         Row: {

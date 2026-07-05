@@ -28,6 +28,35 @@ interface SendEmailArgs {
   test?: boolean;
 }
 
+interface AuthenticatedProfile {
+  userId: string;
+  companyId: string;
+}
+
+type AuthenticatedProfileResult =
+  | { ok: false; response: Response }
+  | { ok: true; profile: AuthenticatedProfile };
+
+type SuperAdminResult =
+  | { ok: false; response: Response }
+  | { ok: true; userId: string };
+
+type TemplateResult =
+  | { ok: false; response: Response }
+  | { ok: true; template: EmailTemplate };
+
+interface RenderedEmailArgs {
+  templateKey: string;
+  recipient: string;
+  subject: string;
+  html: string;
+  text?: string;
+  variables: Record<string, string>;
+  company: CompanyEmailSettings | null;
+  companyId?: string | null;
+  applicationId?: string | null;
+}
+
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -77,6 +106,10 @@ function normalizeText(value: unknown, maxLength = 2000) {
     .slice(0, maxLength);
 }
 
+function normalizeBody(value: unknown, maxLength = 20000) {
+  return String(value ?? "").trim().slice(0, maxLength);
+}
+
 function normalizeSubject(value: string) {
   return value.replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 240);
 }
@@ -104,11 +137,17 @@ function normalizeVariables(input: unknown) {
   return Object.fromEntries(entries.map(([key, value]) => [key, normalizeText(value)]));
 }
 
+function normalizeApplicationIds(input: unknown) {
+  if (!Array.isArray(input)) return [];
+  const ids = input.map((id) => normalizeText(id, 80)).filter(Boolean);
+  return Array.from(new Set(ids));
+}
+
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-async function requireSuperAdmin(req: Request, admin: SupabaseAdmin) {
+async function requireSuperAdmin(req: Request, admin: SupabaseAdmin): Promise<SuperAdminResult> {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) return { ok: false, response: json(req, 401, { error: "Unauthorized" }) };
 
@@ -130,7 +169,31 @@ async function requireSuperAdmin(req: Request, admin: SupabaseAdmin) {
   return { ok: true, userId: user.id };
 }
 
-async function getTemplate(req: Request, admin: SupabaseAdmin, templateKey: string, test = false) {
+async function requireAuthenticatedProfile(req: Request, admin: SupabaseAdmin): Promise<AuthenticatedProfileResult> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) return { ok: false, response: json(req, 401, { error: "Unauthorized" }) };
+
+  const userClient = createClient(SUPABASE_URL, ANON_KEY, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data: userData, error } = await userClient.auth.getUser();
+  const user = userData?.user;
+  if (error || !user) return { ok: false, response: json(req, 401, { error: "Unauthorized" }) };
+
+  const { data: profile, error: profileError } = await admin
+    .from("profiles")
+    .select("user_id, company_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (profileError || !profile?.company_id) {
+    return { ok: false, response: json(req, 403, { error: "Company profile not found" }) };
+  }
+
+  return { ok: true, profile: { userId: user.id, companyId: profile.company_id } as AuthenticatedProfile };
+}
+
+async function getTemplate(req: Request, admin: SupabaseAdmin, templateKey: string, test = false): Promise<TemplateResult> {
   const { data: tpl, error: tplErr } = await admin
     .from("email_templates")
     .select("subject, html_body, text_body, is_active")
@@ -208,6 +271,59 @@ async function sendEmail(
   return json(req, 200, { ok: true, id: resendData?.id });
 }
 
+async function sendRenderedEmail(admin: SupabaseAdmin, args: RenderedEmailArgs) {
+  const { fromAddress, replyTo } = resolveSender(args.company);
+  const logRow = {
+    template_key: args.templateKey,
+    recipient_email: args.recipient,
+    company_id: args.companyId ?? null,
+    application_id: args.applicationId ?? null,
+    context: args.variables,
+    from_address: fromAddress,
+    reply_to: replyTo ?? null,
+  };
+
+  if (!RESEND_API_KEY) {
+    await admin.from("email_send_log").insert({
+      ...logRow,
+      status: "failed",
+      error_message: "RESEND_API_KEY not configured",
+    });
+    return { ok: false, error: "RESEND_API_KEY not configured" };
+  }
+
+  const resendRes = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${RESEND_API_KEY}` },
+    body: JSON.stringify({
+      from: fromAddress,
+      to: [args.recipient],
+      subject: args.subject,
+      html: args.html,
+      text: args.text,
+      reply_to: replyTo,
+    }),
+  });
+
+  const resendData = await resendRes.json().catch(() => ({} as Record<string, unknown>));
+  if (!resendRes.ok) {
+    await admin.from("email_send_log").insert({
+      ...logRow,
+      status: "failed",
+      error_message: JSON.stringify(resendData).slice(0, 1000),
+    });
+    return { ok: false, error: "Resend failed", details: resendData };
+  }
+
+  await admin.from("email_send_log").insert({
+    ...logRow,
+    status: "sent",
+    provider_message_id: resendData?.id ?? null,
+  });
+
+  return { ok: true, id: resendData?.id };
+}
+
 async function sendApplicationReceived(req: Request, admin: SupabaseAdmin, body: Record<string, unknown>) {
   const allowedKeys = new Set(["mode", "application_id"]);
   const unsupported = Object.keys(body ?? {}).filter((key) => !allowedKeys.has(key));
@@ -275,6 +391,98 @@ async function sendApplicationReceived(req: Request, admin: SupabaseAdmin, body:
   });
 }
 
+async function sendCandidateRejected(req: Request, admin: SupabaseAdmin, body: Record<string, unknown>) {
+  const allowedKeys = new Set(["mode", "application_ids", "subject", "html_body", "text_body"]);
+  const unsupported = Object.keys(body ?? {}).filter((key) => !allowedKeys.has(key));
+  if (unsupported.length > 0) return json(req, 400, { error: "Unsupported fields for rejection email" });
+
+  const auth = await requireAuthenticatedProfile(req, admin);
+  if (!auth.ok) return auth.response;
+
+  const applicationIds = normalizeApplicationIds(body?.application_ids);
+  const subjectTemplate = normalizeSubject(String(body?.subject ?? ""));
+  const htmlTemplate = normalizeBody(body?.html_body);
+  const textTemplate = body?.text_body == null ? null : normalizeBody(body?.text_body);
+
+  if (applicationIds.length === 0) return json(req, 400, { error: "application_ids is required" });
+  if (!subjectTemplate) return json(req, 400, { error: "subject is required" });
+  if (!htmlTemplate) return json(req, 400, { error: "html_body is required" });
+
+  const { data: applications, error: appsError } = await admin
+    .from("applications")
+    .select("id, company_id, candidate_id, job_id, candidates(name, email), jobs(title)")
+    .in("id", applicationIds);
+
+  if (appsError) return json(req, 500, { error: "Could not load applications" });
+  if (!applications || applications.length === 0) return json(req, 404, { error: "Applications not found" });
+  if (applications.length !== applicationIds.length) return json(req, 404, { error: "One or more applications were not found" });
+  if (applications.some((app: any) => app.company_id !== auth.profile.companyId)) {
+    return json(req, 403, { error: "Applications must belong to your company" });
+  }
+
+  const { data: company, error: companyError } = await admin
+    .from("companies")
+    .select("id, name, email_domain, email_domain_status, email_from_name, email_reply_to")
+    .eq("id", auth.profile.companyId)
+    .maybeSingle();
+
+  if (companyError || !company) return json(req, 404, { error: "Company email context not found" });
+
+  const { error: updateError } = await admin
+    .from("applications")
+    .update({ stage: "rejected" })
+    .in("id", applicationIds)
+    .eq("company_id", auth.profile.companyId);
+
+  if (updateError) return json(req, 500, { error: "Could not reject candidates" });
+
+  const appsById = new Map((applications as any[]).map((app) => [app.id, app]));
+  let sent = 0;
+  let failed = 0;
+  let skippedInvalidEmail = 0;
+
+  for (const applicationId of applicationIds) {
+    const app = appsById.get(applicationId);
+    const candidate = Array.isArray(app?.candidates) ? app.candidates[0] : app?.candidates;
+    const job = Array.isArray(app?.jobs) ? app.jobs[0] : app?.jobs;
+    const recipient = normalizeText(candidate?.email, 320).toLowerCase();
+
+    if (!isValidEmail(recipient)) {
+      skippedInvalidEmail += 1;
+      continue;
+    }
+
+    const variables = {
+      candidate_name: normalizeText(candidate?.name || "there", 120),
+      company_name: normalizeText(company.name || "the company", 120),
+      job_title: normalizeText(job?.title || "the role", 160),
+    };
+
+    const result = await sendRenderedEmail(admin, {
+      templateKey: "candidate_rejected",
+      recipient,
+      subject: normalizeSubject(render(subjectTemplate, variables)),
+      html: render(htmlTemplate, variables, true),
+      text: textTemplate ? render(textTemplate, variables) : undefined,
+      variables,
+      company: company as CompanyEmailSettings,
+      companyId: auth.profile.companyId,
+      applicationId,
+    });
+
+    if (result.ok) sent += 1;
+    else failed += 1;
+  }
+
+  return json(req, 200, {
+    ok: true,
+    rejected: applicationIds.length,
+    sent,
+    failed,
+    skipped_invalid_email: skippedInvalidEmail,
+  });
+}
+
 async function sendTestEmail(req: Request, admin: SupabaseAdmin, body: Record<string, unknown>) {
   const auth = await requireSuperAdmin(req, admin);
   if (!auth.ok) return auth.response;
@@ -308,6 +516,7 @@ Deno.serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
 
     if (mode === "application_received") return await sendApplicationReceived(req, admin, body);
+    if (mode === "candidate_rejected") return await sendCandidateRejected(req, admin, body);
     if (mode === "test") return await sendTestEmail(req, admin, body);
 
     return json(req, 400, { error: "Unsupported email mode" });
