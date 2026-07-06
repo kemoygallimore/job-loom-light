@@ -20,6 +20,7 @@ import {
   Mail,
   ChevronUp,
   FileText,
+  ClipboardList,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,6 +42,7 @@ const atsNavItems = [
   { to: "/jobs", label: "Jobs", icon: Briefcase },
   { to: "/candidates", label: "Candidates", icon: Users },
   { to: "/pipeline", label: "Pipeline", icon: FolderKanban },
+  { to: "/forms", label: "Forms", icon: ClipboardList },
   { to: "/admin/candidate-tags", label: "Candidate Tags", icon: Tags },
 ];
 

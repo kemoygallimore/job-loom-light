@@ -24,6 +24,7 @@ import AdminEmailTemplates from "./pages/admin/AdminEmailTemplates";
 import AdminPolicies from "./pages/admin/AdminPolicies";
 import Billing from "./pages/Billing";
 import Team from "./pages/Team";
+import Forms from "./pages/Forms";
 import CompanyEmailTemplates from "./pages/settings/CompanyEmailTemplates";
 import InvoiceDetail from "./pages/InvoiceDetail";
 import CareersPage from "./pages/careers/CareersPage";
@@ -33,6 +34,7 @@ import ScreeningSubmissions from "./pages/screening/ScreeningSubmissions";
 import PublicScreening from "./pages/screening/PublicScreening";
 import PublicJobApplication from "./pages/apply/PublicJobApplication";
 import PublicFeedback from "./pages/feedback/PublicFeedback";
+import PublicLeadForm from "./pages/forms/PublicLeadForm";
 import DataProtection from "./pages/legal/DataProtection";
 import NotFound from "./pages/NotFound";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -99,6 +101,7 @@ const App = () => (
             <Route path="/:companySlug/careers" element={<CareersPage />} />
             <Route path="/:companySlug/careers/:jobId" element={<JobDetailsPage />} />
             <Route path="/screen/:linkId" element={<PublicScreening />} />
+            <Route path="/forms/:publicId" element={<PublicLeadForm />} />
             <Route path="/apply/:jobId" element={<PublicJobApplication />} />
             <Route path="/feedback/:token" element={<PublicFeedback />} />
             <Route path="/legal/data-protection" element={<DataProtection />} />
@@ -115,6 +118,7 @@ const App = () => (
               <Route path="/billing" element={<Billing />} />
               <Route path="/billing/invoices/:id" element={<InvoiceDetail />} />
               <Route path="/team" element={<Team />} />
+              <Route path="/forms" element={<Forms />} />
               <Route path="/settings/email-templates" element={<CompanyEmailTemplates />} />
               <Route path="/admin" element={<AdminDashboard />}>
                 <Route index element={<AdminOverview />} />
