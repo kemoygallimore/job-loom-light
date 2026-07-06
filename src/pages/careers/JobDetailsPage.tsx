@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Building2, AlertCircle } from "lucide-react";
+import { sanitizeRichHtml } from "@/lib/sanitizeHtml";
 
 interface Job {
   id: string;
@@ -132,7 +133,7 @@ export default function JobDetailsPage() {
             {job?.description && (
               <div
                 className="prose prose-sm sm:prose-base max-w-none prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-li:text-foreground prose-a:text-primary"
-                dangerouslySetInnerHTML={{ __html: job.description }}
+                dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(job.description) }}
               />
             )}
 

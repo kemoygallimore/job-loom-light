@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { CheckCircle2, FileText, Loader2, AlertCircle, Upload, X, Building2, Linkedin } from "lucide-react";
 import { uploadResumeToR2 } from "@/lib/uploadResumeToR2";
 import { uploadToStorage } from "@/lib/uploadToStorage";
+import { sanitizeRichHtml } from "@/lib/sanitizeHtml";
 const EDUCATION_LEVELS = [
   "Primary Level Education",
   "Trade Certificate",
@@ -415,12 +416,14 @@ export default function PublicJobApplication() {
       }
 
       // 3. Create application
-      const { error: appError } = await supabase.from("applications").insert({
-        company_id: company.id,
-        job_id: job.id,
-        candidate_id: candidateId,
-        stage: "applied",
-      });
+      const { error: appError } = await supabase
+        .from("applications")
+        .insert({
+          company_id: company.id,
+          job_id: job.id,
+          candidate_id: candidateId,
+          stage: "applied",
+        });
 
       if (appError) throw appError;
 
@@ -450,22 +453,6 @@ export default function PublicJobApplication() {
           console.error("Additional document upload failed:", docErr);
         }
       }
-
-      // Fire-and-forget thank-you email — never block submission on email failures.
-      supabase.functions
-        .invoke("send-candidate-email", {
-          body: {
-            template_key: "application_received",
-            to: normalizedEmail,
-            company_id: company.id,
-            variables: {
-              candidate_name: name.trim(),
-              company_name: company.name,
-              job_title: job.title,
-            },
-          },
-        })
-        .catch((err) => console.error("application email failed:", err));
 
       setSubmitted(true);
     } catch (err: any) {
@@ -538,7 +525,7 @@ export default function PublicJobApplication() {
           {job?.description && (
             <div
               className="prose prose-sm max-w-none mt-3 prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-li:text-foreground prose-a:text-primary"
-              dangerouslySetInnerHTML={{ __html: job.description }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(job.description) }}
             />
           )}
         </div>

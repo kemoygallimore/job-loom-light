@@ -19,8 +19,8 @@ import {
   Receipt,
   Mail,
   ChevronUp,
-  User as UserIcon,
   FileText,
+  ClipboardList,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,6 +42,7 @@ const atsNavItems = [
   { to: "/jobs", label: "Jobs", icon: Briefcase },
   { to: "/candidates", label: "Candidates", icon: Users },
   { to: "/pipeline", label: "Pipeline", icon: FolderKanban },
+  { to: "/forms", label: "Forms", icon: ClipboardList },
   { to: "/admin/candidate-tags", label: "Candidate Tags", icon: Tags },
 ];
 
@@ -75,7 +76,7 @@ export default function AppLayout() {
       return;
     }
     (async () => {
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from("companies")
         .select("status")
         .eq("id", profile.company_id)
@@ -248,6 +249,13 @@ export default function AppLayout() {
                 <DropdownMenuItem asChild>
                   <Link to="/team">
                     <Users className="w-4 h-4 mr-2" /> Team
+                  </Link>
+                </DropdownMenuItem>
+              )}
+              {!isSuperAdmin && (
+                <DropdownMenuItem asChild>
+                  <Link to="/settings/email-templates">
+                    <Mail className="w-4 h-4 mr-2" /> Email Templates
                   </Link>
                 </DropdownMenuItem>
               )}

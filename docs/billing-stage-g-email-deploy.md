@@ -12,6 +12,7 @@ This creates `email_templates` + `email_send_log` and seeds the `application_rec
 ## 2. Set secrets (Project Settings → Edge Functions → Secrets)
 - `RESEND_API_KEY` — from https://resend.com/api-keys
 - `RIZONHIRE_FROM_EMAIL` — optional, defaults to `RizonHire <no-reply@rizonhire.com>`
+- `ALLOWED_ORIGINS` - comma-separated browser origins allowed to call `send-candidate-email`, e.g. `https://app.rizonhire.com,http://localhost:8080,http://127.0.0.1:8080`
 
 ## 3. Verify the `rizonhire.com` domain in Resend
 Add the SPF/DKIM DNS records Resend gives you. Emails will hard-fail until the domain shows as "Verified".
@@ -19,9 +20,9 @@ Add the SPF/DKIM DNS records Resend gives you. Emails will hard-fail until the d
 ## 4. Deploy the edge function
 From your repo root:
 ```
-supabase functions deploy send-candidate-email --project-ref <EXTERNAL_REF> --no-verify-jwt
+supabase functions deploy send-candidate-email --project-ref <EXTERNAL_REF>
 ```
-The function is public (called from the unauthenticated application form).
+The function requires JWT verification and only accepts the constrained public confirmation mode or a super-admin test-send mode.
 
 ## 5. Smoke test
 - Apply to a public job; confirm a "sent" row appears in `email_send_log`.

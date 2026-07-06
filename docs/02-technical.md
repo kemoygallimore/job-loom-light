@@ -97,14 +97,15 @@ supabase/
   - INSERT into `screening_submissions` only with `privacy_consent=true` and a non-expired `screening_job`.
   - SELECT `feedback_links` while `expires_at > now()`.
 
-## Storage Buckets
+## Cloudflare R2 Buckets
 
 | Bucket | Visibility | Contents |
 |---|---|---|
-| `resumes` | Private | Candidate CVs |
-| `screening-videos` | Private | Video screening submissions |
+| `silverweb-ats-resumes` | Private | Candidate CVs and supporting documents |
+| `silverweb-ats-videos` | Private | Video screening submissions |
 
-All access is mediated through the Cloudflare Worker; the app fetches short-lived signed URLs (`getSignedVideoViewUrl`, `fileUrl`).
+All file access is mediated through the Cloudflare Worker at `https://api.rizonhire.com`; the app stores only R2 bucket names and object keys in Supabase tables.
+Legacy Supabase Storage buckets (`resumes`, `screening-videos`) should remain private and policy-free until they are confirmed empty, then deleted with `scripts/delete-supabase-storage-buckets.mjs`.
 
 ## Edge Functions
 
@@ -182,6 +183,8 @@ npx playwright test
 
 | Function | Auth | Purpose |
 |---|---|---|
+| `send-candidate-email` | JWT; constrained public mode or super-admin test mode | Sends application confirmation and template test emails via Resend |
+| `screening-cleanup` | `x-cron-secret` | Archives old screening analytics and deletes expired screening jobs |
 | `get-invoice-download-url` | JWT | Returns short-lived signed R2 URL for the invoice PDF |
 | `request-invoice-pdf` | super-admin JWT | Renders/regenerates PDF on R2, updates invoice |
 | `send-invoice-email` | super-admin JWT or `x-cron-secret` | Sends payment-due email via Resend |
@@ -189,11 +192,16 @@ npx playwright test
 | `billing-auto-renewal` | super-admin JWT or `x-cron-secret` | Drafts invoices in renewal window |
 | `billing-send-reminders` | super-admin JWT or `x-cron-secret` | Sends pre-due/due/overdue emails |
 
-Both cron functions accept `{ "dry_run": true }` to inspect what they would do.
+The billing cron functions accept `{ "dry_run": true }` to inspect what they would do.
 
 ### Required secrets (external project)
 
-`RESEND_API_KEY`, `RESEND_FROM`, `CRON_SECRET`, `R2_WORKER_BASE_URL`, `R2_WORKER_SECRET`.
+`RESEND_API_KEY`, `RESEND_FROM`, `RIZONHIRE_FROM_EMAIL`, `ALLOWED_ORIGINS`, `CRON_SECRET`, `R2_WORKER_BASE_URL`, `R2_WORKER_SECRET`.
+
+`ALLOWED_ORIGINS` should include only the production app origin plus local development origins, for example:
+`https://app.rizonhire.com,http://localhost:8080,http://127.0.0.1:8080`.
+
+`screening-cleanup` uses `R2_WORKER_BASE_URL` and `R2_WORKER_SECRET` to delete old video objects from Cloudflare R2 before deleting their database rows.
 
 ### Daily schedule (pg_cron, run in external SQL editor)
 

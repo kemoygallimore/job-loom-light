@@ -1,12 +1,14 @@
 const WORKER_URL = "https://api.rizonhire.com";
 
-export interface UploadResumeToR2Params {
+export interface UploadLeadFormFileParams {
   file: File;
   companyId: string;
-  candidateId: string;
+  formId: string;
+  submissionId: string;
+  fieldId: string;
 }
 
-export interface UploadResumeToR2Result {
+export interface UploadLeadFormFileResult {
   bucket: string;
   key: string;
   filename: string;
@@ -14,21 +16,24 @@ export interface UploadResumeToR2Result {
   size: number;
 }
 
-export async function uploadResumeToR2({
+export async function uploadLeadFormFileToR2({
   file,
   companyId,
-  candidateId,
-}: UploadResumeToR2Params): Promise<UploadResumeToR2Result> {
+  formId,
+  submissionId,
+  fieldId,
+}: UploadLeadFormFileParams): Promise<UploadLeadFormFileResult> {
   const presignRes = await fetch(`${WORKER_URL}/presign-upload`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       filename: file.name,
       contentType: file.type || "application/octet-stream",
-      folder: "resumes",
+      folder: "documents",
       companyId,
-      jobId: "candidate-upload",
-      candidateId,
+      candidateId: `lead-form-${submissionId}`,
+      jobId: formId,
+      fieldId,
     }),
   });
 
@@ -51,7 +56,7 @@ export async function uploadResumeToR2({
 
   if (!uploadRes.ok) {
     const errorText = await uploadRes.text();
-    throw new Error(`Failed to upload resume: ${errorText}`);
+    throw new Error(`Failed to upload file: ${errorText}`);
   }
 
   return {
