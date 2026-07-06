@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import {
-  ArrowUp,
-  ArrowDown,
   Check,
   Copy,
   Eye,
@@ -20,10 +18,6 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -48,23 +42,13 @@ import {
 } from "@/components/ui/select";
 import LeadFormRenderer from "@/components/forms/LeadFormRenderer";
 import {
-  FIELD_TYPE_LABELS,
-  FIELD_TYPES,
   LeadForm,
-  LeadFormField,
-  LeadFormFieldType,
-  LeadFormSchema,
   LeadFormSubmission,
   LeadFormUpload,
-  OPTION_FIELD_TYPES,
   answerPreview,
-  createField,
-  createPublicId,
-  defaultLeadFormSchema,
   normalizeSchema,
 } from "@/lib/leadForms";
 import { resolveFileUrl } from "@/lib/fileUrl";
-import { cn } from "@/lib/utils";
 
 const FORM_LIMIT = 5;
 
@@ -87,43 +71,17 @@ function messageFromError(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
-function blankDraft(companyId: string, userId: string): Partial<LeadForm> {
-  return {
-    company_id: companyId,
-    created_by: userId,
-    title: "",
-    description: "",
-    status: "active",
-    public_id: createPublicId(),
-    schema: defaultLeadFormSchema,
-  };
-}
-
 function displayStatus(status: LeadForm["status"]) {
   return status === "active" ? "Active" : "Disabled";
 }
 
-function fieldOptionsText(field: LeadFormField) {
-  return (field.options ?? []).join("\n");
-}
-
-function parseOptions(value: string) {
-  return value
-    .split("\n")
-    .map((option) => option.trim())
-    .filter(Boolean);
-}
-
 export default function Forms() {
   const { profile, user } = useAuth();
+  const navigate = useNavigate();
   const [tab, setTab] = useState("forms");
   const [forms, setForms] = useState<LeadForm[]>([]);
   const [submissions, setSubmissions] = useState<LeadFormSubmission[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [draft, setDraft] = useState<Partial<LeadForm> | null>(null);
-  const [editingForm, setEditingForm] = useState<LeadForm | null>(null);
-  const [saving, setSaving] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [previewForm, setPreviewForm] = useState<LeadForm | null>(null);
   const [submissionFilter, setSubmissionFilter] = useState("all");
@@ -185,88 +143,11 @@ export default function Forms() {
       toast.error("You have reached the 5-form limit. Delete a form to create another one.");
       return;
     }
-    setEditingForm(null);
-    setDraft(blankDraft(profile.company_id, user.id));
-    setDialogOpen(true);
+    navigate("/forms/new");
   };
 
   const openEdit = (form: LeadForm) => {
-    setEditingForm(form);
-    setDraft({ ...form, schema: normalizeSchema(form.schema) });
-    setDialogOpen(true);
-  };
-
-  const updateDraft = (patch: Partial<LeadForm>) => {
-    setDraft((current) => (current ? { ...current, ...patch } : current));
-  };
-
-  const updateField = (fieldId: string, patch: Partial<LeadFormField>) => {
-    if (!draft?.schema) return;
-    updateDraft({
-      schema: {
-        fields: draft.schema.fields.map((field) => (field.id === fieldId ? { ...field, ...patch } : field)),
-      },
-    });
-  };
-
-  const addField = (type: LeadFormFieldType) => {
-    if (!draft?.schema) return;
-    updateDraft({ schema: { fields: [...draft.schema.fields, createField(type)] } });
-  };
-
-  const removeField = (fieldId: string) => {
-    if (!draft?.schema) return;
-    updateDraft({ schema: { fields: draft.schema.fields.filter((field) => field.id !== fieldId) } });
-  };
-
-  const moveField = (fieldId: string, direction: -1 | 1) => {
-    if (!draft?.schema) return;
-    const fields = [...draft.schema.fields];
-    const index = fields.findIndex((field) => field.id === fieldId);
-    const nextIndex = index + direction;
-    if (index < 0 || nextIndex < 0 || nextIndex >= fields.length) return;
-    const [field] = fields.splice(index, 1);
-    fields.splice(nextIndex, 0, field);
-    updateDraft({ schema: { fields } });
-  };
-
-  const saveForm = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!draft || !profile?.company_id || !user?.id) return;
-    if (!draft.title?.trim()) {
-      toast.error("Form title is required");
-      return;
-    }
-    if (!draft.schema?.fields.length) {
-      toast.error("Add at least one field");
-      return;
-    }
-
-    setSaving(true);
-    const payload = {
-      company_id: profile.company_id,
-      created_by: editingForm?.created_by ?? user.id,
-      title: draft.title.trim(),
-      description: draft.description?.trim() || null,
-      status: draft.status ?? "active",
-      public_id: draft.public_id ?? createPublicId(),
-      schema: normalizeSchema(draft.schema),
-    };
-
-    const query = editingForm
-      ? leadFormsDb.from("lead_forms").update(payload).eq("id", editingForm.id)
-      : leadFormsDb.from("lead_forms").insert(payload);
-    const { error } = await query;
-    setSaving(false);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    toast.success(editingForm ? "Form updated" : "Form created");
-    setDialogOpen(false);
-    setDraft(null);
-    setEditingForm(null);
-    load();
+    navigate(`/forms/${form.id}/edit`);
   };
 
   const copyLink = async (form: LeadForm) => {
@@ -512,129 +393,6 @@ export default function Forms() {
           </div>
         </TabsContent>
       </Tabs>
-
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingForm ? "Edit form" : "Create form"}</DialogTitle>
-          </DialogHeader>
-          {draft && (
-            <form onSubmit={saveForm} className="flex flex-col gap-5">
-              <div className="grid gap-4 md:grid-cols-[1fr_180px]">
-                <div className="flex flex-col gap-2">
-                  <Label>Form title</Label>
-                  <Input value={draft.title ?? ""} onChange={(event) => updateDraft({ title: event.target.value })} required />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label>Status</Label>
-                  <Select value={draft.status ?? "active"} onValueChange={(value) => updateDraft({ status: value as LeadForm["status"] })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="disabled">Disabled</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label>Description</Label>
-                <Textarea
-                  value={draft.description ?? ""}
-                  rows={2}
-                  onChange={(event) => updateDraft({ description: event.target.value })}
-                />
-              </div>
-
-              <div className="rounded-lg border">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
-                  <div>
-                    <h2 className="text-sm font-semibold">Fields</h2>
-                    <p className="text-xs text-muted-foreground">Add, reorder, and safely edit fields.</p>
-                  </div>
-                  <Select onValueChange={(value) => addField(value as LeadFormFieldType)}>
-                    <SelectTrigger className="w-48">
-                      <SelectValue placeholder="Add field" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {FIELD_TYPES.map((type) => (
-                        <SelectItem key={type} value={type}>
-                          {FIELD_TYPE_LABELS[type]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex flex-col gap-3 p-4">
-                  {(draft.schema?.fields ?? []).map((field, index, fields) => (
-                    <div key={field.id} className="rounded-lg border bg-background p-4">
-                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                        <Badge variant="secondary">{FIELD_TYPE_LABELS[field.type]}</Badge>
-                        <div className="flex items-center gap-1">
-                          <Button type="button" variant="ghost" size="icon" className="size-8" disabled={index === 0} onClick={() => moveField(field.id, -1)}>
-                            <ArrowUp className="size-4" />
-                          </Button>
-                          <Button type="button" variant="ghost" size="icon" className="size-8" disabled={index === fields.length - 1} onClick={() => moveField(field.id, 1)}>
-                            <ArrowDown className="size-4" />
-                          </Button>
-                          <Button type="button" variant="ghost" size="icon" className="size-8" onClick={() => removeField(field.id)}>
-                            <Trash2 className="size-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="grid gap-3 md:grid-cols-2">
-                        <div className="flex flex-col gap-2">
-                          <Label>Label</Label>
-                          <Input value={field.label} onChange={(event) => updateField(field.id, { label: event.target.value })} />
-                        </div>
-                        {field.type !== "section" && (
-                          <div className="flex items-center justify-between rounded-md border px-3 py-2">
-                            <div>
-                              <Label>Required</Label>
-                              <p className="text-xs text-muted-foreground">Submission cannot skip it.</p>
-                            </div>
-                            <Switch checked={Boolean(field.required)} onCheckedChange={(checked) => updateField(field.id, { required: checked })} />
-                          </div>
-                        )}
-                        {field.type !== "section" && field.type !== "file" && (
-                          <div className="flex flex-col gap-2">
-                            <Label>Placeholder</Label>
-                            <Input value={field.placeholder ?? ""} onChange={(event) => updateField(field.id, { placeholder: event.target.value })} />
-                          </div>
-                        )}
-                        <div className={cn("flex flex-col gap-2", OPTION_FIELD_TYPES.has(field.type) && "md:col-span-2")}>
-                          <Label>Help text</Label>
-                          <Input value={field.helpText ?? ""} onChange={(event) => updateField(field.id, { helpText: event.target.value })} />
-                        </div>
-                        {OPTION_FIELD_TYPES.has(field.type) && (
-                          <div className="flex flex-col gap-2 md:col-span-2">
-                            <Label>Options</Label>
-                            <Textarea
-                              value={fieldOptionsText(field)}
-                              rows={3}
-                              onChange={(event) => updateField(field.id, { options: parseOptions(event.target.value) })}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={saving}>
-                  {saving ? "Saving..." : "Save form"}
-                </Button>
-              </div>
-            </form>
-          )}
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={Boolean(previewForm)} onOpenChange={(open) => !open && setPreviewForm(null)}>
         <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">

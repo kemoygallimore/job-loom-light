@@ -35,6 +35,7 @@ import PublicScreening from "./pages/screening/PublicScreening";
 import PublicJobApplication from "./pages/apply/PublicJobApplication";
 import PublicFeedback from "./pages/feedback/PublicFeedback";
 import PublicLeadForm from "./pages/forms/PublicLeadForm";
+import FormBuilder from "./pages/forms/FormBuilder";
 import DataProtection from "./pages/legal/DataProtection";
 import NotFound from "./pages/NotFound";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -119,6 +120,8 @@ const App = () => (
               <Route path="/billing/invoices/:id" element={<InvoiceDetail />} />
               <Route path="/team" element={<Team />} />
               <Route path="/forms" element={<Forms />} />
+              <Route path="/forms/new" element={<FormBuilder />} />
+              <Route path="/forms/:formId/edit" element={<FormBuilder />} />
               <Route path="/settings/email-templates" element={<CompanyEmailTemplates />} />
               <Route path="/admin" element={<AdminDashboard />}>
                 <Route index element={<AdminOverview />} />

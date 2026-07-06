@@ -8,13 +8,13 @@ import LeadFormRenderer from "@/components/forms/LeadFormRenderer";
 import {
   LeadFormField,
   LeadFormSchema,
-  validateUploadFile,
+  LeadFormValue,
   normalizeSchema,
+  validateLeadFormFieldValue,
 } from "@/lib/leadForms";
 import { uploadLeadFormFileToR2 } from "@/lib/uploadLeadFormFileToR2";
 
 type PublicFormState = "loading" | "ready" | "unavailable" | "submitted";
-type FormValue = string | boolean | string[] | File | null | undefined;
 
 type QueryResult = { data: unknown; error: { message: string } | null };
 type LeadFormsQuery = PromiseLike<QueryResult> & {
@@ -35,14 +35,7 @@ interface PublicLeadFormRecord {
   schema: LeadFormSchema;
 }
 
-function isEmptyValue(value: FormValue) {
-  if (value instanceof File) return false;
-  if (Array.isArray(value)) return value.length === 0;
-  if (typeof value === "boolean") return value === false;
-  return value === null || value === undefined || String(value).trim() === "";
-}
-
-function buildAnswerValue(value: FormValue) {
+function buildAnswerValue(value: LeadFormValue) {
   if (value instanceof File) return null;
   return value ?? null;
 }
@@ -55,7 +48,8 @@ export default function PublicLeadForm() {
   const { publicId } = useParams<{ publicId: string }>();
   const [state, setState] = useState<PublicFormState>("loading");
   const [form, setForm] = useState<PublicLeadFormRecord | null>(null);
-  const [values, setValues] = useState<Record<string, FormValue>>({});
+  const [values, setValues] = useState<Record<string, LeadFormValue>>({});
+  const [confirmationValues, setConfirmationValues] = useState<Record<string, LeadFormValue>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [honeypot, setHoneypot] = useState("");
@@ -84,10 +78,18 @@ export default function PublicLeadForm() {
     load();
   }, [publicId]);
 
-  const updateValue = (field: LeadFormField, value: FormValue) => {
+  const updateValue = (field: LeadFormField, value: LeadFormValue) => {
     setValues((current) => ({ ...current, [field.id]: value }));
     setErrors((current) => {
-      const { [field.id]: _discard, ...rest } = current;
+      const { [field.id]: _discard, [`${field.id}__confirmation`]: _discardConfirmation, ...rest } = current;
+      return rest;
+    });
+  };
+
+  const updateConfirmationValue = (field: LeadFormField, value: LeadFormValue) => {
+    setConfirmationValues((current) => ({ ...current, [field.id]: value }));
+    setErrors((current) => {
+      const { [`${field.id}__confirmation`]: _discard, ...rest } = current;
       return rest;
     });
   };
@@ -99,16 +101,10 @@ export default function PublicLeadForm() {
     form.schema.fields.forEach((field) => {
       if (field.type === "section") return;
       const value = values[field.id];
-      if (field.required && isEmptyValue(value)) {
-        nextErrors[field.id] = "This field is required.";
-        return;
-      }
-      if (field.type === "email" && typeof value === "string" && value.trim() && !/^\S+@\S+\.\S+$/.test(value)) {
-        nextErrors[field.id] = "Enter a valid email address.";
-      }
-      if (field.type === "file" && value instanceof File) {
-        const fileError = validateUploadFile(value);
-        if (fileError) nextErrors[field.id] = fileError;
+      const fieldError = validateLeadFormFieldValue(field, value, confirmationValues[field.id]);
+      if (fieldError) {
+        const errorKey = fieldError === "Confirmation must match." ? `${field.id}__confirmation` : field.id;
+        nextErrors[errorKey] = fieldError;
       }
     });
 
@@ -171,21 +167,15 @@ export default function PublicLeadForm() {
         }
       }
 
-      const { error: submissionError } = await leadFormsDb.from("lead_form_submissions").insert({
-        id: submissionId,
-        form_id: form.id,
-        company_id: form.company_id,
-        answers,
-        schema_snapshot: form.schema,
-        status: "new",
+      const { error: submissionError } = await leadFormsDb.rpc("submit_public_lead_form", {
+        _public_id: publicId,
+        _submission_id: submissionId,
+        _answers: answers,
+        _confirmation_answers: confirmationValues,
+        _upload_rows: uploadRows,
       });
 
       if (submissionError) throw new Error(submissionError.message);
-
-      if (uploadRows.length > 0) {
-        const { error: uploadError } = await leadFormsDb.from("lead_form_uploads").insert(uploadRows);
-        if (uploadError) throw new Error(uploadError.message);
-      }
 
       setState("submitted");
       toast.success("Form submitted");
@@ -251,7 +241,15 @@ export default function PublicLeadForm() {
             onChange={(event) => setHoneypot(event.target.value)}
             aria-hidden="true"
           />
-          <LeadFormRenderer schema={form.schema} values={values} errors={errors} disabled={submitting} onChange={updateValue} />
+          <LeadFormRenderer
+            schema={form.schema}
+            values={values}
+            confirmationValues={confirmationValues}
+            errors={errors}
+            disabled={submitting}
+            onChange={updateValue}
+            onConfirmationChange={updateConfirmationValue}
+          />
           <Button type="submit" disabled={submitting} className="w-full">
             {submitting ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
             {submitting ? "Submitting..." : "Submit"}
