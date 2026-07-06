@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ResumeHistory from "@/components/candidate/ResumeHistory";
 import CandidateTagsBar from "@/components/candidate/CandidateTagsBar";
 import CandidateDocuments from "@/components/candidate/CandidateDocuments";
+import { R2_BUCKET_RESUMES, getSignedR2Url } from "@/lib/r2Worker";
 
 const STAGES = ["applied", "shortlisted", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"] as const;
 
@@ -337,35 +338,15 @@ export default function CandidateProfile() {
                 className="gap-2"
                 onClick={async () => {
                   try {
-                    const bucket = candidate.resume_bucket ?? "silverweb-ats-resumes";
+                    const bucket = candidate.resume_bucket ?? R2_BUCKET_RESUMES;
                     const key = candidate.resume_object_key ?? candidate.resume_url;
 
                     if (!key) {
                       throw new Error("Resume not found");
                     }
 
-                    const res = await fetch("https://api.rizonhire.com/sign-view", {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                      },
-                      body: JSON.stringify({
-                        bucket,
-                        key,
-                      }),
-                    });
-
-                    if (!res.ok) {
-                      throw new Error("Failed to get signed resume URL");
-                    }
-
-                    const data = await res.json();
-
-                    if (!data.viewUrl) {
-                      throw new Error("Invalid response from Worker");
-                    }
-
-                    window.open(data.viewUrl, "_blank", "noopener,noreferrer");
+                    const viewUrl = await getSignedR2Url(bucket, key);
+                    window.open(viewUrl, "_blank", "noopener,noreferrer");
                   } catch (err: any) {
                     console.error(err);
                     toast.error(err?.message || "Failed to load resume");

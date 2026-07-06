@@ -1,4 +1,4 @@
-const WORKER_URL = "https://api.rizonhire.com";
+import { R2UploadFolder, uploadFileToR2 } from "@/lib/r2Worker";
 
 export type UploadCategory = "resume" | "video" | "document";
 
@@ -18,7 +18,7 @@ export interface UploadToStorageResult {
   fileSize: number;
 }
 
-function getFolder(category: UploadCategory): string {
+function getFolder(category: UploadCategory): R2UploadFolder {
   if (category === "video") return "videos";
   if (category === "document") return "documents";
   return "resumes";
@@ -32,50 +32,19 @@ export async function uploadToStorage({
   category,
 }: UploadToStorageParams): Promise<UploadToStorageResult> {
   const folder = getFolder(category);
-
-  // For ad-hoc document uploads, the file is not tied to a job — omit jobId.
-  // The Worker treats jobId as optional and namespaces the file under the
-  // candidate without a job folder.
-  const presignRes = await fetch(`${WORKER_URL}/presign-upload`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      filename: file.name,
-      contentType: file.type || "application/octet-stream",
-      folder,
-      companyId,
-      candidateId,
-      ...(jobId ? { jobId } : {}),
-    }),
+  const result = await uploadFileToR2({
+    file,
+    folder,
+    companyId,
+    candidateId,
+    jobId,
   });
-
-  if (!presignRes.ok) {
-    const errorText = await presignRes.text();
-    throw new Error(`Failed to get upload URL: ${errorText}`);
-  }
-
-  const { uploadUrl, key, bucket } = await presignRes.json();
-
-  if (!uploadUrl || !key || !bucket) {
-    throw new Error("Invalid Worker response");
-  }
-
-  const uploadRes = await fetch(uploadUrl, {
-    method: "PUT",
-    headers: { "Content-Type": file.type || "application/octet-stream" },
-    body: file,
-  });
-
-  if (!uploadRes.ok) {
-    const errorText = await uploadRes.text();
-    throw new Error(`Failed to upload file: ${errorText}`);
-  }
 
   return {
-    bucket,
-    key,
+    bucket: result.bucket,
+    key: result.key,
     fileName: file.name,
-    fileType: file.type || "application/octet-stream",
+    fileType: result.contentType,
     fileSize: file.size,
   };
 }

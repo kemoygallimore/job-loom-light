@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { ArrowRightLeft, MessageSquarePlus, FileText, History } from "lucide-react";
 import { getSignedVideoViewUrl } from "@/lib/getSignedVideoViewUrl";
+import { R2_BUCKET_RESUMES } from "@/lib/r2Worker";
 import { useNavigate } from "react-router-dom";
 
 const STAGES = ["applied", "shortlisted", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"];
@@ -117,7 +118,7 @@ export default function CandidateQuickActions({
             onClick={async () => {
               try {
                 const key = resumeObjectKey || resumeUrl!;
-                const bucket = resumeBucket || "silverweb-ats-resumes";
+                const bucket = resumeBucket || R2_BUCKET_RESUMES;
                 const viewUrl = await getSignedVideoViewUrl(bucket, key);
                 window.open(viewUrl, "_blank");
               } catch {

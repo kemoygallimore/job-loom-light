@@ -1,0 +1,37 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "silverweb-ats",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-04-05",
+  "observability": {
+    "enabled": true
+  },
+  "upload_source_maps": true,
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+
+  "routes": [
+    {
+      "pattern": "api.rizonhire.com",
+      "custom_domain": true
+    }
+  ],
+
+  "vars": {
+    "R2_BUCKET_RESUMES": "silverweb-ats-resumes",
+    "R2_BUCKET_VIDEOS": "silverweb-ats-videos",
+    "R2_BUCKET_ADDITIONAL_DOCUMENTS": "silverweb-additional-documents",
+    "ALLOWED_ORIGINS": "https://test.rizonhire.com,https://app.rizonhire.com,http://localhost:8080,http://127.0.0.1:8080"
+  },
+
+  "r2_buckets": [
+    {
+      "binding": "INVOICE_BUCKET",
+      "bucket_name": "rizonhire-invoices"
+    }
+  ],
+  "browser": {
+    "binding": "BROWSER"
+  }
+}

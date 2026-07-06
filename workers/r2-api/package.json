@@ -1,0 +1,22 @@
+{
+  "name": "silverweb-ats",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "start": "wrangler dev",
+    "test": "vitest",
+    "cf-typegen": "wrangler types"
+  },
+  "devDependencies": {
+    "@cloudflare/puppeteer": "^1.1.0",
+    "@types/node": "^25.5.2",
+    "typescript": "^5.5.2",
+    "vitest": "~3.2.0",
+    "wrangler": "^4.80.0"
+  },
+  "dependencies": {
+    "aws4fetch": "^1.0.20"
+  }
+}

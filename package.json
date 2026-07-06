@@ -11,7 +11,10 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "worker:r2:dev": "npm --prefix workers/r2-api run dev",
+    "worker:r2:test": "npm --prefix workers/r2-api run test -- --run",
+    "worker:r2:deploy": "npm --prefix workers/r2-api run deploy"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^17.0.0",

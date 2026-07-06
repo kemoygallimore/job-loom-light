@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FileText, Download, Calendar, Upload, Trash2, User } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { getSignedR2Url } from "@/lib/r2Worker";
 
 interface CandidateDocument {
   id: string;
@@ -112,15 +113,8 @@ export default function CandidateDocuments({ candidateId, companyId }: Props) {
   const handleView = async (file: CandidateDocument) => {
     setBusyId(file.id);
     try {
-      const res = await fetch("https://api.rizonhire.com/sign-view", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bucket: file.bucket, key: file.file_key }),
-      });
-      if (!res.ok) throw new Error("Failed to get signed URL");
-      const data = await res.json();
-      if (!data.viewUrl) throw new Error("Invalid response");
-      window.open(data.viewUrl, "_blank", "noopener,noreferrer");
+      const viewUrl = await getSignedR2Url(file.bucket, file.file_key);
+      window.open(viewUrl, "_blank", "noopener,noreferrer");
     } catch (err: any) {
       console.error(err);
       toast.error(err?.message || "Failed to open document");
