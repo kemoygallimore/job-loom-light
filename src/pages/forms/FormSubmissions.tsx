@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -136,9 +137,11 @@ function operatorNeedsValue(operator: SubmissionFilterOperator) {
 export default function FormSubmissions() {
   const { formId } = useParams<{ formId: string }>();
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const [form, setForm] = useState<LeadForm | null>(null);
   const [submissions, setSubmissions] = useState<LeadFormSubmission[]>([]);
   const [loading, setLoading] = useState(true);
+  const [accessError, setAccessError] = useState<string | null>(null);
   const [selectedSubmission, setSelectedSubmission] = useState<LeadFormSubmission | null>(null);
   const [submissionUploads, setSubmissionUploads] = useState<LeadFormUpload[]>([]);
   const [visibleAnswerColumnIds, setVisibleAnswerColumnIds] = useState<string[]>([]);
@@ -149,24 +152,39 @@ export default function FormSubmissions() {
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   const load = useCallback(async () => {
-    if (!formId) return;
+    if (!formId) {
+      setLoading(false);
+      navigate("/forms", { replace: true });
+      return;
+    }
+    if (!profile?.company_id) {
+      setAccessError("Your account is missing a company profile. Refresh or contact an administrator.");
+      setForm(null);
+      setSubmissions([]);
+      setLoading(false);
+      return;
+    }
+    setAccessError(null);
     setLoading(true);
     const [{ data: formRow, error: formError }, { data: submissionRows, error: submissionError }] = await Promise.all([
       leadFormsDb
         .from("lead_forms")
         .select("*")
         .eq("id", formId)
+        .eq("company_id", profile.company_id)
         .is("deleted_at", null)
         .maybeSingle(),
       leadFormsDb
         .from("lead_form_submissions")
         .select("*")
         .eq("form_id", formId)
+        .eq("company_id", profile.company_id)
         .order("created_at", { ascending: false }),
     ]);
 
     if (formError || !formRow) {
       toast.error(formError?.message ?? "Form not found");
+      setLoading(false);
       navigate("/forms", { replace: true });
       return;
     }
@@ -184,7 +202,7 @@ export default function FormSubmissions() {
       })),
     );
     setLoading(false);
-  }, [formId, navigate]);
+  }, [formId, navigate, profile?.company_id]);
 
   useEffect(() => {
     load();
@@ -292,6 +310,20 @@ export default function FormSubmissions() {
     if (!firstColumn) return;
     setFilters((current) => [...current, makeFilter(firstColumn.id)]);
   };
+
+  if (accessError) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="max-w-md rounded-lg border bg-card p-6 text-center shadow-sm">
+          <h1 className="text-lg font-semibold">Submissions unavailable</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{accessError}</p>
+          <Button type="button" className="mt-4" onClick={() => navigate("/forms")}>
+            Back to forms
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading || !form) {
     return (

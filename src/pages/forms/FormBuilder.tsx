@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useBlocker, useNavigate, useParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowDown,
   ArrowLeft,
@@ -108,16 +108,26 @@ export default function FormBuilder() {
   const [editingForm, setEditingForm] = useState<LeadForm | null>(null);
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [accessError, setAccessError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const allowNavigationRef = useRef(false);
 
   const isEditing = Boolean(formId);
 
   const markDirty = () => setDirty(true);
 
   const load = useCallback(async () => {
-    if (!profile?.company_id || !user?.id) return;
+    if (!user?.id) {
+      setAccessError("Sign in again to continue building forms.");
+      setLoading(false);
+      return;
+    }
+    if (!profile?.company_id) {
+      setAccessError("Your account is missing a company profile. Refresh or contact an administrator.");
+      setLoading(false);
+      return;
+    }
+    setAccessError(null);
     setLoading(true);
 
     if (!formId) {
@@ -133,12 +143,13 @@ export default function FormBuilder() {
       .from("lead_forms")
       .select("*")
       .eq("id", formId)
+      .eq("company_id", profile.company_id)
       .is("deleted_at", null)
       .maybeSingle();
 
     if (error || !data) {
       toast.error(error?.message ?? "Form not found");
-      allowNavigationRef.current = true;
+      setLoading(false);
       navigate("/forms", { replace: true });
       return;
     }
@@ -163,20 +174,6 @@ export default function FormBuilder() {
     window.addEventListener("beforeunload", beforeUnload);
     return () => window.removeEventListener("beforeunload", beforeUnload);
   }, [dirty]);
-
-  const blocker = useBlocker(({ currentLocation, nextLocation }) => {
-    return dirty && !allowNavigationRef.current && currentLocation.pathname !== nextLocation.pathname;
-  });
-
-  useEffect(() => {
-    if (blocker.state !== "blocked") return;
-    if (window.confirm("You have unsaved form changes. Leave without saving?")) {
-      allowNavigationRef.current = true;
-      blocker.proceed();
-    } else {
-      blocker.reset();
-    }
-  }, [blocker]);
 
   const selectedField = useMemo(() => {
     return draft?.schema?.fields.find((field) => field.id === selectedFieldId) ?? null;
@@ -247,7 +244,7 @@ export default function FormBuilder() {
     };
 
     const query = editingForm
-      ? leadFormsDb.from("lead_forms").update(payload).eq("id", editingForm.id)
+      ? leadFormsDb.from("lead_forms").update(payload).eq("id", editingForm.id).eq("company_id", profile.company_id)
       : leadFormsDb.from("lead_forms").insert(payload);
     const { error } = await query;
     setSaving(false);
@@ -259,15 +256,29 @@ export default function FormBuilder() {
 
     toast.success(editingForm ? "Form updated" : "Form created");
     setDirty(false);
-    allowNavigationRef.current = true;
     navigate("/forms");
   };
 
+  const confirmLeave = () => !dirty || window.confirm("You have unsaved form changes. Leave without saving?");
+
   const leaveBuilder = () => {
-    if (dirty && !window.confirm("You have unsaved form changes. Leave without saving?")) return;
-    allowNavigationRef.current = true;
+    if (!confirmLeave()) return;
     navigate("/forms");
   };
+
+  if (accessError) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="max-w-md rounded-lg border bg-card p-6 text-center shadow-sm">
+          <h1 className="text-lg font-semibold">Forms unavailable</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{accessError}</p>
+          <Button type="button" className="mt-4" onClick={() => navigate("/forms")}>
+            Back to forms
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading || !draft?.schema) {
     return (
@@ -294,8 +305,8 @@ export default function FormBuilder() {
         </div>
         <div className="flex items-center gap-2">
           {dirty && <Badge variant="secondary">Unsaved changes</Badge>}
-          <Button variant="outline" asChild>
-            <Link to="/forms">Forms</Link>
+          <Button variant="outline" type="button" onClick={leaveBuilder}>
+            Forms
           </Button>
           <Button onClick={saveForm} disabled={saving}>
             {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}

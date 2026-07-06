@@ -63,18 +63,24 @@ export default function Forms() {
   const [previewForm, setPreviewForm] = useState<LeadForm | null>(null);
 
   const load = useCallback(async () => {
-    if (!profile?.company_id) return;
+    if (!profile?.company_id) {
+      setForms([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const [{ data: formRows, error: formError }, { data: submissionRows, error: submissionError }] =
       await Promise.all([
         leadFormsDb
           .from("lead_forms")
           .select("*")
+          .eq("company_id", profile.company_id)
           .is("deleted_at", null)
           .order("created_at", { ascending: false }),
         leadFormsDb
           .from("lead_form_submissions")
           .select("form_id")
+          .eq("company_id", profile.company_id)
           .order("created_at", { ascending: false }),
       ]);
 
@@ -118,8 +124,13 @@ export default function Forms() {
   };
 
   const toggleStatus = async (form: LeadForm) => {
+    if (!profile?.company_id) return;
     const nextStatus = form.status === "active" ? "disabled" : "active";
-    const { error } = await leadFormsDb.from("lead_forms").update({ status: nextStatus }).eq("id", form.id);
+    const { error } = await leadFormsDb
+      .from("lead_forms")
+      .update({ status: nextStatus })
+      .eq("id", form.id)
+      .eq("company_id", profile.company_id);
     if (error) {
       toast.error(error.message);
       return;
@@ -129,10 +140,12 @@ export default function Forms() {
   };
 
   const softDelete = async (form: LeadForm) => {
+    if (!profile?.company_id) return;
     const { error } = await leadFormsDb
       .from("lead_forms")
       .update({ deleted_at: new Date().toISOString(), status: "disabled" })
-      .eq("id", form.id);
+      .eq("id", form.id)
+      .eq("company_id", profile.company_id);
     if (error) {
       toast.error(error.message);
       return;
