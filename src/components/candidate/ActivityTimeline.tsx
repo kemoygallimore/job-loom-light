@@ -1,9 +1,9 @@
 import { Badge } from "@/components/ui/badge";
-import { UserPlus, Briefcase, MessageSquare, FileText, Clock } from "lucide-react";
+import { UserPlus, Briefcase, MessageSquare, FileText, Clock, Mail } from "lucide-react";
 
 export interface TimelineEvent {
   id: string;
-  type: "created" | "applied" | "note" | "resume";
+  type: "created" | "applied" | "note" | "resume" | "email";
   title: string;
   description?: string;
   timestamp: string;
@@ -15,6 +15,7 @@ const EVENT_CONFIG: Record<TimelineEvent["type"], { icon: typeof UserPlus; color
   applied: { icon: Briefcase, color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400", label: "Application" },
   note: { icon: MessageSquare, color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", label: "Note" },
   resume: { icon: FileText, color: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400", label: "Resume" },
+  email: { icon: Mail, color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400", label: "Email" },
 };
 
 interface Props {

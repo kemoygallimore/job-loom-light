@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Mail, Save } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Archive, Mail, Plus, Save } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -7,70 +7,55 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { VariableChips } from "@/components/email/VariableChips";
 import { sanitizeRichHtml } from "@/lib/sanitizeHtml";
 import {
-  appendTokenToHtml,
-  DEFAULT_REJECTION_EMAIL_HTML,
-  DEFAULT_REJECTION_EMAIL_SUBJECT,
-  DEFAULT_REJECTION_EMAIL_TEXT,
-  DEFAULT_REJECTION_TEMPLATE_NAME,
-  insertTokenInText,
-  REJECTION_TEMPLATE_KEY,
-  REJECTION_TEMPLATE_VARIABLES,
-  renderTemplate,
-  SAMPLE_REJECTION_VARIABLES,
-} from "@/lib/rejectionEmailTemplate";
-
-interface CompanyEmailTemplate {
-  id?: string;
-  company_id: string;
-  key: string;
-  name: string;
-  subject: string;
-  html_body: string;
-  text_body: string | null;
-  variables: string[];
-  is_active: boolean;
-}
-
-function defaultTemplate(companyId: string): CompanyEmailTemplate {
-  return {
-    company_id: companyId,
-    key: REJECTION_TEMPLATE_KEY,
-    name: DEFAULT_REJECTION_TEMPLATE_NAME,
-    subject: DEFAULT_REJECTION_EMAIL_SUBJECT,
-    html_body: DEFAULT_REJECTION_EMAIL_HTML,
-    text_body: DEFAULT_REJECTION_EMAIL_TEXT,
-    variables: [...REJECTION_TEMPLATE_VARIABLES],
-    is_active: true,
-  };
-}
+  CANDIDATE_EMAIL_VARIABLES,
+  CandidateEmailTemplate,
+  appendCandidateEmailTokenToHtml,
+  candidateEmailVariableToken,
+  defaultCandidateEmailTemplate,
+  insertCandidateEmailTokenInText,
+  normalizeCandidateEmailTemplate,
+  renderCandidateEmailTemplate,
+  SAMPLE_CANDIDATE_EMAIL_VARIABLES,
+} from "@/lib/candidateEmailTemplates";
+import { cn } from "@/lib/utils";
 
 export default function CompanyEmailTemplates() {
   const { profile } = useAuth();
-  const [template, setTemplate] = useState<CompanyEmailTemplate | null>(null);
+  const [templates, setTemplates] = useState<CandidateEmailTemplate[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<CandidateEmailTemplate | null>(null);
   const [companyName, setCompanyName] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const subjectInputRef = useRef<HTMLInputElement | null>(null);
 
-  const loadTemplate = useCallback(async () => {
+  const selectedTemplate = useMemo(
+    () => templates.find((template) => template.id === selectedId) ?? null,
+    [selectedId, templates],
+  );
+
+  const loadTemplates = useCallback(async () => {
     if (!profile?.company_id) {
-      setTemplate(null);
+      setTemplates([]);
+      setDraft(null);
       setLoading(false);
       return;
     }
-    setLoading(true);
 
+    setLoading(true);
     const [templateResult, companyResult] = await Promise.all([
       supabase
         .from("company_email_templates")
         .select("*")
         .eq("company_id", profile.company_id)
-        .eq("key", REJECTION_TEMPLATE_KEY)
-        .maybeSingle(),
+        .is("archived_at", null)
+        .order("is_active", { ascending: false })
+        .order("name", { ascending: true }),
       supabase
         .from("companies")
         .select("name")
@@ -82,34 +67,43 @@ export default function CompanyEmailTemplates() {
 
     if (templateResult.error) {
       toast.error(templateResult.error.message);
-      setTemplate(defaultTemplate(profile.company_id));
+      setTemplates([]);
+      setDraft(defaultCandidateEmailTemplate(profile.company_id));
       setLoading(false);
       return;
     }
 
-    setTemplate(templateResult.data ? {
-      ...templateResult.data,
-      variables: Array.isArray(templateResult.data.variables)
-        ? templateResult.data.variables
-        : [...REJECTION_TEMPLATE_VARIABLES],
-    } : defaultTemplate(profile.company_id));
+    const list = ((templateResult.data ?? []) as CandidateEmailTemplate[]).map(normalizeCandidateEmailTemplate);
+    setTemplates(list);
+    setSelectedId((current) => (current && list.some((template) => template.id === current) ? current : list[0]?.id ?? null));
+    setDraft(list[0] ?? defaultCandidateEmailTemplate(profile.company_id));
     setLoading(false);
   }, [profile?.company_id]);
 
   useEffect(() => {
-    loadTemplate();
-  }, [loadTemplate]);
+    loadTemplates();
+  }, [loadTemplates]);
+
+  useEffect(() => {
+    if (selectedTemplate) setDraft(selectedTemplate);
+  }, [selectedTemplate]);
+
+  const startNewTemplate = () => {
+    if (!profile?.company_id) return;
+    setSelectedId(null);
+    setDraft(defaultCandidateEmailTemplate(profile.company_id));
+  };
 
   const insertSubjectToken = (token: string) => {
-    if (!template) return;
+    if (!draft) return;
     const input = subjectInputRef.current;
-    const nextSubject = insertTokenInText(
-      template.subject,
+    const nextSubject = insertCandidateEmailTokenInText(
+      draft.subject,
       token,
       input?.selectionStart,
       input?.selectionEnd,
     );
-    setTemplate({ ...template, subject: nextSubject });
+    setDraft({ ...draft, subject: nextSubject });
 
     window.requestAnimationFrame(() => {
       input?.focus();
@@ -119,96 +113,187 @@ export default function CompanyEmailTemplates() {
   };
 
   const insertBodyToken = (token: string) => {
-    if (!template) return;
-    setTemplate({ ...template, html_body: appendTokenToHtml(template.html_body, token) });
+    if (!draft) return;
+    setDraft({ ...draft, html_body: appendCandidateEmailTokenToHtml(draft.html_body, token) });
   };
 
   const save = async () => {
-    if (!template || !profile?.company_id) return;
-    setSaving(true);
+    if (!draft || !profile?.company_id) return;
+    if (!draft.name.trim()) {
+      toast.error("Template name is required");
+      return;
+    }
+    if (!draft.subject.trim()) {
+      toast.error("Subject is required");
+      return;
+    }
+    if (!draft.html_body.trim()) {
+      toast.error("Email body is required");
+      return;
+    }
 
+    setSaving(true);
     const payload = {
       company_id: profile.company_id,
-      key: REJECTION_TEMPLATE_KEY,
-      name: template.name || DEFAULT_REJECTION_TEMPLATE_NAME,
-      subject: template.subject,
-      html_body: template.html_body,
-      text_body: template.text_body,
-      variables: [...REJECTION_TEMPLATE_VARIABLES],
-      is_active: true,
+      key: draft.key,
+      name: draft.name.trim(),
+      subject: draft.subject,
+      html_body: draft.html_body,
+      text_body: draft.text_body,
+      variables: [...CANDIDATE_EMAIL_VARIABLES],
+      is_active: draft.is_active,
+      archived_at: null,
       updated_by: profile.user_id,
     };
 
-    const { data, error } = await supabase
-      .from("company_email_templates")
-      .upsert(payload, { onConflict: "company_id,key" })
-      .select("*")
-      .single();
+    const query = draft.id
+      ? supabase.from("company_email_templates").update(payload).eq("id", draft.id).select("*").single()
+      : supabase.from("company_email_templates").insert(payload).select("*").single();
 
+    const { data, error } = await query;
     setSaving(false);
+
     if (error) {
       toast.error(error.message);
       return;
     }
 
-    setTemplate({
-      ...data,
-      variables: Array.isArray(data.variables) ? data.variables : [...REJECTION_TEMPLATE_VARIABLES],
+    const saved = normalizeCandidateEmailTemplate(data as CandidateEmailTemplate);
+    setTemplates((current) => {
+      const withoutSaved = current.filter((template) => template.id !== saved.id);
+      return [...withoutSaved, saved].sort((left, right) => {
+        if (left.is_active !== right.is_active) return left.is_active ? -1 : 1;
+        return left.name.localeCompare(right.name);
+      });
     });
+    setSelectedId(saved.id ?? null);
+    setDraft(saved);
     toast.success("Email template saved");
+  };
+
+  const archiveTemplate = async () => {
+    if (!draft?.id) return;
+    const { error } = await supabase
+      .from("company_email_templates")
+      .update({ archived_at: new Date().toISOString(), is_active: false, updated_by: profile?.user_id })
+      .eq("id", draft.id);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    const remaining = templates.filter((template) => template.id !== draft.id);
+    setTemplates(remaining);
+    setSelectedId(remaining[0]?.id ?? null);
+    setDraft(remaining[0] ?? (profile?.company_id ? defaultCandidateEmailTemplate(profile.company_id) : null));
+    toast.success("Template archived");
   };
 
   if (loading) {
     return <div className="text-sm text-muted-foreground">Loading...</div>;
   }
 
-  if (!template) {
-    return <div className="text-sm text-muted-foreground">Template unavailable.</div>;
+  if (!draft) {
+    return <div className="text-sm text-muted-foreground">Templates unavailable.</div>;
   }
 
   const previewVariables = {
-    ...SAMPLE_REJECTION_VARIABLES,
-    company_name: companyName || SAMPLE_REJECTION_VARIABLES.company_name,
+    ...SAMPLE_CANDIDATE_EMAIL_VARIABLES,
+    company_name: companyName || SAMPLE_CANDIDATE_EMAIL_VARIABLES.company_name,
   };
-  const renderedSubject = renderTemplate(template.subject, previewVariables);
-  const renderedHtml = sanitizeRichHtml(renderTemplate(template.html_body, previewVariables));
+  const renderedSubject = renderCandidateEmailTemplate(draft.subject, previewVariables);
+  const renderedHtml = sanitizeRichHtml(renderCandidateEmailTemplate(draft.html_body, previewVariables));
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-          <Mail className="h-5 w-5 text-primary" />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+            <Mail className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Email Templates</h1>
+            <p className="text-sm text-muted-foreground">Reusable candidate emails for your team.</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Email Templates</h1>
-          <p className="text-sm text-muted-foreground">Candidate rejection email</p>
-        </div>
+        <Button type="button" onClick={startNewTemplate}>
+          <Plus className="mr-2 h-4 w-4" />
+          New template
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[280px_minmax(0,1fr)_360px]">
+        <Card className="h-fit p-2">
+          {templates.length === 0 ? (
+            <p className="p-3 text-sm text-muted-foreground">No saved templates yet.</p>
+          ) : (
+            templates.map((template) => (
+              <button
+                key={template.id}
+                type="button"
+                onClick={() => setSelectedId(template.id ?? null)}
+                className={cn(
+                  "w-full rounded-md px-3 py-2 text-left text-sm transition-colors",
+                  selectedId === template.id ? "bg-accent text-accent-foreground" : "hover:bg-accent/50",
+                )}
+              >
+                <div className="font-medium">{template.name}</div>
+                <div className="mt-0.5 truncate text-xs text-muted-foreground">{template.subject}</div>
+                {!template.is_active && <div className="mt-0.5 text-xs text-destructive">Inactive</div>}
+              </button>
+            ))
+          )}
+        </Card>
+
         <Card className="space-y-5 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="font-semibold">{draft.id ? "Edit template" : "New template"}</h2>
+              <p className="text-sm text-muted-foreground">Templates are required when emailing candidates.</p>
+            </div>
+            <Label className="flex items-center gap-2 text-sm">
+              Active
+              <Switch checked={draft.is_active} onCheckedChange={(is_active) => setDraft({ ...draft, is_active })} />
+            </Label>
+          </div>
+
           <div className="space-y-2">
-            <Label htmlFor="rejection-subject">Subject</Label>
+            <Label htmlFor="candidate-template-name">Template name</Label>
             <Input
-              id="rejection-subject"
-              ref={subjectInputRef}
-              value={template.subject}
-              onChange={(event) => setTemplate({ ...template, subject: event.target.value })}
+              id="candidate-template-name"
+              value={draft.name}
+              onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+              placeholder="Interview invitation"
             />
-            <VariableChips variables={template.variables} onInsert={insertSubjectToken} />
           </div>
 
           <div className="space-y-2">
-            <Label>Email Body</Label>
-            <RichTextEditor
-              value={template.html_body}
-              onChange={(html) => setTemplate({ ...template, html_body: html })}
-              placeholder="Write the rejection email..."
+            <Label htmlFor="candidate-template-subject">Subject</Label>
+            <Input
+              id="candidate-template-subject"
+              ref={subjectInputRef}
+              value={draft.subject}
+              onChange={(event) => setDraft({ ...draft, subject: event.target.value })}
             />
-            <VariableChips variables={template.variables} onInsert={insertBodyToken} />
+            <VariableChips variables={[...CANDIDATE_EMAIL_VARIABLES]} onInsert={(variable) => insertSubjectToken(candidateEmailVariableToken(variable))} />
           </div>
 
-          <div className="flex justify-end border-t pt-4">
+          <div className="space-y-2">
+            <Label>Email body</Label>
+            <RichTextEditor
+              value={draft.html_body}
+              onChange={(html_body) => setDraft({ ...draft, html_body })}
+              placeholder="Write the candidate email..."
+            />
+            <VariableChips variables={[...CANDIDATE_EMAIL_VARIABLES]} onInsert={(variable) => insertBodyToken(candidateEmailVariableToken(variable))} />
+          </div>
+
+          <div className="flex flex-wrap justify-between gap-3 border-t pt-4">
+            <Button type="button" variant="outline" onClick={archiveTemplate} disabled={!draft.id}>
+              <Archive className="mr-2 h-4 w-4" />
+              Archive
+            </Button>
             <Button type="button" onClick={save} disabled={saving}>
               <Save className="mr-2 h-4 w-4" />
               {saving ? "Saving..." : "Save"}

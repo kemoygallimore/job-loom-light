@@ -24,6 +24,7 @@ interface SendEmailArgs {
   variables: Record<string, string>;
   company: CompanyEmailSettings | null;
   companyId?: string | null;
+  candidateId?: string | null;
   applicationId?: string | null;
   test?: boolean;
 }
@@ -47,6 +48,7 @@ type TemplateResult =
 
 interface RenderedEmailArgs {
   templateKey: string;
+  templateName?: string;
   recipient: string;
   subject: string;
   html: string;
@@ -54,7 +56,43 @@ interface RenderedEmailArgs {
   variables: Record<string, string>;
   company: CompanyEmailSettings | null;
   companyId?: string | null;
+  candidateId?: string | null;
   applicationId?: string | null;
+}
+
+interface CompanyEmailTemplate {
+  id: string;
+  key: string;
+  name: string;
+  subject: string;
+  html_body: string;
+  text_body: string | null;
+  is_active: boolean;
+  archived_at: string | null;
+}
+
+interface CandidateEmailRecipientInput {
+  candidate_id?: string | null;
+  application_id?: string | null;
+}
+
+interface CandidateEmailCandidateRow {
+  id: string;
+  company_id: string;
+  name: string | null;
+  email: string | null;
+}
+
+interface CandidateEmailJobRow {
+  title: string | null;
+}
+
+interface CandidateEmailApplicationRow {
+  id: string;
+  company_id: string;
+  candidate_id: string;
+  candidates: CandidateEmailCandidateRow | CandidateEmailCandidateRow[] | null;
+  jobs: CandidateEmailJobRow | CandidateEmailJobRow[] | null;
 }
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -143,8 +181,37 @@ function normalizeApplicationIds(input: unknown) {
   return Array.from(new Set(ids));
 }
 
+function normalizeCandidateEmailRecipients(input: unknown): CandidateEmailRecipientInput[] {
+  if (!Array.isArray(input)) return [];
+  const seen = new Set<string>();
+  const recipients: CandidateEmailRecipientInput[] = [];
+
+  for (const row of input.slice(0, 100)) {
+    if (!row || typeof row !== "object") continue;
+    const record = row as Record<string, unknown>;
+    const candidateId = normalizeText(record.candidate_id, 80);
+    const applicationId = normalizeText(record.application_id, 80);
+    if (!candidateId && !applicationId) continue;
+
+    const key = `${candidateId}:${applicationId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    recipients.push({
+      candidate_id: candidateId || null,
+      application_id: applicationId || null,
+    });
+  }
+
+  return recipients;
+}
+
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function firstRelated<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value ?? null;
 }
 
 async function requireSuperAdmin(req: Request, admin: SupabaseAdmin): Promise<SuperAdminResult> {
@@ -247,6 +314,7 @@ async function sendEmail(
     template_key: args.templateKey,
     recipient_email: args.recipient,
     company_id: args.companyId ?? null,
+    candidate_id: args.candidateId ?? null,
     application_id: args.applicationId ?? null,
     context: args.variables,
     from_address: fromAddress,
@@ -277,8 +345,13 @@ async function sendRenderedEmail(admin: SupabaseAdmin, args: RenderedEmailArgs) 
     template_key: args.templateKey,
     recipient_email: args.recipient,
     company_id: args.companyId ?? null,
+    candidate_id: args.candidateId ?? null,
     application_id: args.applicationId ?? null,
-    context: args.variables,
+    context: {
+      ...args.variables,
+      template_name: args.templateName ?? args.templateKey,
+      subject: args.subject,
+    },
     from_address: fromAddress,
     reply_to: replyTo ?? null,
   };
@@ -387,7 +460,151 @@ async function sendApplicationReceived(req: Request, admin: SupabaseAdmin, body:
     },
     company: companyRes.data,
     companyId: app.company_id,
+    candidateId: app.candidate_id,
     applicationId: app.id,
+  });
+}
+
+async function sendCandidateEmail(req: Request, admin: SupabaseAdmin, body: Record<string, unknown>) {
+  const allowedKeys = new Set([
+    "mode",
+    "template_id",
+    "recipients",
+    "subject",
+    "html_body",
+    "text_body",
+    "reject_applications",
+  ]);
+  const unsupported = Object.keys(body ?? {}).filter((key) => !allowedKeys.has(key));
+  if (unsupported.length > 0) return json(req, 400, { error: "Unsupported fields for candidate email" });
+
+  const auth = await requireAuthenticatedProfile(req, admin);
+  if (!auth.ok) return auth.response;
+
+  const templateId = normalizeText(body?.template_id, 80);
+  const recipients = normalizeCandidateEmailRecipients(body?.recipients);
+  const subjectTemplate = normalizeSubject(String(body?.subject ?? ""));
+  const htmlTemplate = normalizeBody(body?.html_body);
+  const textTemplate = body?.text_body == null ? null : normalizeBody(body?.text_body);
+  const rejectApplications = body?.reject_applications === true;
+
+  if (!templateId) return json(req, 400, { error: "template_id is required" });
+  if (recipients.length === 0) return json(req, 400, { error: "recipients are required" });
+  if (!subjectTemplate) return json(req, 400, { error: "subject is required" });
+  if (!htmlTemplate) return json(req, 400, { error: "html_body is required" });
+
+  const { data: template, error: templateError } = await admin
+    .from("company_email_templates")
+    .select("id, key, name, subject, html_body, text_body, is_active, archived_at")
+    .eq("id", templateId)
+    .eq("company_id", auth.profile.companyId)
+    .maybeSingle();
+
+  if (templateError || !template) return json(req, 404, { error: "Template not found" });
+
+  const clientTemplate = template as CompanyEmailTemplate;
+  if (!clientTemplate.is_active || clientTemplate.archived_at) {
+    return json(req, 400, { error: "Template is not active" });
+  }
+
+  const applicationIds = Array.from(new Set(recipients.map((item) => item.application_id).filter(Boolean))) as string[];
+  const directCandidateIds = Array.from(new Set(recipients.map((item) => item.candidate_id).filter(Boolean))) as string[];
+
+  const [applicationsResult, candidatesResult, companyResult] = await Promise.all([
+    applicationIds.length > 0
+      ? admin
+          .from("applications")
+          .select("id, company_id, candidate_id, candidates(name, email), jobs(title)")
+          .in("id", applicationIds)
+          .eq("company_id", auth.profile.companyId)
+      : Promise.resolve({ data: [], error: null }),
+    directCandidateIds.length > 0
+      ? admin
+          .from("candidates")
+          .select("id, company_id, name, email")
+          .in("id", directCandidateIds)
+          .eq("company_id", auth.profile.companyId)
+      : Promise.resolve({ data: [], error: null }),
+    admin
+      .from("companies")
+      .select("id, name, email_domain, email_domain_status, email_from_name, email_reply_to")
+      .eq("id", auth.profile.companyId)
+      .maybeSingle(),
+  ]);
+
+  if (applicationsResult.error) return json(req, 500, { error: "Could not load applications" });
+  if (candidatesResult.error) return json(req, 500, { error: "Could not load candidates" });
+  if (companyResult.error || !companyResult.data) return json(req, 404, { error: "Company email context not found" });
+
+  const applicationsById = new Map(
+    ((applicationsResult.data ?? []) as CandidateEmailApplicationRow[]).map((app) => [app.id, app]),
+  );
+  const candidatesById = new Map(
+    ((candidatesResult.data ?? []) as CandidateEmailCandidateRow[]).map((candidate) => [candidate.id, candidate]),
+  );
+
+  if (rejectApplications) {
+    if (applicationIds.length === 0) {
+      return json(req, 400, { error: "Rejection email requires application recipients" });
+    }
+
+    const { error: updateError } = await admin
+      .from("applications")
+      .update({ stage: "rejected" })
+      .in("id", applicationIds)
+      .eq("company_id", auth.profile.companyId);
+
+    if (updateError) return json(req, 500, { error: "Could not reject candidates" });
+  }
+
+  let sent = 0;
+  let failed = 0;
+  let skippedInvalidEmail = 0;
+
+  for (const recipientInput of recipients) {
+    const app = recipientInput.application_id ? applicationsById.get(recipientInput.application_id) : null;
+    const relatedCandidate = app ? firstRelated(app.candidates) : null;
+    const relatedJob = app ? firstRelated(app.jobs) : null;
+    const candidate = relatedCandidate ?? (recipientInput.candidate_id ? candidatesById.get(recipientInput.candidate_id) : null);
+    const candidateId = app?.candidate_id ?? candidate?.id ?? recipientInput.candidate_id ?? null;
+    const recipient = normalizeText(candidate?.email, 320).toLowerCase();
+
+    if (!candidate || !isValidEmail(recipient)) {
+      skippedInvalidEmail += 1;
+      continue;
+    }
+
+    const variables = {
+      candidate_name: normalizeText(candidate.name || "there", 120),
+      company_name: normalizeText(companyResult.data.name || "the company", 120),
+      job_title: normalizeText(relatedJob?.title || "the role", 160),
+    };
+
+    const subject = normalizeSubject(render(subjectTemplate, variables));
+    const result = await sendRenderedEmail(admin, {
+      templateKey: clientTemplate.key,
+      templateName: clientTemplate.name,
+      recipient,
+      subject,
+      html: render(htmlTemplate, variables, true),
+      text: textTemplate ? render(textTemplate, variables) : undefined,
+      variables,
+      company: companyResult.data as CompanyEmailSettings,
+      companyId: auth.profile.companyId,
+      candidateId,
+      applicationId: app?.id ?? null,
+    });
+
+    if (result.ok) sent += 1;
+    else failed += 1;
+  }
+
+  return json(req, 200, {
+    ok: true,
+    rejected: rejectApplications ? applicationIds.length : 0,
+    sent,
+    failed,
+    skipped_invalid_email: skippedInvalidEmail,
   });
 }
 
@@ -416,7 +633,8 @@ async function sendCandidateRejected(req: Request, admin: SupabaseAdmin, body: R
   if (appsError) return json(req, 500, { error: "Could not load applications" });
   if (!applications || applications.length === 0) return json(req, 404, { error: "Applications not found" });
   if (applications.length !== applicationIds.length) return json(req, 404, { error: "One or more applications were not found" });
-  if (applications.some((app: any) => app.company_id !== auth.profile.companyId)) {
+  const applicationRows = applications as CandidateEmailApplicationRow[];
+  if (applicationRows.some((app) => app.company_id !== auth.profile.companyId)) {
     return json(req, 403, { error: "Applications must belong to your company" });
   }
 
@@ -436,15 +654,15 @@ async function sendCandidateRejected(req: Request, admin: SupabaseAdmin, body: R
 
   if (updateError) return json(req, 500, { error: "Could not reject candidates" });
 
-  const appsById = new Map((applications as any[]).map((app) => [app.id, app]));
+  const appsById = new Map(applicationRows.map((app) => [app.id, app]));
   let sent = 0;
   let failed = 0;
   let skippedInvalidEmail = 0;
 
   for (const applicationId of applicationIds) {
     const app = appsById.get(applicationId);
-    const candidate = Array.isArray(app?.candidates) ? app.candidates[0] : app?.candidates;
-    const job = Array.isArray(app?.jobs) ? app.jobs[0] : app?.jobs;
+    const candidate = firstRelated(app?.candidates);
+    const job = firstRelated(app?.jobs);
     const recipient = normalizeText(candidate?.email, 320).toLowerCase();
 
     if (!isValidEmail(recipient)) {
@@ -460,6 +678,7 @@ async function sendCandidateRejected(req: Request, admin: SupabaseAdmin, body: R
 
     const result = await sendRenderedEmail(admin, {
       templateKey: "candidate_rejected",
+      templateName: "Candidate Rejected",
       recipient,
       subject: normalizeSubject(render(subjectTemplate, variables)),
       html: render(htmlTemplate, variables, true),
@@ -467,6 +686,7 @@ async function sendCandidateRejected(req: Request, admin: SupabaseAdmin, body: R
       variables,
       company: company as CompanyEmailSettings,
       companyId: auth.profile.companyId,
+      candidateId: app?.candidate_id ?? null,
       applicationId,
     });
 
@@ -516,6 +736,7 @@ Deno.serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
 
     if (mode === "application_received") return await sendApplicationReceived(req, admin, body);
+    if (mode === "candidate_email") return await sendCandidateEmail(req, admin, body);
     if (mode === "candidate_rejected") return await sendCandidateRejected(req, admin, body);
     if (mode === "test") return await sendTestEmail(req, admin, body);
 

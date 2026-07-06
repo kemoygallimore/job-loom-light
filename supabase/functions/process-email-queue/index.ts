@@ -142,6 +142,7 @@ async function sendTemplateEmail(
     variables: Record<string, string>;
     company: CompanyEmailSettings | null;
     companyId?: string | null;
+    candidateId?: string | null;
     applicationId?: string | null;
   },
 ): Promise<EmailSendResult> {
@@ -167,6 +168,7 @@ async function sendTemplateEmail(
     template_key: args.templateKey,
     recipient_email: args.recipient,
     company_id: args.companyId ?? null,
+    candidate_id: args.candidateId ?? null,
     application_id: args.applicationId ?? null,
     context: args.variables,
     from_address: fromAddress,
@@ -260,6 +262,7 @@ async function sendApplicationReceived(admin: SupabaseAdmin, applicationId: stri
     },
     company: companyRes.data as CompanyEmailSettings,
     companyId: app.company_id,
+    candidateId: app.candidate_id,
     applicationId: app.id,
   });
 }

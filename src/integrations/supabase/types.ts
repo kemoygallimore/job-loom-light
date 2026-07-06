@@ -301,6 +301,7 @@ export type Database = {
       }
       company_email_templates: {
         Row: {
+          archived_at: string | null
           company_id: string
           created_at: string
           html_body: string
@@ -315,6 +316,7 @@ export type Database = {
           variables: Json
         }
         Insert: {
+          archived_at?: string | null
           company_id: string
           created_at?: string
           html_body: string
@@ -329,6 +331,7 @@ export type Database = {
           variables?: Json
         }
         Update: {
+          archived_at?: string | null
           company_id?: string
           created_at?: string
           html_body?: string
@@ -356,6 +359,76 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      email_send_log: {
+        Row: {
+          application_id: string | null
+          candidate_id: string | null
+          company_id: string | null
+          context: Json | null
+          created_at: string
+          error_message: string | null
+          from_address: string | null
+          id: string
+          provider_message_id: string | null
+          recipient_email: string
+          reply_to: string | null
+          status: string
+          template_key: string
+        }
+        Insert: {
+          application_id?: string | null
+          candidate_id?: string | null
+          company_id?: string | null
+          context?: Json | null
+          created_at?: string
+          error_message?: string | null
+          from_address?: string | null
+          id?: string
+          provider_message_id?: string | null
+          recipient_email: string
+          reply_to?: string | null
+          status: string
+          template_key: string
+        }
+        Update: {
+          application_id?: string | null
+          candidate_id?: string | null
+          company_id?: string | null
+          context?: Json | null
+          created_at?: string
+          error_message?: string | null
+          from_address?: string | null
+          id?: string
+          provider_message_id?: string | null
+          recipient_email?: string
+          reply_to?: string | null
+          status?: string
+          template_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_send_log_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_send_log_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_send_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
           },
         ]
       }

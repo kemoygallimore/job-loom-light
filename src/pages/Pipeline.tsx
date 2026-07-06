@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
+import { Mail, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import KanbanCard from "@/components/pipeline/KanbanCard";
 import CandidatePanel from "@/components/pipeline/CandidatePanel";
-import { RejectionEmailDialog } from "@/components/pipeline/RejectionEmailDialog";
+import { CandidateEmailComposer, type CandidateEmailRecipient } from "@/components/email/CandidateEmailComposer";
 
 const STAGES = ["applied", "shortlisted", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"] as const;
 type Stage = typeof STAGES[number];
@@ -47,6 +47,7 @@ export default function Pipeline() {
   const [newCandidateId, setNewCandidateId] = useState("");
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectDialogIds, setRejectDialogIds] = useState<string[]>([]);
   
@@ -157,6 +158,16 @@ export default function Pipeline() {
 
   const filtered = selectedJobFilter === "all" ? applications : applications.filter(a => a.job_id === selectedJobFilter);
   const rejectDialogApps = applications.filter((app) => rejectDialogIds.includes(app.id));
+  const selectedApps = applications.filter((app) => selectedIds.includes(app.id));
+
+  const toEmailRecipients = (apps: Application[]): CandidateEmailRecipient[] =>
+    apps.map((app) => ({
+      candidateId: app.candidate_id,
+      applicationId: app.id,
+      candidateName: app.candidate?.name ?? "Candidate",
+      candidateEmail: app.candidate?.email ?? null,
+      jobTitle: app.job?.title ?? null,
+    }));
 
   const kanbanRef = useRef<HTMLDivElement>(null);
   const topScrollRef = useRef<HTMLDivElement>(null);
@@ -242,6 +253,14 @@ export default function Pipeline() {
               </form>
             </DialogContent>
           </Dialog>
+          <Button
+            variant="outline"
+            disabled={selectedIds.length === 0}
+            onClick={() => setEmailDialogOpen(true)}
+          >
+            <Mail className="w-4 h-4 mr-2" />
+            Email selected
+          </Button>
             <Button
               className="bg-destructive text-destructive-foreground"
               disabled={selectedIds.length === 0}
@@ -348,9 +367,17 @@ export default function Pipeline() {
         />
       )}
 
-      <RejectionEmailDialog
+      <CandidateEmailComposer
+        open={emailDialogOpen}
+        recipients={toEmailRecipients(selectedApps)}
+        onOpenChange={setEmailDialogOpen}
+        onSent={() => setSelectedIds([])}
+      />
+
+      <CandidateEmailComposer
         open={rejectDialogOpen}
-        applications={rejectDialogApps}
+        mode="rejection"
+        recipients={toEmailRecipients(rejectDialogApps)}
         onOpenChange={handleRejectDialogOpenChange}
         onSent={handleRejectSent}
       />
