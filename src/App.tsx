@@ -36,6 +36,7 @@ import PublicJobApplication from "./pages/apply/PublicJobApplication";
 import PublicFeedback from "./pages/feedback/PublicFeedback";
 import PublicLeadForm from "./pages/forms/PublicLeadForm";
 import FormBuilder from "./pages/forms/FormBuilder";
+import FormSubmissions from "./pages/forms/FormSubmissions";
 import DataProtection from "./pages/legal/DataProtection";
 import NotFound from "./pages/NotFound";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -122,6 +123,7 @@ const App = () => (
               <Route path="/forms" element={<Forms />} />
               <Route path="/forms/new" element={<FormBuilder />} />
               <Route path="/forms/:formId/edit" element={<FormBuilder />} />
+              <Route path="/forms/:formId/submissions" element={<FormSubmissions />} />
               <Route path="/settings/email-templates" element={<CompanyEmailTemplates />} />
               <Route path="/admin" element={<AdminDashboard />}>
                 <Route index element={<AdminOverview />} />

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -13,12 +13,10 @@ import {
   Plus,
   Power,
   Trash2,
-  Upload,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -33,22 +31,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import LeadFormRenderer from "@/components/forms/LeadFormRenderer";
-import {
-  LeadForm,
-  LeadFormSubmission,
-  LeadFormUpload,
-  answerPreview,
-  normalizeSchema,
-} from "@/lib/leadForms";
-import { resolveFileUrl } from "@/lib/fileUrl";
+import { LeadForm, LeadFormSubmission, normalizeSchema } from "@/lib/leadForms";
 
 const FORM_LIMIT = 5;
 
@@ -57,7 +41,6 @@ type LeadFormsQuery = PromiseLike<QueryResult> & {
   select: (columns?: string) => LeadFormsQuery;
   is: (column: string, value: unknown) => LeadFormsQuery;
   order: (column: string, options?: Record<string, unknown>) => LeadFormsQuery;
-  insert: (payload: unknown) => LeadFormsQuery;
   update: (payload: unknown) => LeadFormsQuery;
   eq: (column: string, value: unknown) => LeadFormsQuery;
 };
@@ -67,10 +50,6 @@ type LeadFormsDb = {
 
 const leadFormsDb = supabase as unknown as LeadFormsDb;
 
-function messageFromError(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback;
-}
-
 function displayStatus(status: LeadForm["status"]) {
   return status === "active" ? "Active" : "Disabled";
 }
@@ -78,15 +57,10 @@ function displayStatus(status: LeadForm["status"]) {
 export default function Forms() {
   const { profile, user } = useAuth();
   const navigate = useNavigate();
-  const [tab, setTab] = useState("forms");
   const [forms, setForms] = useState<LeadForm[]>([]);
-  const [submissions, setSubmissions] = useState<LeadFormSubmission[]>([]);
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [previewForm, setPreviewForm] = useState<LeadForm | null>(null);
-  const [submissionFilter, setSubmissionFilter] = useState("all");
-  const [selectedSubmission, setSelectedSubmission] = useState<LeadFormSubmission | null>(null);
-  const [submissionUploads, setSubmissionUploads] = useState<LeadFormUpload[]>([]);
 
   const load = useCallback(async () => {
     if (!profile?.company_id) return;
@@ -100,7 +74,7 @@ export default function Forms() {
           .order("created_at", { ascending: false }),
         leadFormsDb
           .from("lead_form_submissions")
-          .select("*, lead_forms(title)")
+          .select("form_id")
           .order("created_at", { ascending: false }),
       ]);
 
@@ -108,7 +82,7 @@ export default function Forms() {
     if (submissionError) toast.error(submissionError.message);
 
     const countMap: Record<string, number> = {};
-    (submissionRows ?? []).forEach((submission: LeadFormSubmission) => {
+    ((submissionRows ?? []) as Pick<LeadFormSubmission, "form_id">[]).forEach((submission) => {
       countMap[submission.form_id] = (countMap[submission.form_id] ?? 0) + 1;
     });
 
@@ -119,23 +93,12 @@ export default function Forms() {
         submission_count: countMap[form.id] ?? 0,
       })),
     );
-    setSubmissions(
-      ((submissionRows ?? []) as LeadFormSubmission[]).map((submission) => ({
-        ...submission,
-        schema_snapshot: normalizeSchema(submission.schema_snapshot),
-      })),
-    );
     setLoading(false);
   }, [profile?.company_id]);
 
   useEffect(() => {
     load();
   }, [load]);
-
-  const filteredSubmissions = useMemo(() => {
-    if (submissionFilter === "all") return submissions;
-    return submissions.filter((submission) => submission.form_id === submissionFilter);
-  }, [submissionFilter, submissions]);
 
   const openCreate = () => {
     if (!profile?.company_id || !user?.id) return;
@@ -144,10 +107,6 @@ export default function Forms() {
       return;
     }
     navigate("/forms/new");
-  };
-
-  const openEdit = (form: LeadForm) => {
-    navigate(`/forms/${form.id}/edit`);
   };
 
   const copyLink = async (form: LeadForm) => {
@@ -182,37 +141,6 @@ export default function Forms() {
     load();
   };
 
-  const viewSubmissionsFor = (form: LeadForm) => {
-    setSubmissionFilter(form.id);
-    setTab("submissions");
-  };
-
-  const openSubmission = async (submission: LeadFormSubmission) => {
-    setSelectedSubmission(submission);
-    const { data } = await leadFormsDb
-      .from("lead_form_uploads")
-      .select("*")
-      .eq("submission_id", submission.id)
-      .order("created_at", { ascending: true });
-    setSubmissionUploads((data as LeadFormUpload[]) ?? []);
-
-    if (submission.status === "new") {
-      await leadFormsDb.from("lead_form_submissions").update({ status: "reviewed" }).eq("id", submission.id);
-      setSubmissions((current) =>
-        current.map((item) => (item.id === submission.id ? { ...item, status: "reviewed" } : item)),
-      );
-    }
-  };
-
-  const openUpload = async (upload: LeadFormUpload) => {
-    try {
-      const url = await resolveFileUrl(upload.object_key, upload.bucket);
-      if (url) window.open(url, "_blank", "noopener,noreferrer");
-    } catch (error: unknown) {
-      toast.error(messageFromError(error, "Could not open file"));
-    }
-  };
-
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3 animate-fade-in">
@@ -229,170 +157,100 @@ export default function Forms() {
         </Button>
       </div>
 
-      <Tabs value={tab} onValueChange={setTab} className="animate-fade-in">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <TabsList>
-            <TabsTrigger value="forms">Forms</TabsTrigger>
-            <TabsTrigger value="submissions">Submissions</TabsTrigger>
-          </TabsList>
-          <div className="text-sm text-muted-foreground">{forms.length} of {FORM_LIMIT} forms used</div>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="text-sm text-muted-foreground">{forms.length} of {FORM_LIMIT} forms used</div>
+      </div>
 
-        <TabsContent value="forms" className="mt-4">
-          <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="font-semibold">Form</TableHead>
-                  <TableHead className="font-semibold">Status</TableHead>
-                  <TableHead className="font-semibold">Submissions</TableHead>
-                  <TableHead className="font-semibold">Created</TableHead>
-                  <TableHead className="w-56 font-semibold">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {forms.map((form) => (
-                  <TableRow key={form.id}>
-                    <TableCell>
-                      <div className="font-medium">{form.title}</div>
-                      <div className="max-w-sm truncate text-sm text-muted-foreground">
-                        {form.description || "No description"}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={form.status === "active" ? "default" : "secondary"}>
-                        {displayStatus(form.status)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="tabular-nums">{form.submission_count ?? 0}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground tabular-nums">
-                      {format(new Date(form.created_at), "MMM d, yyyy")}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon" className="size-8" onClick={() => copyLink(form)} title="Copy link">
-                          {copiedId === form.id ? <Check className="size-4" /> : <Copy className="size-4" />}
+      <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="font-semibold">Form</TableHead>
+              <TableHead className="font-semibold">Status</TableHead>
+              <TableHead className="font-semibold">Submissions</TableHead>
+              <TableHead className="font-semibold">Created</TableHead>
+              <TableHead className="w-56 font-semibold">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {forms.map((form) => (
+              <TableRow key={form.id}>
+                <TableCell>
+                  <div className="font-medium">{form.title}</div>
+                  <div className="max-w-sm truncate text-sm text-muted-foreground">
+                    {form.description || "No description"}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Badge variant={form.status === "active" ? "default" : "secondary"}>
+                    {displayStatus(form.status)}
+                  </Badge>
+                </TableCell>
+                <TableCell className="tabular-nums">{form.submission_count ?? 0}</TableCell>
+                <TableCell className="text-sm text-muted-foreground tabular-nums">
+                  {format(new Date(form.created_at), "MMM d, yyyy")}
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" className="size-8" onClick={() => copyLink(form)} title="Copy link">
+                      {copiedId === form.id ? <Check className="size-4" /> : <Copy className="size-4" />}
+                    </Button>
+                    <Button variant="ghost" size="icon" className="size-8" onClick={() => setPreviewForm(form)} title="Preview">
+                      <Eye className="size-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="size-8" onClick={() => navigate(`/forms/${form.id}/edit`)} title="Edit">
+                      <Pencil className="size-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="size-8" onClick={() => toggleStatus(form)} title="Enable or disable">
+                      <Power className="size-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8"
+                      onClick={() => navigate(`/forms/${form.id}/submissions`)}
+                      title="Submissions"
+                    >
+                      <Inbox className="size-4" />
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="size-8" title="Delete">
+                          <Trash2 className="size-4 text-destructive" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="size-8" onClick={() => setPreviewForm(form)} title="Preview">
-                          <Eye className="size-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(form)} title="Edit">
-                          <Pencil className="size-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="size-8" onClick={() => toggleStatus(form)} title="Enable or disable">
-                          <Power className="size-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="size-8" onClick={() => viewSubmissionsFor(form)} title="Submissions">
-                          <Inbox className="size-4" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="size-8" title="Delete">
-                              <Trash2 className="size-4 text-destructive" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete this form?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This hides the form and disables its public link, but keeps submission history.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                onClick={() => softDelete(form)}
-                              >
-                                Delete form
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {!loading && forms.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
-                      No forms yet. Create your first lead form to get a shareable link.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="submissions" className="mt-4">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <Select value={submissionFilter} onValueChange={setSubmissionFilter}>
-              <SelectTrigger className="w-full sm:w-72">
-                <SelectValue placeholder="Filter by form" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All forms</SelectItem>
-                {forms.map((form) => (
-                  <SelectItem key={form.id} value={form.id}>
-                    {form.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="text-sm text-muted-foreground">{filteredSubmissions.length} submissions</div>
-          </div>
-          <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="font-semibold">Submission</TableHead>
-                  <TableHead className="font-semibold">Form</TableHead>
-                  <TableHead className="font-semibold">Status</TableHead>
-                  <TableHead className="font-semibold">Submitted</TableHead>
-                  <TableHead className="w-24 font-semibold">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredSubmissions.map((submission) => (
-                  <TableRow key={submission.id}>
-                    <TableCell>
-                      <div className="font-medium">
-                        {answerPreview(submission.answers.full_name ?? submission.answers.name ?? submission.answers.email)}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {answerPreview(submission.answers.email ?? submission.answers.phone)}
-                      </div>
-                    </TableCell>
-                    <TableCell>{submission.lead_forms?.title ?? "Deleted form"}</TableCell>
-                    <TableCell>
-                      <Badge variant={submission.status === "new" ? "default" : "secondary"}>
-                        {submission.status === "new" ? "New" : "Reviewed"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground tabular-nums">
-                      {format(new Date(submission.created_at), "MMM d, yyyy h:mm a")}
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm" onClick={() => openSubmission(submission)}>
-                        <Eye className="size-4" />
-                        View
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {!loading && filteredSubmissions.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
-                      No submissions match this view.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </TabsContent>
-      </Tabs>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete this form?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This hides the form and disables its public link, but keeps submission history.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            onClick={() => softDelete(form)}
+                          >
+                            Delete form
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+            {!loading && forms.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
+                  No forms yet. Create your first lead form to get a shareable link.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
 
       <Dialog open={Boolean(previewForm)} onOpenChange={(open) => !open && setPreviewForm(null)}>
         <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
@@ -412,45 +270,6 @@ export default function Forms() {
                   Open public form
                 </Link>
               </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={Boolean(selectedSubmission)} onOpenChange={(open) => !open && setSelectedSubmission(null)}>
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Submission details</DialogTitle>
-          </DialogHeader>
-          {selectedSubmission && (
-            <div className="flex flex-col gap-5">
-              <div className="grid gap-3 sm:grid-cols-2">
-                {selectedSubmission.schema_snapshot.fields
-                  .filter((field) => field.type !== "section")
-                  .map((field) => (
-                    <div key={field.id} className="rounded-lg border bg-background p-3">
-                      <div className="text-xs font-medium text-muted-foreground">{field.label}</div>
-                      <div className="mt-1 text-sm">{answerPreview(selectedSubmission.answers[field.id])}</div>
-                    </div>
-                  ))}
-              </div>
-              {submissionUploads.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <h3 className="text-sm font-semibold">Uploads</h3>
-                  {submissionUploads.map((upload) => (
-                    <div key={upload.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium">{upload.file_name}</div>
-                        <div className="text-xs text-muted-foreground">{Math.ceil(upload.file_size / 1024)} KB</div>
-                      </div>
-                      <Button variant="outline" size="sm" onClick={() => openUpload(upload)}>
-                        <Upload className="size-4" />
-                        Open
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           )}
         </DialogContent>
