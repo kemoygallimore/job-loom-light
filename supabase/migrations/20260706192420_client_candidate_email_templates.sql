@@ -1,8 +1,32 @@
 ALTER TABLE public.company_email_templates
-  ADD COLUMN IF NOT EXISTS archived_at timestamptz;
+  ADD COLUMN IF NOT EXISTS archived_at timestamptz,
+  ADD COLUMN IF NOT EXISTS purpose text NOT NULL DEFAULT 'general',
+  ADD COLUMN IF NOT EXISTS is_default_for_purpose boolean NOT NULL DEFAULT false;
+
+ALTER TABLE public.company_email_templates
+  DROP CONSTRAINT IF EXISTS company_email_templates_purpose_check;
+
+ALTER TABLE public.company_email_templates
+  ADD CONSTRAINT company_email_templates_purpose_check
+  CHECK (purpose IN ('general', 'form_link', 'video_screening', 'rejection'));
+
+UPDATE public.company_email_templates
+SET purpose = 'rejection',
+    is_default_for_purpose = true
+WHERE key = 'candidate_rejected'
+  AND archived_at IS NULL;
 
 CREATE INDEX IF NOT EXISTS company_email_templates_company_active_idx
   ON public.company_email_templates (company_id, is_active, updated_at DESC)
+  WHERE archived_at IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS company_email_templates_one_default_per_purpose_idx
+  ON public.company_email_templates (company_id, purpose)
+  WHERE is_default_for_purpose = true
+    AND archived_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS company_email_templates_company_purpose_idx
+  ON public.company_email_templates (company_id, purpose, is_active, name)
   WHERE archived_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS public.email_send_log (

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Mail, Send } from "lucide-react";
+import { AlertCircle, Link2, Mail, Send } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -29,14 +29,18 @@ import { RichTextEditor } from "@/components/RichTextEditor";
 import { VariableChips } from "@/components/email/VariableChips";
 import { sanitizeRichHtml } from "@/lib/sanitizeHtml";
 import {
-  CANDIDATE_EMAIL_VARIABLES,
+  CANDIDATE_EMAIL_PURPOSE_LABELS,
   CandidateEmailTemplate,
+  CandidateEmailTemplatePurpose,
   REJECTION_TEMPLATE_KEY,
   appendCandidateEmailTokenToHtml,
   candidateEmailVariableToken,
+  candidateEmailTemplateHasRequiredToken,
   insertCandidateEmailTokenInText,
   normalizeCandidateEmailTemplate,
   renderCandidateEmailTemplate,
+  requiredTokenForCandidateEmailPurpose,
+  variablesForCandidateEmailPurpose,
 } from "@/lib/candidateEmailTemplates";
 
 export interface CandidateEmailRecipient {
@@ -44,6 +48,7 @@ export interface CandidateEmailRecipient {
   applicationId?: string | null;
   candidateName: string;
   candidateEmail: string | null;
+  jobId?: string | null;
   jobTitle?: string | null;
 }
 
@@ -53,6 +58,7 @@ interface CandidateEmailComposerProps {
   onOpenChange: (open: boolean) => void;
   onSent?: (recipientApplicationIds: string[]) => void;
   mode?: "general" | "rejection";
+  purpose?: CandidateEmailTemplatePurpose;
 }
 
 interface FunctionResult {
@@ -61,6 +67,36 @@ interface FunctionResult {
   rejected?: number;
   skipped_invalid_email?: number;
 }
+
+interface LeadFormOption {
+  id: string;
+  title: string;
+  public_id: string;
+  status: string;
+}
+
+interface ScreeningJobOption {
+  id: string;
+  title: string;
+  job_id: string | null;
+  unique_link_id: string;
+  expires_at: string;
+}
+
+type QueryError = { message: string } | null;
+type QueryResult<T> = { data: T[] | null; error: QueryError };
+type QueryBuilder<T> = PromiseLike<QueryResult<T>> & {
+  eq: (column: string, value: unknown) => QueryBuilder<T>;
+  is: (column: string, value: unknown) => QueryBuilder<T>;
+  order: (column: string, options?: Record<string, unknown>) => QueryBuilder<T>;
+};
+type UntypedDb = {
+  from: <T>(table: string) => {
+    select: (columns: string) => QueryBuilder<T>;
+  };
+};
+
+const untypedDb = supabase as unknown as UntypedDb;
 
 function isValidEmail(email: string | null | undefined) {
   return !!email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -72,14 +108,20 @@ export function CandidateEmailComposer({
   onOpenChange,
   onSent,
   mode = "general",
+  purpose,
 }: CandidateEmailComposerProps) {
   const { profile } = useAuth();
+  const activePurpose = purpose ?? (mode === "rejection" ? "rejection" : "general");
   const [templates, setTemplates] = useState<CandidateEmailTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [subject, setSubject] = useState("");
   const [htmlBody, setHtmlBody] = useState("");
+  const [leadForms, setLeadForms] = useState<LeadFormOption[]>([]);
+  const [selectedFormId, setSelectedFormId] = useState("");
+  const [screeningJobs, setScreeningJobs] = useState<ScreeningJobOption[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [loadingLinkOptions, setLoadingLinkOptions] = useState(false);
   const [sending, setSending] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const subjectInputRef = useRef<HTMLInputElement | null>(null);
@@ -92,6 +134,8 @@ export function CandidateEmailComposer({
   const firstRecipient = validRecipients[0] ?? recipients[0] ?? null;
   const selectedTemplate = templates.find((template) => template.id === selectedTemplateId) ?? null;
   const isBulk = recipients.length > 1;
+  const availableVariables = variablesForCandidateEmailPurpose(activePurpose);
+  const requiredToken = requiredTokenForCandidateEmailPurpose(activePurpose);
 
   const loadTemplates = useCallback(async () => {
     if (!open || !profile?.company_id) return;
@@ -104,6 +148,8 @@ export function CandidateEmailComposer({
         .eq("company_id", profile.company_id)
         .eq("is_active", true)
         .is("archived_at", null)
+        .eq("purpose", activePurpose)
+        .order("is_default_for_purpose", { ascending: false })
         .order("name", { ascending: true }),
       supabase.from("companies").select("name").eq("id", profile.company_id).maybeSingle(),
     ]);
@@ -121,19 +167,67 @@ export function CandidateEmailComposer({
     setTemplates(list);
 
     const preferred =
-      mode === "rejection"
-        ? list.find((template) => template.key === REJECTION_TEMPLATE_KEY) ?? list[0]
-        : list[0];
+      activePurpose === "rejection"
+        ? list.find((template) => template.is_default_for_purpose) ?? list.find((template) => template.key === REJECTION_TEMPLATE_KEY) ?? list[0]
+        : list.find((template) => template.is_default_for_purpose) ?? list[0];
 
     setSelectedTemplateId(preferred?.id ?? "");
     setSubject(preferred?.subject ?? "");
     setHtmlBody(preferred?.html_body ?? "");
     setLoadingTemplates(false);
-  }, [mode, open, profile?.company_id]);
+  }, [activePurpose, open, profile?.company_id]);
 
   useEffect(() => {
     loadTemplates();
   }, [loadTemplates]);
+
+  useEffect(() => {
+    if (!open || !profile?.company_id) {
+      setLeadForms([]);
+      setSelectedFormId("");
+      setScreeningJobs([]);
+      return;
+    }
+
+    const loadLinkOptions = async () => {
+      setLoadingLinkOptions(true);
+      if (activePurpose === "form_link") {
+        const { data, error } = await untypedDb
+          .from<LeadFormOption>("lead_forms")
+          .select("id, title, public_id, status")
+          .eq("company_id", profile.company_id)
+          .eq("status", "active")
+          .is("deleted_at", null)
+          .order("title", { ascending: true });
+
+        if (error) toast.error(error.message);
+        const forms = data ?? [];
+        setLeadForms(forms);
+        setSelectedFormId((current) => (current && forms.some((form) => form.id === current) ? current : forms[0]?.id ?? ""));
+      } else {
+        setLeadForms([]);
+        setSelectedFormId("");
+      }
+
+      if (activePurpose === "video_screening") {
+        const { data, error } = await supabase
+          .from("screening_jobs")
+          .select("id, title, job_id, unique_link_id, expires_at")
+          .eq("company_id", profile.company_id)
+          .order("expires_at", { ascending: true });
+
+        if (error) toast.error(error.message);
+        const now = Date.now();
+        setScreeningJobs(((data ?? []) as ScreeningJobOption[]).filter((job) => new Date(job.expires_at).getTime() > now));
+      } else {
+        setScreeningJobs([]);
+      }
+
+      setLoadingLinkOptions(false);
+    };
+
+    loadLinkOptions();
+  }, [activePurpose, open, profile?.company_id]);
 
   const handleTemplateChange = (templateId: string) => {
     const template = templates.find((item) => item.id === templateId);
@@ -162,18 +256,67 @@ export function CandidateEmailComposer({
     candidate_name: firstRecipient?.candidateName || "Candidate",
     company_name: companyName || "your company",
     job_title: firstRecipient?.jobTitle || "the role",
+    form_link: leadForms.find((form) => form.id === selectedFormId)?.public_id
+      ? `${window.location.origin}/forms/${leadForms.find((form) => form.id === selectedFormId)?.public_id}`
+      : "{{form_link}}",
+    screening_link: "{{screening_link}}",
   };
+
+  const screeningResolution = useMemo(() => {
+    if (activePurpose !== "video_screening") return { ok: true, linksByApplicationId: new Map<string, string>() };
+    const linksByApplicationId = new Map<string, string>();
+
+    for (const recipient of validRecipients) {
+      if (!recipient.applicationId || !recipient.jobId) {
+        return { ok: false, error: "Video screening links require selected candidates with job-matched applications.", linksByApplicationId };
+      }
+
+      const matches = screeningJobs.filter((job) => job.job_id === recipient.jobId);
+      if (matches.length === 0) {
+        return { ok: false, error: `${recipient.candidateName} does not have an active screening link for ${recipient.jobTitle ?? "their job"}.`, linksByApplicationId };
+      }
+      if (matches.length > 1) {
+        return { ok: false, error: `${recipient.candidateName} has more than one active screening link for ${recipient.jobTitle ?? "their job"}.`, linksByApplicationId };
+      }
+      linksByApplicationId.set(recipient.applicationId, `${window.location.origin}/screen/${matches[0].unique_link_id}`);
+    }
+
+    return { ok: true, linksByApplicationId };
+  }, [activePurpose, screeningJobs, validRecipients]);
+
+  if (activePurpose === "video_screening" && firstRecipient?.applicationId) {
+    previewVariables.screening_link = screeningResolution.linksByApplicationId.get(firstRecipient.applicationId) ?? "{{screening_link}}";
+  }
+
   const renderedSubject = renderCandidateEmailTemplate(subject, previewVariables);
   const renderedHtml = sanitizeRichHtml(renderCandidateEmailTemplate(htmlBody, previewVariables));
+  const selectedDraft = selectedTemplate
+    ? { ...selectedTemplate, subject, html_body: htmlBody, purpose: activePurpose }
+    : null;
+  const templateMissingRequiredToken = !!selectedDraft && !candidateEmailTemplateHasRequiredToken(selectedDraft);
+  const formLinkBlocked = activePurpose === "form_link" && leadForms.length === 0;
+  const canSend =
+    !sending &&
+    !loadingTemplates &&
+    !loadingLinkOptions &&
+    !!selectedTemplateId &&
+    !!subject.trim() &&
+    !!htmlBody.trim() &&
+    validRecipients.length > 0 &&
+    !templateMissingRequiredToken &&
+    !(activePurpose === "form_link" && !selectedFormId) &&
+    !(activePurpose === "video_screening" && !screeningResolution.ok);
 
   const send = async () => {
-    if (!selectedTemplate || validRecipients.length === 0 || sending) return;
+    if (!selectedTemplate || validRecipients.length === 0 || sending || !canSend) return;
     setSending(true);
 
     const { data, error } = await supabase.functions.invoke("send-candidate-email", {
       body: {
         mode: "candidate_email",
         template_id: selectedTemplate.id,
+        purpose: activePurpose,
+        form_id: activePurpose === "form_link" ? selectedFormId : null,
         recipients: recipients.map((recipient) => ({
           candidate_id: recipient.candidateId,
           application_id: recipient.applicationId ?? null,
@@ -181,7 +324,7 @@ export function CandidateEmailComposer({
         subject,
         html_body: htmlBody,
         text_body: selectedTemplate.text_body,
-        reject_applications: mode === "rejection",
+        reject_applications: activePurpose === "rejection",
       },
     });
 
@@ -203,7 +346,7 @@ export function CandidateEmailComposer({
       skipped > 0 ? `${skipped} skipped` : null,
     ].filter(Boolean).join(", ");
 
-    toast.success(mode === "rejection" ? "Rejection email processed" : "Candidate email sent", {
+    toast.success(activePurpose === "rejection" ? "Rejection email processed" : "Candidate email sent", {
       description: details || undefined,
     });
     onSent?.(recipients.map((recipient) => recipient.applicationId).filter(Boolean) as string[]);
@@ -211,6 +354,7 @@ export function CandidateEmailComposer({
   };
 
   const requestSend = () => {
+    if (!canSend) return;
     if (isBulk) {
       setConfirmOpen(true);
       return;
@@ -218,9 +362,9 @@ export function CandidateEmailComposer({
     send();
   };
 
-  const title = mode === "rejection" ? "Review rejection email" : "Email candidate";
+  const title = activePurpose === "rejection" ? "Review rejection email" : `${CANDIDATE_EMAIL_PURPOSE_LABELS[activePurpose]} email`;
   const description =
-    mode === "rejection"
+    activePurpose === "rejection"
       ? `${recipients.length} candidate${recipients.length === 1 ? "" : "s"} will be moved to rejected.`
       : `${recipients.length} candidate${recipients.length === 1 ? "" : "s"} selected.`;
 
@@ -253,9 +397,40 @@ export function CandidateEmailComposer({
                   </SelectContent>
                 </Select>
                 {templates.length === 0 && !loadingTemplates && (
-                  <p className="text-xs text-destructive">Create an active email template before sending.</p>
+                  <p className="text-xs text-destructive">Create an active {CANDIDATE_EMAIL_PURPOSE_LABELS[activePurpose].toLowerCase()} template before sending.</p>
                 )}
               </div>
+
+              {activePurpose === "form_link" && (
+                <div className="space-y-2 rounded-md border bg-muted/20 p-3">
+                  <Label>Lead form</Label>
+                  <Select value={selectedFormId} onValueChange={setSelectedFormId} disabled={loadingLinkOptions || leadForms.length === 0}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={loadingLinkOptions ? "Loading forms..." : "Select a form"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {leadForms.map((form) => (
+                        <SelectItem key={form.id} value={form.id}>
+                          {form.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {formLinkBlocked && !loadingLinkOptions && (
+                    <p className="flex items-center gap-1 text-xs text-destructive">
+                      <AlertCircle className="h-3.5 w-3.5" />
+                      No active lead forms are available.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {activePurpose === "video_screening" && !loadingLinkOptions && !screeningResolution.ok && (
+                <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+                  <AlertCircle className="mt-0.5 h-4 w-4" />
+                  <span>{screeningResolution.error}</span>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="candidate-email-subject">Subject</Label>
@@ -266,13 +441,18 @@ export function CandidateEmailComposer({
                   disabled={loadingTemplates}
                   onChange={(event) => setSubject(event.target.value)}
                 />
-                <VariableChips variables={[...CANDIDATE_EMAIL_VARIABLES]} onInsert={(variable) => insertSubjectToken(candidateEmailVariableToken(variable))} />
+                <VariableChips variables={availableVariables} onInsert={(variable) => insertSubjectToken(candidateEmailVariableToken(variable))} />
               </div>
 
               <div className="space-y-2">
                 <Label>Email body</Label>
                 <RichTextEditor value={htmlBody} onChange={setHtmlBody} placeholder="Write the candidate email..." />
-                <VariableChips variables={[...CANDIDATE_EMAIL_VARIABLES]} onInsert={(variable) => insertBodyToken(candidateEmailVariableToken(variable))} />
+                <VariableChips variables={availableVariables} onInsert={(variable) => insertBodyToken(candidateEmailVariableToken(variable))} />
+                {requiredToken && (
+                  <p className={templateMissingRequiredToken ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
+                    This email must include {requiredToken} in the subject or body.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -281,6 +461,12 @@ export function CandidateEmailComposer({
                 <h3 className="text-sm font-semibold">Preview</h3>
                 <p className="mt-1 text-sm font-medium">{renderedSubject || "Select a template to preview"}</p>
               </div>
+              {(activePurpose === "form_link" || activePurpose === "video_screening") && (
+                <div className="flex items-center gap-2 rounded-md border bg-background p-3 text-xs text-muted-foreground">
+                  <Link2 className="h-3.5 w-3.5" />
+                  <span>{activePurpose === "form_link" ? previewVariables.form_link : previewVariables.screening_link}</span>
+                </div>
+              )}
               <div
                 className="prose prose-sm max-w-none rounded-md border bg-background p-4"
                 dangerouslySetInnerHTML={{ __html: renderedHtml }}
@@ -299,7 +485,7 @@ export function CandidateEmailComposer({
             <Button
               type="button"
               onClick={requestSend}
-              disabled={sending || loadingTemplates || !selectedTemplateId || !subject.trim() || !htmlBody.trim() || validRecipients.length === 0}
+              disabled={!canSend}
             >
               <Send className="mr-2 h-4 w-4" />
               {sending ? "Sending..." : isBulk ? "Review send" : "Send"}

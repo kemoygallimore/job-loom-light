@@ -64,6 +64,7 @@ interface CompanyEmailTemplate {
   id: string;
   key: string;
   name: string;
+  purpose: CandidateEmailPurpose;
   subject: string;
   html_body: string;
   text_body: string | null;
@@ -91,15 +92,33 @@ interface CandidateEmailApplicationRow {
   id: string;
   company_id: string;
   candidate_id: string;
+  job_id: string | null;
   candidates: CandidateEmailCandidateRow | CandidateEmailCandidateRow[] | null;
   jobs: CandidateEmailJobRow | CandidateEmailJobRow[] | null;
 }
+
+interface LeadFormRow {
+  id: string;
+  title: string;
+  public_id: string;
+}
+
+interface ScreeningJobRow {
+  id: string;
+  title: string;
+  job_id: string | null;
+  unique_link_id: string;
+  expires_at: string;
+}
+
+type CandidateEmailPurpose = "general" | "form_link" | "video_screening" | "rejection";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const FROM_ADDRESS = Deno.env.get("RIZONHIRE_FROM_EMAIL") ?? "RizonHire <no-reply@rizonhire.com>";
+const CANDIDATE_EMAIL_PURPOSES = new Set<CandidateEmailPurpose>(["general", "form_link", "video_screening", "rejection"]);
 
 const DEFAULT_ALLOWED_ORIGINS = [
   "https://app.rizonhire.com",
@@ -179,6 +198,27 @@ function normalizeApplicationIds(input: unknown) {
   if (!Array.isArray(input)) return [];
   const ids = input.map((id) => normalizeText(id, 80)).filter(Boolean);
   return Array.from(new Set(ids));
+}
+
+function normalizeCandidateEmailPurpose(value: unknown): CandidateEmailPurpose {
+  const normalized = normalizeText(value, 40) as CandidateEmailPurpose;
+  return CANDIDATE_EMAIL_PURPOSES.has(normalized) ? normalized : "general";
+}
+
+function requiredTokenForPurpose(purpose: CandidateEmailPurpose) {
+  if (purpose === "form_link") return "form_link";
+  if (purpose === "video_screening") return "screening_link";
+  return null;
+}
+
+function containsVariableToken(subject: string, html: string, variable: string) {
+  return new RegExp(`\\{\\{\\s*${variable}\\s*\\}\\}`).test(`${subject}\n${html}`);
+}
+
+function requestOrigin(req: Request) {
+  const origin = req.headers.get("Origin");
+  if (origin && allowedOrigins.includes(origin)) return origin;
+  return "https://app.rizonhire.com";
 }
 
 function normalizeCandidateEmailRecipients(input: unknown): CandidateEmailRecipientInput[] {
@@ -469,6 +509,8 @@ async function sendCandidateEmail(req: Request, admin: SupabaseAdmin, body: Reco
   const allowedKeys = new Set([
     "mode",
     "template_id",
+    "purpose",
+    "form_id",
     "recipients",
     "subject",
     "html_body",
@@ -482,6 +524,8 @@ async function sendCandidateEmail(req: Request, admin: SupabaseAdmin, body: Reco
   if (!auth.ok) return auth.response;
 
   const templateId = normalizeText(body?.template_id, 80);
+  const purpose = normalizeCandidateEmailPurpose(body?.purpose);
+  const formId = normalizeText(body?.form_id, 80);
   const recipients = normalizeCandidateEmailRecipients(body?.recipients);
   const subjectTemplate = normalizeSubject(String(body?.subject ?? ""));
   const htmlTemplate = normalizeBody(body?.html_body);
@@ -492,10 +536,17 @@ async function sendCandidateEmail(req: Request, admin: SupabaseAdmin, body: Reco
   if (recipients.length === 0) return json(req, 400, { error: "recipients are required" });
   if (!subjectTemplate) return json(req, 400, { error: "subject is required" });
   if (!htmlTemplate) return json(req, 400, { error: "html_body is required" });
+  const requiredToken = requiredTokenForPurpose(purpose);
+  if (requiredToken && !containsVariableToken(subjectTemplate, htmlTemplate, requiredToken)) {
+    return json(req, 400, { error: `${requiredToken} is required for this email purpose` });
+  }
+  if (purpose === "form_link" && !formId) {
+    return json(req, 400, { error: "form_id is required for form link emails" });
+  }
 
   const { data: template, error: templateError } = await admin
     .from("company_email_templates")
-    .select("id, key, name, subject, html_body, text_body, is_active, archived_at")
+    .select("id, key, name, purpose, subject, html_body, text_body, is_active, archived_at")
     .eq("id", templateId)
     .eq("company_id", auth.profile.companyId)
     .maybeSingle();
@@ -506,15 +557,18 @@ async function sendCandidateEmail(req: Request, admin: SupabaseAdmin, body: Reco
   if (!clientTemplate.is_active || clientTemplate.archived_at) {
     return json(req, 400, { error: "Template is not active" });
   }
+  if (clientTemplate.purpose !== purpose) {
+    return json(req, 400, { error: "Template purpose does not match this action" });
+  }
 
   const applicationIds = Array.from(new Set(recipients.map((item) => item.application_id).filter(Boolean))) as string[];
   const directCandidateIds = Array.from(new Set(recipients.map((item) => item.candidate_id).filter(Boolean))) as string[];
 
-  const [applicationsResult, candidatesResult, companyResult] = await Promise.all([
+  const [applicationsResult, candidatesResult, companyResult, leadFormResult, screeningJobsResult] = await Promise.all([
     applicationIds.length > 0
       ? admin
           .from("applications")
-          .select("id, company_id, candidate_id, candidates(name, email), jobs(title)")
+          .select("id, company_id, candidate_id, job_id, candidates(name, email), jobs(title)")
           .in("id", applicationIds)
           .eq("company_id", auth.profile.companyId)
       : Promise.resolve({ data: [], error: null }),
@@ -530,11 +584,31 @@ async function sendCandidateEmail(req: Request, admin: SupabaseAdmin, body: Reco
       .select("id, name, email_domain, email_domain_status, email_from_name, email_reply_to")
       .eq("id", auth.profile.companyId)
       .maybeSingle(),
+    purpose === "form_link"
+      ? admin
+          .from("lead_forms")
+          .select("id, title, public_id")
+          .eq("id", formId)
+          .eq("company_id", auth.profile.companyId)
+          .eq("status", "active")
+          .is("deleted_at", null)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    purpose === "video_screening"
+      ? admin
+          .from("screening_jobs")
+          .select("id, title, job_id, unique_link_id, expires_at")
+          .eq("company_id", auth.profile.companyId)
+          .gt("expires_at", new Date().toISOString())
+      : Promise.resolve({ data: [], error: null }),
   ]);
 
   if (applicationsResult.error) return json(req, 500, { error: "Could not load applications" });
   if (candidatesResult.error) return json(req, 500, { error: "Could not load candidates" });
   if (companyResult.error || !companyResult.data) return json(req, 404, { error: "Company email context not found" });
+  if (leadFormResult.error) return json(req, 500, { error: "Could not load lead form" });
+  if (purpose === "form_link" && !leadFormResult.data) return json(req, 400, { error: "Active lead form not found" });
+  if (screeningJobsResult.error) return json(req, 500, { error: "Could not load screening links" });
 
   const applicationsById = new Map(
     ((applicationsResult.data ?? []) as CandidateEmailApplicationRow[]).map((app) => [app.id, app]),
@@ -544,6 +618,9 @@ async function sendCandidateEmail(req: Request, admin: SupabaseAdmin, body: Reco
   );
 
   if (rejectApplications) {
+    if (purpose !== "rejection") {
+      return json(req, 400, { error: "Only rejection templates can reject candidates" });
+    }
     if (applicationIds.length === 0) {
       return json(req, 400, { error: "Rejection email requires application recipients" });
     }
@@ -555,6 +632,35 @@ async function sendCandidateEmail(req: Request, admin: SupabaseAdmin, body: Reco
       .eq("company_id", auth.profile.companyId);
 
     if (updateError) return json(req, 500, { error: "Could not reject candidates" });
+  }
+
+  const origin = requestOrigin(req);
+  const leadForm = leadFormResult.data as LeadFormRow | null;
+  const formLink = leadForm ? `${origin}/forms/${leadForm.public_id}` : "";
+  const screeningJobs = ((screeningJobsResult.data ?? []) as ScreeningJobRow[]);
+  const screeningJobsByJobId = new Map<string, ScreeningJobRow[]>();
+  for (const job of screeningJobs) {
+    if (!job.job_id) continue;
+    const current = screeningJobsByJobId.get(job.job_id) ?? [];
+    current.push(job);
+    screeningJobsByJobId.set(job.job_id, current);
+  }
+
+  if (purpose === "video_screening") {
+    for (const recipientInput of recipients) {
+      const app = recipientInput.application_id ? applicationsById.get(recipientInput.application_id) : null;
+      if (!app?.job_id) {
+        return json(req, 400, { error: "Video screening emails require application recipients with jobs" });
+      }
+
+      const matches = screeningJobsByJobId.get(app.job_id) ?? [];
+      if (matches.length === 0) {
+        return json(req, 400, { error: "Every selected candidate must have an active screening link for their job" });
+      }
+      if (matches.length > 1) {
+        return json(req, 400, { error: "A selected job has multiple active screening links. Keep exactly one active link before sending." });
+      }
+    }
   }
 
   let sent = 0;
@@ -578,6 +684,10 @@ async function sendCandidateEmail(req: Request, admin: SupabaseAdmin, body: Reco
       candidate_name: normalizeText(candidate.name || "there", 120),
       company_name: normalizeText(companyResult.data.name || "the company", 120),
       job_title: normalizeText(relatedJob?.title || "the role", 160),
+      form_link: formLink,
+      screening_link: app?.job_id
+        ? `${origin}/screen/${(screeningJobsByJobId.get(app.job_id) ?? [])[0]?.unique_link_id ?? ""}`
+        : "",
     };
 
     const subject = normalizeSubject(render(subjectTemplate, variables));

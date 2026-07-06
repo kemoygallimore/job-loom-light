@@ -570,6 +570,7 @@ export default function CandidateProfile() {
             applicationId: latestApp?.id ?? null,
             candidateName: candidate.name,
             candidateEmail: candidate.email,
+            jobId: latestApp?.job_id ?? null,
             jobTitle: latestApp?.job_title ?? null,
           },
         ]}

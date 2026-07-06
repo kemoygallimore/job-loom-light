@@ -307,8 +307,10 @@ export type Database = {
           html_body: string
           id: string
           is_active: boolean
+          is_default_for_purpose: boolean
           key: string
           name: string
+          purpose: string
           subject: string
           text_body: string | null
           updated_at: string
@@ -322,8 +324,10 @@ export type Database = {
           html_body: string
           id?: string
           is_active?: boolean
+          is_default_for_purpose?: boolean
           key: string
           name: string
+          purpose?: string
           subject: string
           text_body?: string | null
           updated_at?: string
@@ -337,8 +341,10 @@ export type Database = {
           html_body?: string
           id?: string
           is_active?: boolean
+          is_default_for_purpose?: boolean
           key?: string
           name?: string
+          purpose?: string
           subject?: string
           text_body?: string | null
           updated_at?: string
