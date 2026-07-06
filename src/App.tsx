@@ -103,7 +103,6 @@ const App = () => (
             <Route path="/:companySlug/careers" element={<CareersPage />} />
             <Route path="/:companySlug/careers/:jobId" element={<JobDetailsPage />} />
             <Route path="/screen/:linkId" element={<PublicScreening />} />
-            <Route path="/forms/:publicId" element={<PublicLeadForm />} />
             <Route path="/apply/:jobId" element={<PublicJobApplication />} />
             <Route path="/feedback/:token" element={<PublicFeedback />} />
             <Route path="/legal/data-protection" element={<DataProtection />} />
@@ -136,6 +135,7 @@ const App = () => (
                 <Route path="policies" element={<AdminPolicies />} />
               </Route>
             </Route>
+            <Route path="/forms/:publicId" element={<PublicLeadForm />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

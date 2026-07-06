@@ -391,13 +391,15 @@ export function CandidateEmailComposer({
                   <SelectContent>
                     {templates.map((template) => (
                       <SelectItem key={template.id} value={template.id ?? ""}>
-                        {template.name}
+                        {template.name}{template.is_default_for_purpose ? " (Default)" : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 {templates.length === 0 && !loadingTemplates && (
-                  <p className="text-xs text-destructive">Create an active {CANDIDATE_EMAIL_PURPOSE_LABELS[activePurpose].toLowerCase()} template before sending.</p>
+                  <p className="text-xs text-destructive">
+                    Create an active {CANDIDATE_EMAIL_PURPOSE_LABELS[activePurpose].toLowerCase()} template before sending this email.
+                  </p>
                 )}
               </div>
 
@@ -450,7 +452,9 @@ export function CandidateEmailComposer({
                 <VariableChips variables={availableVariables} onInsert={(variable) => insertBodyToken(candidateEmailVariableToken(variable))} />
                 {requiredToken && (
                   <p className={templateMissingRequiredToken ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
-                    This email must include {requiredToken} in the subject or body.
+                    {templateMissingRequiredToken
+                      ? `${requiredToken} is required before this ${CANDIDATE_EMAIL_PURPOSE_LABELS[activePurpose].toLowerCase()} email can be sent.`
+                      : `This email includes the required ${requiredToken} variable.`}
                   </p>
                 )}
               </div>

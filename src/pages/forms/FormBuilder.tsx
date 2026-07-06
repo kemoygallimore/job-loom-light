@@ -14,6 +14,16 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -111,6 +121,7 @@ export default function FormBuilder() {
   const [accessError, setAccessError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
 
   const isEditing = Boolean(formId);
 
@@ -259,10 +270,17 @@ export default function FormBuilder() {
     navigate("/forms");
   };
 
-  const confirmLeave = () => !dirty || window.confirm("You have unsaved form changes. Leave without saving?");
-
   const leaveBuilder = () => {
-    if (!confirmLeave()) return;
+    if (dirty) {
+      setLeaveDialogOpen(true);
+      return;
+    }
+    navigate("/forms");
+  };
+
+  const discardAndLeave = () => {
+    setLeaveDialogOpen(false);
+    setDirty(false);
     navigate("/forms");
   };
 
@@ -383,14 +401,20 @@ export default function FormBuilder() {
               </div>
               <Badge variant="secondary">{draft.schema.fields.length} fields</Badge>
             </div>
-            <LeadFormRenderer
-              schema={draft.schema}
-              values={{}}
-              disabled
-              selectedFieldId={selectedFieldId}
-              onChange={() => {}}
-              onFieldSelect={(field) => setSelectedFieldId(field.id)}
-            />
+            {draft.schema.fields.length === 0 ? (
+              <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+                Add a field from the palette to start building this form.
+              </div>
+            ) : (
+              <LeadFormRenderer
+                schema={draft.schema}
+                values={{}}
+                disabled
+                selectedFieldId={selectedFieldId}
+                onChange={() => {}}
+                onFieldSelect={(field) => setSelectedFieldId(field.id)}
+              />
+            )}
           </section>
         </main>
 
@@ -405,7 +429,7 @@ export default function FormBuilder() {
 
           {!selectedField ? (
             <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-              Select a field from the preview or add a new one.
+              Select a field from the preview or add one from the palette to customize labels, validation, uploads, and styling.
             </div>
           ) : (
             <div className="flex flex-col gap-4">
@@ -439,40 +463,45 @@ export default function FormBuilder() {
                 </Button>
               </div>
 
-              <div className="flex flex-col gap-2">
-                <Label>Label</Label>
-                <Input value={selectedField.label} onChange={(event) => updateField(selectedField.id, { label: event.target.value })} />
-              </div>
-
-              {selectedField.type !== "section" && (
-                <div className="flex items-center justify-between rounded-md border px-3 py-2">
-                  <div>
-                    <Label>Required</Label>
-                    <p className="text-xs text-muted-foreground">Submission cannot skip it.</p>
+              <div className="rounded-lg border p-3">
+                <h3 className="text-sm font-semibold">Basics</h3>
+                <div className="mt-3 flex flex-col gap-3">
+                  <div className="flex flex-col gap-2">
+                    <Label>Label</Label>
+                    <Input value={selectedField.label} onChange={(event) => updateField(selectedField.id, { label: event.target.value })} />
                   </div>
-                  <Switch
-                    checked={Boolean(selectedField.required)}
-                    onCheckedChange={(checked) => updateField(selectedField.id, { required: checked })}
-                  />
-                </div>
-              )}
 
-              {selectedField.type !== "section" && selectedField.type !== "file" && selectedField.type !== "rating" && (
-                <div className="flex flex-col gap-2">
-                  <Label>Placeholder</Label>
-                  <Input
-                    value={selectedField.placeholder ?? ""}
-                    onChange={(event) => updateField(selectedField.id, { placeholder: event.target.value })}
-                  />
-                </div>
-              )}
+                  {selectedField.type !== "section" && (
+                    <div className="flex items-center justify-between rounded-md border px-3 py-2">
+                      <div>
+                        <Label>Required</Label>
+                        <p className="text-xs text-muted-foreground">Submission cannot skip it.</p>
+                      </div>
+                      <Switch
+                        checked={Boolean(selectedField.required)}
+                        onCheckedChange={(checked) => updateField(selectedField.id, { required: checked })}
+                      />
+                    </div>
+                  )}
 
-              <div className="flex flex-col gap-2">
-                <Label>Help text</Label>
-                <Input
-                  value={selectedField.helpText ?? ""}
-                  onChange={(event) => updateField(selectedField.id, { helpText: event.target.value })}
-                />
+                  {selectedField.type !== "section" && selectedField.type !== "file" && selectedField.type !== "rating" && (
+                    <div className="flex flex-col gap-2">
+                      <Label>Placeholder</Label>
+                      <Input
+                        value={selectedField.placeholder ?? ""}
+                        onChange={(event) => updateField(selectedField.id, { placeholder: event.target.value })}
+                      />
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-2">
+                    <Label>Help text</Label>
+                    <Input
+                      value={selectedField.helpText ?? ""}
+                      onChange={(event) => updateField(selectedField.id, { helpText: event.target.value })}
+                    />
+                  </div>
+                </div>
               </div>
 
               {OPTION_FIELD_TYPES.has(selectedField.type) && (
@@ -673,6 +702,23 @@ export default function FormBuilder() {
           )}
         </aside>
       </div>
+
+      <AlertDialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave without saving?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This form has unsaved changes. Save before leaving if you want to keep your latest edits.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Stay</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={discardAndLeave}>
+              Leave without saving
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { FileText, Upload, X } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +12,7 @@ import {
   LeadFormField,
   LeadFormSchema,
   LeadFormValue,
+  FILE_ACCEPT_BY_CATEGORY,
 } from "@/lib/leadForms";
 import { cn } from "@/lib/utils";
 
@@ -54,6 +56,16 @@ const themeClasses = {
 
 function confirmationId(field: LeadFormField) {
   return `${field.id}__confirmation`;
+}
+
+function formatFileSize(file: File) {
+  return `${(file.size / 1024 / 1024).toFixed(2)} MB`;
+}
+
+function fileHint(field: LeadFormField) {
+  const categories = field.upload?.allowedCategories ?? ["documents", "images"];
+  const extensions = categories.flatMap((category) => FILE_ACCEPT_BY_CATEGORY[category] ?? []);
+  return `${extensions.join(", ").toUpperCase()} up to ${field.upload?.maxSizeMb ?? 10} MB`;
 }
 
 export default function LeadFormRenderer({
@@ -289,14 +301,53 @@ export default function LeadFormRenderer({
             )}
 
             {field.type === "file" && (
-              <Input
-                id={field.id}
-                type="file"
-                accept={getFileAccept(field)}
-                disabled={disabled}
-                aria-invalid={Boolean(error)}
-                onChange={(event) => onChange(field, event.target.files?.[0] ?? null)}
-              />
+              <div className="space-y-2">
+                <Input
+                  id={field.id}
+                  type="file"
+                  accept={getFileAccept(field)}
+                  disabled={disabled}
+                  aria-invalid={Boolean(error)}
+                  className="hidden"
+                  onClick={(event) => {
+                    event.currentTarget.value = "";
+                  }}
+                  onChange={(event) => onChange(field, event.target.files?.[0] ?? null)}
+                />
+                {value instanceof File ? (
+                  <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2.5">
+                    <FileText className="size-4 flex-shrink-0 text-primary" />
+                    <span className="min-w-0 flex-1 truncate text-sm">{value.name}</span>
+                    <span className="flex-shrink-0 text-xs tabular-nums text-muted-foreground">{formatFileSize(value)}</span>
+                    {!disabled && (
+                      <button
+                        type="button"
+                        className="text-muted-foreground transition hover:text-foreground"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onChange(field, null);
+                        }}
+                        aria-label={`Remove ${value.name}`}
+                      >
+                        <X className="size-4" />
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <label
+                    htmlFor={disabled ? undefined : field.id}
+                    className={cn(
+                      "flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed px-3 py-5 text-sm text-muted-foreground transition-colors",
+                      disabled ? "cursor-not-allowed bg-muted/30" : "cursor-pointer hover:border-primary/40 hover:text-primary",
+                      error && "border-destructive",
+                    )}
+                  >
+                    <Upload className="size-4" />
+                    Upload file
+                  </label>
+                )}
+                <p className="text-xs text-muted-foreground">{fileHint(field)}</p>
+              </div>
             )}
 
             {hasConfirmation && (

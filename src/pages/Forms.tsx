@@ -9,6 +9,7 @@ import {
   FileText,
   Inbox,
   Link2,
+  MoreHorizontal,
   Pencil,
   Plus,
   Power,
@@ -19,6 +20,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -170,8 +178,14 @@ export default function Forms() {
         </Button>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="text-sm text-muted-foreground">{forms.length} of {FORM_LIMIT} forms used</div>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3 text-sm shadow-sm">
+        <div>
+          <span className="font-medium">{forms.length} of {FORM_LIMIT}</span>
+          <span className="text-muted-foreground"> forms used</span>
+        </div>
+        {forms.length >= FORM_LIMIT && (
+          <div className="text-muted-foreground">Delete an unused form before creating another.</div>
+        )}
       </div>
 
       <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
@@ -182,10 +196,17 @@ export default function Forms() {
               <TableHead className="font-semibold">Status</TableHead>
               <TableHead className="font-semibold">Submissions</TableHead>
               <TableHead className="font-semibold">Created</TableHead>
-              <TableHead className="w-56 font-semibold">Actions</TableHead>
+              <TableHead className="w-64 text-right font-semibold">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
+            {loading && (
+              <TableRow>
+                <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
+                  Loading forms...
+                </TableCell>
+              </TableRow>
+            )}
             {forms.map((form) => (
               <TableRow key={form.id}>
                 <TableCell>
@@ -204,34 +225,44 @@ export default function Forms() {
                   {format(new Date(form.created_at), "MMM d, yyyy")}
                 </TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" className="size-8" onClick={() => copyLink(form)} title="Copy link">
-                      {copiedId === form.id ? <Check className="size-4" /> : <Copy className="size-4" />}
-                    </Button>
-                    <Button variant="ghost" size="icon" className="size-8" onClick={() => setPreviewForm(form)} title="Preview">
-                      <Eye className="size-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="size-8" onClick={() => navigate(`/forms/${form.id}/edit`)} title="Edit">
-                      <Pencil className="size-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="size-8" onClick={() => toggleStatus(form)} title="Enable or disable">
-                      <Power className="size-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-8"
-                      onClick={() => navigate(`/forms/${form.id}/submissions`)}
-                      title="Submissions"
-                    >
+                  <div className="flex items-center justify-end gap-2">
+                    <Button variant="outline" size="sm" onClick={() => navigate(`/forms/${form.id}/submissions`)}>
                       <Inbox className="size-4" />
+                      Submissions
                     </Button>
                     <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="size-8" title="Delete">
-                          <Trash2 className="size-4 text-destructive" />
-                        </Button>
-                      </AlertDialogTrigger>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="size-8" aria-label={`More actions for ${form.title}`}>
+                            <MoreHorizontal className="size-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem onClick={() => copyLink(form)}>
+                            {copiedId === form.id ? <Check className="mr-2 size-4" /> : <Copy className="mr-2 size-4" />}
+                            {copiedId === form.id ? "Copied" : "Copy link"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setPreviewForm(form)}>
+                            <Eye className="mr-2 size-4" />
+                            Preview
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => navigate(`/forms/${form.id}/edit`)}>
+                            <Pencil className="mr-2 size-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => toggleStatus(form)}>
+                            <Power className="mr-2 size-4" />
+                            {form.status === "active" ? "Disable form" : "Enable form"}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <AlertDialogTrigger asChild>
+                            <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={(event) => event.preventDefault()}>
+                              <Trash2 className="mr-2 size-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </AlertDialogTrigger>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                       <AlertDialogContent>
                         <AlertDialogHeader>
                           <AlertDialogTitle>Delete this form?</AlertDialogTitle>
@@ -257,7 +288,14 @@ export default function Forms() {
             {!loading && forms.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
-                  No forms yet. Create your first lead form to get a shareable link.
+                  <div className="mx-auto max-w-sm space-y-3">
+                    <div className="font-medium text-foreground">No forms yet</div>
+                    <div>Create your first lead form to collect details, uploads, and submissions from a public link.</div>
+                    <Button type="button" onClick={openCreate}>
+                      <Plus className="size-4" />
+                      New Form
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             )}

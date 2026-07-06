@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Archive, Mail, Plus, Save } from "lucide-react";
+import { Archive, CheckCircle2, Mail, Plus, Save } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -43,6 +43,14 @@ export default function CompanyEmailTemplates() {
   const selectedTemplate = useMemo(
     () => templates.find((template) => template.id === selectedId) ?? null,
     [selectedId, templates],
+  );
+  const templatesByPurpose = useMemo(
+    () =>
+      CANDIDATE_EMAIL_PURPOSES.map((purpose) => ({
+        purpose,
+        templates: templates.filter((template) => template.purpose === purpose),
+      })),
+    [templates],
   );
 
   const loadTemplates = useCallback(async () => {
@@ -144,26 +152,18 @@ export default function CompanyEmailTemplates() {
     }
 
     setSaving(true);
-    if (draft.is_default_for_purpose) {
-      const { error: defaultError } = await supabase
-        .from("company_email_templates")
-        .update({ is_default_for_purpose: false })
-        .eq("company_id", profile.company_id)
-        .eq("purpose", draft.purpose);
-
-      if (defaultError) {
-        setSaving(false);
-        toast.error(defaultError.message);
-        return;
-      }
-    }
+    const shouldBecomeDefault = draft.is_default_for_purpose;
+    const previousDefaultIds = templates
+      .filter((template) => template.purpose === draft.purpose && template.is_default_for_purpose && template.id !== draft.id)
+      .map((template) => template.id)
+      .filter(Boolean) as string[];
 
     const payload = {
       company_id: profile.company_id,
       key: draft.key,
       name: draft.name.trim(),
       purpose: draft.purpose,
-      is_default_for_purpose: draft.is_default_for_purpose,
+      is_default_for_purpose: shouldBecomeDefault && previousDefaultIds.length === 0,
       subject: draft.subject,
       html_body: draft.html_body,
       text_body: draft.text_body,
@@ -178,16 +178,58 @@ export default function CompanyEmailTemplates() {
       : supabase.from("company_email_templates").insert(payload).select("*").single();
 
     const { data, error } = await query;
-    setSaving(false);
 
     if (error) {
+      setSaving(false);
       toast.error(error.message);
       return;
     }
 
-    const saved = normalizeCandidateEmailTemplate(data as CandidateEmailTemplate);
+    let saved = normalizeCandidateEmailTemplate(data as CandidateEmailTemplate);
+
+    if (shouldBecomeDefault && previousDefaultIds.length > 0 && saved.id) {
+      const { error: clearDefaultError } = await supabase
+        .from("company_email_templates")
+        .update({ is_default_for_purpose: false })
+        .eq("company_id", profile.company_id)
+        .eq("purpose", draft.purpose);
+
+      if (clearDefaultError) {
+        setSaving(false);
+        toast.error(clearDefaultError.message);
+        return;
+      }
+
+      const { data: defaultData, error: setDefaultError } = await supabase
+        .from("company_email_templates")
+        .update({ is_default_for_purpose: true })
+        .eq("id", saved.id)
+        .eq("company_id", profile.company_id)
+        .select("*")
+        .single();
+
+      if (setDefaultError) {
+        await supabase
+          .from("company_email_templates")
+          .update({ is_default_for_purpose: true })
+          .in("id", previousDefaultIds);
+        setSaving(false);
+        toast.error(setDefaultError.message);
+        return;
+      }
+
+      saved = normalizeCandidateEmailTemplate(defaultData as CandidateEmailTemplate);
+    }
+
+    setSaving(false);
     setTemplates((current) => {
-      const withoutSaved = current.filter((template) => template.id !== saved.id);
+      const withoutSaved = current
+        .filter((template) => template.id !== saved.id)
+        .map((template) =>
+          shouldBecomeDefault && template.purpose === saved.purpose
+            ? { ...template, is_default_for_purpose: false }
+            : template,
+        );
       return [...withoutSaved, saved].sort((left, right) => {
         if (left.is_active !== right.is_active) return left.is_active ? -1 : 1;
         if (left.purpose !== right.purpose) return left.purpose.localeCompare(right.purpose);
@@ -234,6 +276,8 @@ export default function CompanyEmailTemplates() {
   const renderedSubject = renderCandidateEmailTemplate(draft.subject, previewVariables);
   const renderedHtml = sanitizeRichHtml(renderCandidateEmailTemplate(draft.html_body, previewVariables));
   const draftVariables = variablesForCandidateEmailPurpose(draft.purpose);
+  const requiredToken = requiredTokenForCandidateEmailPurpose(draft.purpose);
+  const missingRequiredToken = Boolean(requiredToken && !candidateEmailTemplateHasRequiredToken(draft));
 
   return (
     <div className="space-y-6">
@@ -253,30 +297,60 @@ export default function CompanyEmailTemplates() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[280px_minmax(0,1fr)_360px]">
-        <Card className="h-fit p-2">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[300px_minmax(0,1fr)_360px]">
+        <Card className="h-fit p-3">
           {templates.length === 0 ? (
-            <p className="p-3 text-sm text-muted-foreground">No saved templates yet.</p>
+            <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+              No saved templates yet. Create a general template to start sending candidate emails.
+            </div>
           ) : (
-            templates.map((template) => (
-              <button
-                key={template.id}
-                type="button"
-                onClick={() => setSelectedId(template.id ?? null)}
-                className={cn(
-                  "w-full rounded-md px-3 py-2 text-left text-sm transition-colors",
-                  selectedId === template.id ? "bg-accent text-accent-foreground" : "hover:bg-accent/50",
-                )}
-              >
-                <div className="font-medium">{template.name}</div>
-                <div className="mt-0.5 truncate text-xs text-muted-foreground">{template.subject}</div>
-                <div className="mt-1 flex flex-wrap gap-1 text-[11px] text-muted-foreground">
-                  <span>{CANDIDATE_EMAIL_PURPOSE_LABELS[template.purpose]}</span>
-                  {template.is_default_for_purpose && <span>Default</span>}
-                </div>
-                {!template.is_active && <div className="mt-0.5 text-xs text-destructive">Inactive</div>}
-              </button>
-            ))
+            <div className="space-y-4">
+              {templatesByPurpose.map(({ purpose, templates: purposeTemplates }) => (
+                <section key={purpose} className="space-y-2">
+                  <div className="flex items-center justify-between px-1">
+                    <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {CANDIDATE_EMAIL_PURPOSE_LABELS[purpose]}
+                    </h2>
+                    <span className="text-xs tabular-nums text-muted-foreground">{purposeTemplates.length}</span>
+                  </div>
+                  {purposeTemplates.length === 0 ? (
+                    <div className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
+                      No {CANDIDATE_EMAIL_PURPOSE_LABELS[purpose].toLowerCase()} templates.
+                    </div>
+                  ) : (
+                    purposeTemplates.map((template) => (
+                      <button
+                        key={template.id}
+                        type="button"
+                        onClick={() => setSelectedId(template.id ?? null)}
+                        className={cn(
+                          "w-full rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+                          selectedId === template.id
+                            ? "border-primary bg-primary/5 text-foreground shadow-sm"
+                            : "border-transparent hover:border-border hover:bg-muted/50",
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="truncate font-medium">{template.name}</div>
+                            <div className="mt-0.5 truncate text-xs text-muted-foreground">{template.subject}</div>
+                          </div>
+                          {template.is_default_for_purpose && <CheckCircle2 className="mt-0.5 size-4 flex-shrink-0 text-primary" />}
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+                          {template.is_default_for_purpose && (
+                            <span className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">Default</span>
+                          )}
+                          <span className={cn("rounded-full px-2 py-0.5", template.is_active ? "bg-emerald-50 text-emerald-700" : "bg-muted text-muted-foreground")}>
+                            {template.is_active ? "Active" : "Inactive"}
+                          </span>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </section>
+              ))}
+            </div>
           )}
         </Card>
 
@@ -312,6 +386,7 @@ export default function CompanyEmailTemplates() {
                   setDraft({
                     ...draft,
                     purpose: nextPurpose,
+                    is_default_for_purpose: false,
                     variables: variablesForCandidateEmailPurpose(nextPurpose),
                   });
                 }}
@@ -359,9 +434,11 @@ export default function CompanyEmailTemplates() {
               placeholder="Write the candidate email..."
             />
             <VariableChips variables={draftVariables} onInsert={(variable) => insertBodyToken(candidateEmailVariableToken(variable))} />
-            {requiredTokenForCandidateEmailPurpose(draft.purpose) && (
-              <p className="text-xs text-muted-foreground">
-                This purpose requires {requiredTokenForCandidateEmailPurpose(draft.purpose)} in the subject or body.
+            {requiredToken && (
+              <p className={cn("text-xs", missingRequiredToken ? "text-destructive" : "text-muted-foreground")}>
+                {missingRequiredToken
+                  ? `${requiredToken} is required before this template can be used for ${CANDIDATE_EMAIL_PURPOSE_LABELS[draft.purpose].toLowerCase()} emails.`
+                  : `This purpose includes ${requiredToken} in the message.`}
               </p>
             )}
           </div>

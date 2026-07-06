@@ -155,6 +155,7 @@ export default function FormSubmissions() {
   const tableElementRef = useRef<HTMLTableElement>(null);
   const syncingScrollRef = useRef(false);
   const [tableScrollWidth, setTableScrollWidth] = useState(0);
+  const hasHorizontalOverflow = tableScrollWidth > (tableScrollRef.current?.clientWidth ?? 0) + 1;
 
   const load = useCallback(async () => {
     if (!formId) {
@@ -213,6 +214,14 @@ export default function FormSubmissions() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    setColumnsInitialized(false);
+    setVisibleAnswerColumnIds([]);
+    setSort(null);
+    setFilters([]);
+    setPage(1);
+  }, [formId]);
+
   const columns = useMemo(() => (form ? createSubmissionColumns(form.schema) : []), [form]);
   const answerColumns = useMemo(() => columns.filter((column) => column.type === "answer"), [columns]);
 
@@ -256,6 +265,13 @@ export default function FormSubmissions() {
     setFilters((current) => current.filter((filter) => visibleColumnIds.has(filter.columnId)));
     setSort((current) => (current && visibleColumnIds.has(current.columnId) ? current : null));
   }, [visibleColumns]);
+
+  const resetColumns = () => {
+    if (!form || !formId) return;
+    const defaults = defaultVisibleAnswerColumnIds(form.schema);
+    setVisibleAnswerColumnIds(defaults);
+    window.localStorage.setItem(columnStorageKey(formId), JSON.stringify(defaults));
+  };
 
   useEffect(() => {
     setPage(1);
@@ -427,6 +443,14 @@ export default function FormSubmissions() {
                   {column.label}
                 </DropdownMenuCheckboxItem>
               ))}
+              <DropdownMenuSeparator />
+              <button
+                type="button"
+                className="w-full px-2 py-1.5 text-left text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                onClick={resetColumns}
+              >
+                Reset columns
+              </button>
             </DropdownMenuContent>
           </DropdownMenu>
           <Sheet>
@@ -537,9 +561,13 @@ export default function FormSubmissions() {
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="text-sm text-muted-foreground">
-          Showing {paginated.startIndex}-{paginated.endIndex} of {sortedSubmissions.length}
-          {sortedSubmissions.length !== submissions.length && ` filtered from ${submissions.length}`}
+        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+          <span>
+            Showing {paginated.startIndex}-{paginated.endIndex} of {sortedSubmissions.length}
+            {sortedSubmissions.length !== submissions.length && ` filtered from ${submissions.length}`}
+          </span>
+          {sort && <Badge variant="secondary">Sorted</Badge>}
+          {filters.length > 0 && <Badge variant="secondary">{filters.length} filter{filters.length === 1 ? "" : "s"}</Badge>}
         </div>
         <div className="flex items-center gap-2">
           <Label className="text-sm text-muted-foreground">Rows</Label>
@@ -559,6 +587,7 @@ export default function FormSubmissions() {
       </div>
 
       <div className="rounded-lg border bg-card">
+        {hasHorizontalOverflow && (
         <div className="sticky top-0 z-20 rounded-t-lg border-b bg-card/95 py-2 backdrop-blur supports-[backdrop-filter]:bg-card/80">
           <div
             ref={topScrollRef}
@@ -569,6 +598,7 @@ export default function FormSubmissions() {
             <div className="h-3" style={{ width: tableScrollWidth }} />
           </div>
         </div>
+        )}
 
         <div ref={tableScrollRef} className="overflow-x-auto" onScroll={() => syncHorizontalScroll("table")}>
           <table ref={tableElementRef} className="w-full caption-bottom text-sm">
