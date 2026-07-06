@@ -16,7 +16,7 @@ export interface Env {
 
   INVOICE_BUCKET: R2Bucket;
   R2_WORKER_SECRET: string;
-  BROWSER: any;
+  BROWSER: Fetcher;
 }
 
 const INVOICE_BUCKET_NAME = "rizonhire-invoices";
@@ -282,7 +282,7 @@ export default {
 			})
 		});
 
-		const resendData = await resendResponse.json<any>();
+		const resendData: unknown = await resendResponse.json();
 
 		if (!resendResponse.ok) {
 			return json(

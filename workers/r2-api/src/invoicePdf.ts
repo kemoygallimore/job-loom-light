@@ -14,6 +14,12 @@ export interface InvoicePdfEnv {
   R2_ACCOUNT_ID: string;
 }
 
+interface InvoicePayload {
+  invoice: Record<string, unknown>;
+  company?: Record<string, unknown>;
+  line_items?: Array<Record<string, unknown>>;
+}
+
 function corsHeaders() {
   return {
     "Content-Type": "application/json",
@@ -61,20 +67,20 @@ function formatMoney(cents: number, currency = "USD") {
   }).format(amount);
 }
 
-function buildInvoiceHtml(payload: any) {
+function buildInvoiceHtml(payload: InvoicePayload) {
   const invoice = payload.invoice;
   const company = payload.company || {};
   const lineItems = payload.line_items || [];
-  const currency = invoice.currency || "USD";
+  const currency = typeof invoice.currency === "string" ? invoice.currency : "USD";
 
   const rows = lineItems
-    .map((item: any) => {
+    .map((item) => {
       return `
         <tr>
           <td>${safeText(item.description)}</td>
           <td class="center">${safeText(item.quantity)}</td>
-          <td class="right">${formatMoney(item.unit_price_cents, currency)}</td>
-          <td class="right">${formatMoney(item.amount_cents, currency)}</td>
+          <td class="right">${formatMoney(Number(item.unit_price_cents || 0), currency)}</td>
+          <td class="right">${formatMoney(Number(item.amount_cents || 0), currency)}</td>
         </tr>
       `;
     })
@@ -287,17 +293,17 @@ function buildInvoiceHtml(payload: any) {
         <div class="summary">
           <div class="summary-row">
             <span>Subtotal</span>
-            <span>${formatMoney(invoice.subtotal_cents, currency)}</span>
+            <span>${formatMoney(Number(invoice.subtotal_cents || 0), currency)}</span>
           </div>
 
           <div class="summary-row">
             <span>Discount</span>
-            <span>${formatMoney(invoice.discount_cents, currency)}</span>
+            <span>${formatMoney(Number(invoice.discount_cents || 0), currency)}</span>
           </div>
 
           <div class="summary-row total">
             <span>Total</span>
-            <span>${formatMoney(invoice.total_cents, currency)}</span>
+            <span>${formatMoney(Number(invoice.total_cents || 0), currency)}</span>
           </div>
         </div>
 
@@ -339,7 +345,7 @@ export async function handleGenerateInvoicePdf(request: Request, env: InvoicePdf
     return json({ error: "Unauthorized" }, 401);
   }
 
-  let body: any;
+  let body: unknown;
 
   try {
     body = await request.json();
@@ -347,10 +353,15 @@ export async function handleGenerateInvoicePdf(request: Request, env: InvoicePdf
     return json({ error: "Invalid JSON body" }, 400);
   }
 
-  const invoiceId = body.invoice_id;
-  const companyId = body.company_id;
-  const invoiceNumber = body.invoice_number;
-  const payload = body.payload;
+  if (!body || typeof body !== "object") {
+    return json({ error: "Invalid JSON body" }, 400);
+  }
+
+  const bodyRecord = body as Record<string, unknown>;
+  const invoiceId = bodyRecord.invoice_id;
+  const companyId = bodyRecord.company_id;
+  const invoiceNumber = bodyRecord.invoice_number;
+  const payload = bodyRecord.payload;
 
   if (!invoiceId || !companyId || !invoiceNumber || !payload) {
     return json(
@@ -361,19 +372,20 @@ export async function handleGenerateInvoicePdf(request: Request, env: InvoicePdf
     );
   }
 
-  if (!payload.invoice) {
+  if (!payload || typeof payload !== "object" || !("invoice" in payload)) {
     return json({ error: "Missing payload.invoice" }, 400);
   }
 
-  const safeInvoiceNumber = sanitizeKeyPart(invoiceNumber);
+  const invoicePayload = payload as InvoicePayload;
+  const safeInvoiceNumber = sanitizeKeyPart(String(invoiceNumber));
 
   const pdfR2Key = `invoices/${companyId}/${invoiceId}/invoice-${safeInvoiceNumber}.pdf`;
 
-  const html = buildInvoiceHtml(payload);
+  const html = buildInvoiceHtml(invoicePayload);
 
   const pdf = await generatePdfFromHtml(env, html);
 
-  await env.INVOICE_BUCKET.put(pdfR2Key, pdf as any, {
+  await env.INVOICE_BUCKET.put(pdfR2Key, pdf, {
     httpMetadata: {
       contentType: "application/pdf",
       contentDisposition: `inline; filename="invoice-${safeInvoiceNumber}.pdf"`
@@ -385,7 +397,7 @@ export async function handleGenerateInvoicePdf(request: Request, env: InvoicePdf
     }
   });
 
-  const currentVersion = Number(payload.invoice.pdf_version || 0);
+  const currentVersion = Number(invoicePayload.invoice.pdf_version || 0);
   const nextVersion = currentVersion + 1;
 
   return json({
