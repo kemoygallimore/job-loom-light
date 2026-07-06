@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { format } from "date-fns";
 import {
@@ -47,7 +47,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   LeadForm,
   LeadFormSubmission,
@@ -150,6 +150,11 @@ export default function FormSubmissions() {
   const [filters, setFilters] = useState<SubmissionTableFilter[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const topScrollRef = useRef<HTMLDivElement>(null);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const tableElementRef = useRef<HTMLTableElement>(null);
+  const syncingScrollRef = useRef(false);
+  const [tableScrollWidth, setTableScrollWidth] = useState(0);
 
   const load = useCallback(async () => {
     if (!formId) {
@@ -256,6 +261,16 @@ export default function FormSubmissions() {
     setPage(1);
   }, [filters, pageSize, sort]);
 
+  const measureTableScrollWidth = useCallback(() => {
+    const tableScroller = tableScrollRef.current;
+    const tableElement = tableElementRef.current;
+    if (!tableScroller) return;
+
+    setTableScrollWidth(
+      Math.max(tableScroller.scrollWidth, tableElement?.scrollWidth ?? 0, tableScroller.clientWidth),
+    );
+  }, []);
+
   const filteredSubmissions = useMemo(
     () => applySubmissionFilters(submissions, filterableColumns, filters),
     [filterableColumns, filters, submissions],
@@ -272,6 +287,44 @@ export default function FormSubmissions() {
   useEffect(() => {
     if (paginated.page !== page) setPage(paginated.page);
   }, [page, paginated.page]);
+
+  useEffect(() => {
+    measureTableScrollWidth();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", measureTableScrollWidth);
+      return () => window.removeEventListener("resize", measureTableScrollWidth);
+    }
+
+    const observer = new ResizeObserver(measureTableScrollWidth);
+    if (tableScrollRef.current) observer.observe(tableScrollRef.current);
+    if (tableElementRef.current) observer.observe(tableElementRef.current);
+    window.addEventListener("resize", measureTableScrollWidth);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measureTableScrollWidth);
+    };
+  }, [measureTableScrollWidth, paginated.items.length, visibleColumns]);
+
+  const syncHorizontalScroll = useCallback((source: "top" | "table") => {
+    if (syncingScrollRef.current) return;
+
+    const topScroller = topScrollRef.current;
+    const tableScroller = tableScrollRef.current;
+    if (!topScroller || !tableScroller) return;
+
+    syncingScrollRef.current = true;
+    if (source === "top") {
+      tableScroller.scrollLeft = topScroller.scrollLeft;
+    } else {
+      topScroller.scrollLeft = tableScroller.scrollLeft;
+    }
+
+    window.requestAnimationFrame(() => {
+      syncingScrollRef.current = false;
+    });
+  }, []);
 
   const openSubmission = async (submission: LeadFormSubmission) => {
     setSelectedSubmission(submission);
@@ -505,9 +558,20 @@ export default function FormSubmissions() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-lg border bg-card">
-        <div className="overflow-x-auto">
-          <Table>
+      <div className="rounded-lg border bg-card">
+        <div className="sticky top-0 z-20 rounded-t-lg border-b bg-card/95 py-2 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+          <div
+            ref={topScrollRef}
+            className="overflow-x-auto overflow-y-hidden"
+            onScroll={() => syncHorizontalScroll("top")}
+            aria-label="Scroll submissions table horizontally"
+          >
+            <div className="h-3" style={{ width: tableScrollWidth }} />
+          </div>
+        </div>
+
+        <div ref={tableScrollRef} className="overflow-x-auto" onScroll={() => syncHorizontalScroll("table")}>
+          <table ref={tableElementRef} className="w-full caption-bottom text-sm">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 {visibleColumns.map((column) => (
@@ -566,7 +630,7 @@ export default function FormSubmissions() {
                 </TableRow>
               )}
             </TableBody>
-          </Table>
+          </table>
         </div>
       </div>
 
