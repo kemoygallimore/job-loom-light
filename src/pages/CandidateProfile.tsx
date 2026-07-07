@@ -15,6 +15,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ResumeHistory from "@/components/candidate/ResumeHistory";
 import CandidateTagsBar from "@/components/candidate/CandidateTagsBar";
 import CandidateDocuments from "@/components/candidate/CandidateDocuments";
+import { R2_BUCKET_RESUMES, getSignedR2Url } from "@/lib/r2Worker";
+import { CandidateEmailComposer } from "@/components/email/CandidateEmailComposer";
 
 const STAGES = ["applied", "shortlisted", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"] as const;
 
@@ -70,6 +72,36 @@ interface ApplicationWithJob {
   hiring_manager: string | null;
 }
 
+interface EmailLog {
+  id: string;
+  template_key: string;
+  recipient_email: string;
+  status: string;
+  context: Record<string, unknown> | null;
+  created_at: string;
+}
+
+interface NoteRow {
+  id: string;
+  content: string;
+  created_at: string;
+  user_id: string;
+}
+
+interface ProfileNameRow {
+  user_id: string;
+  name: string | null;
+}
+
+interface ApplicationQueryRow {
+  id: string;
+  stage: string;
+  updated_at: string;
+  created_at: string;
+  job_id: string;
+  jobs: { title: string | null; hiring_manager: string | null } | null;
+}
+
 export default function CandidateProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -78,13 +110,16 @@ export default function CandidateProfile() {
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [applications, setApplications] = useState<ApplicationWithJob[]>([]);
   const [notes, setNotes] = useState<NoteWithAuthor[]>([]);
+  const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
+  const [emailComposerOpen, setEmailComposerOpen] = useState(false);
+  const [rejectionApplication, setRejectionApplication] = useState<ApplicationWithJob | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!id || !profile) return;
     const load = async () => {
       setLoading(true);
-      const [cRes, aRes, nRes] = await Promise.all([
+      const [cRes, aRes, nRes, eRes] = await Promise.all([
         supabase.from("candidates").select("*").eq("id", id).single(),
         supabase
           .from("applications")
@@ -92,6 +127,12 @@ export default function CandidateProfile() {
           .eq("candidate_id", id)
           .order("updated_at", { ascending: false }),
         supabase.from("notes").select("*").eq("candidate_id", id).order("created_at", { ascending: false }),
+        supabase
+          .from("email_send_log")
+          .select("id, template_key, recipient_email, status, context, created_at")
+          .eq("candidate_id", id)
+          .eq("status", "sent")
+          .order("created_at", { ascending: false }),
       ]);
 
       if (cRes.error || !cRes.data) {
@@ -100,21 +141,21 @@ export default function CandidateProfile() {
         return;
       }
 
-      const rawNotes = (nRes.data ?? []) as any[];
+      const rawNotes = (nRes.data ?? []) as NoteRow[];
 
       // Fetch author names for notes
-      const authorIds = [...new Set(rawNotes.map((n: any) => n.user_id))];
-      let authorMap: Record<string, string> = {};
+      const authorIds = [...new Set(rawNotes.map((note) => note.user_id))];
+      const authorMap: Record<string, string> = {};
       if (authorIds.length > 0) {
         const { data: profiles } = await supabase.from("profiles").select("user_id, name").in("user_id", authorIds);
-        (profiles ?? []).forEach((p: any) => {
-          authorMap[p.user_id] = p.name;
+        ((profiles ?? []) as ProfileNameRow[]).forEach((profileRow) => {
+          authorMap[profileRow.user_id] = profileRow.name ?? "Unknown";
         });
       }
 
       setCandidate(cRes.data as unknown as Candidate);
       setApplications(
-        (aRes.data ?? []).map((a: any) => ({
+        ((aRes.data ?? []) as unknown as ApplicationQueryRow[]).map((a) => ({
           id: a.id,
           stage: a.stage,
           updated_at: a.updated_at,
@@ -125,7 +166,7 @@ export default function CandidateProfile() {
         })),
       );
       setNotes(
-        rawNotes.map((n: any) => ({
+        rawNotes.map((n) => ({
           id: n.id,
           content: n.content,
           created_at: n.created_at,
@@ -133,15 +174,26 @@ export default function CandidateProfile() {
           author_name: authorMap[n.user_id] ?? "Unknown",
         })),
       );
+      setEmailLogs((eRes.data ?? []) as unknown as EmailLog[]);
       setLoading(false);
     };
     load();
-  }, [id, profile]);
+  }, [id, navigate, profile]);
 
   const handleStageChange = async (appId: string, newStage: string) => {
+    if (newStage === "rejected") {
+      const application = applications.find((app) => app.id === appId);
+      if (!application) {
+        toast.error("Application not found");
+        return;
+      }
+      setRejectionApplication(application);
+      return;
+    }
+
     const { error } = await supabase
       .from("applications")
-      .update({ stage: newStage as any })
+      .update({ stage: newStage })
       .eq("id", appId);
     if (error) {
       toast.error(error.message);
@@ -151,6 +203,20 @@ export default function CandidateProfile() {
     setApplications((prev) =>
       prev.map((a) => (a.id === appId ? { ...a, stage: newStage, updated_at: new Date().toISOString() } : a)),
     );
+  };
+
+  const handleRejectionComposerOpenChange = (open: boolean) => {
+    if (!open) setRejectionApplication(null);
+  };
+
+  const handleRejectionSent = (applicationIds: string[]) => {
+    const targetIds = new Set(applicationIds.length > 0 ? applicationIds : rejectionApplication ? [rejectionApplication.id] : []);
+    setApplications((prev) =>
+      prev.map((app) =>
+        targetIds.has(app.id) ? { ...app, stage: "rejected", updated_at: new Date().toISOString() } : app,
+      ),
+    );
+    setRejectionApplication(null);
   };
 
   // Build activity timeline events
@@ -196,6 +262,20 @@ export default function CandidateProfile() {
         description: n.content.length > 120 ? n.content.slice(0, 120) + "…" : n.content,
         timestamp: n.created_at,
         meta: n.author_name,
+      });
+    });
+
+    emailLogs.forEach((email) => {
+      const context = email.context ?? {};
+      const subject = typeof context.subject === "string" ? context.subject : "Candidate email";
+      const templateName = typeof context.template_name === "string" ? context.template_name : email.template_key;
+      events.push({
+        id: "email-" + email.id,
+        type: "email",
+        title: "Email sent",
+        description: subject,
+        timestamp: email.created_at,
+        meta: templateName,
       });
     });
 
@@ -330,6 +410,12 @@ export default function CandidateProfile() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
+            {candidate.email && (
+              <Button variant="outline" size="sm" className="gap-2" onClick={() => setEmailComposerOpen(true)}>
+                <Mail className="w-4 h-4" />
+                Email Candidate
+              </Button>
+            )}
             {candidate.resume_url && (
               <Button
                 variant="outline"
@@ -337,38 +423,18 @@ export default function CandidateProfile() {
                 className="gap-2"
                 onClick={async () => {
                   try {
-                    const bucket = candidate.resume_bucket ?? "silverweb-ats-resumes";
+                    const bucket = candidate.resume_bucket ?? R2_BUCKET_RESUMES;
                     const key = candidate.resume_object_key ?? candidate.resume_url;
 
                     if (!key) {
                       throw new Error("Resume not found");
                     }
 
-                    const res = await fetch("https://api.rizonhire.com/sign-view", {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                      },
-                      body: JSON.stringify({
-                        bucket,
-                        key,
-                      }),
-                    });
-
-                    if (!res.ok) {
-                      throw new Error("Failed to get signed resume URL");
-                    }
-
-                    const data = await res.json();
-
-                    if (!data.viewUrl) {
-                      throw new Error("Invalid response from Worker");
-                    }
-
-                    window.open(data.viewUrl, "_blank", "noopener,noreferrer");
-                  } catch (err: any) {
+                    const viewUrl = await getSignedR2Url(bucket, key);
+                    window.open(viewUrl, "_blank", "noopener,noreferrer");
+                  } catch (err: unknown) {
                     console.error(err);
-                    toast.error(err?.message || "Failed to load resume");
+                    toast.error(err instanceof Error ? err.message : "Failed to load resume");
                   }
                 }}
               >
@@ -519,6 +585,42 @@ export default function CandidateProfile() {
 
       {/* Standalone Activity Timeline */}
       <ActivityTimeline events={buildTimeline()} />
+
+      <CandidateEmailComposer
+        open={emailComposerOpen}
+        onOpenChange={setEmailComposerOpen}
+        recipients={[
+          {
+            candidateId: candidate.id,
+            applicationId: latestApp?.id ?? null,
+            candidateName: candidate.name,
+            candidateEmail: candidate.email,
+            jobId: latestApp?.job_id ?? null,
+            jobTitle: latestApp?.job_title ?? null,
+          },
+        ]}
+      />
+
+      <CandidateEmailComposer
+        open={Boolean(rejectionApplication)}
+        mode="rejection"
+        onOpenChange={handleRejectionComposerOpenChange}
+        onSent={handleRejectionSent}
+        recipients={
+          rejectionApplication
+            ? [
+                {
+                  candidateId: candidate.id,
+                  applicationId: rejectionApplication.id,
+                  candidateName: candidate.name,
+                  candidateEmail: candidate.email,
+                  jobId: rejectionApplication.job_id,
+                  jobTitle: rejectionApplication.job_title,
+                },
+              ]
+            : []
+        }
+      />
     </div>
   );
 }

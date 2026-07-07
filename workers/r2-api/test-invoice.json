@@ -1,0 +1,42 @@
+{
+  "invoice_id": "test-invoice-001",
+  "company_id": "test-company-001",
+  "invoice_number": "INV-2026-000001",
+  "payload": {
+    "company": {
+      "name": "Test Company Ltd",
+      "email": "billing@testcompany.com",
+      "address": "Kingston, Jamaica"
+    },
+    "invoice": {
+      "company_id": "test-company-001",
+      "invoice_number": "INV-2026-000001",
+      "status": "draft",
+      "currency": "USD",
+      "subtotal_cents": 120000,
+      "discount_cents": 10000,
+      "total_cents": 110000,
+      "period_start": "2026-01-01",
+      "period_end": "2026-12-31",
+      "issued_at": "2026-05-15",
+      "due_at": "2026-05-29",
+      "pdf_version": 0
+    },
+    "line_items": [
+      {
+        "description": "Annual RizonHire Subscription",
+        "quantity": 1,
+        "unit_price_cents": 120000,
+        "amount_cents": 120000
+      },
+      {
+        "description": "Tenant Discount",
+        "quantity": 1,
+        "unit_price_cents": -10000,
+        "amount_cents": -10000
+      }
+    ]
+  }
+}
+
+

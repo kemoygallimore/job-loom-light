@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Download, Briefcase, Calendar } from "lucide-react";
 import { toast } from "sonner";
+import { getSignedR2Url } from "@/lib/r2Worker";
 
 interface ResumeFile {
   id: string;
@@ -66,15 +67,8 @@ export default function ResumeHistory({ candidateId }: { candidateId: string }) 
   const handleDownload = async (file: ResumeFile) => {
     setDownloadingId(file.id);
     try {
-      const res = await fetch("https://api.rizonhire.com/sign-view", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bucket: file.bucket, key: file.file_key }),
-      });
-      if (!res.ok) throw new Error("Failed to get signed URL");
-      const data = await res.json();
-      if (!data.viewUrl) throw new Error("Invalid response");
-      window.open(data.viewUrl, "_blank", "noopener,noreferrer");
+      const viewUrl = await getSignedR2Url(file.bucket, file.file_key);
+      window.open(viewUrl, "_blank", "noopener,noreferrer");
     } catch (err: any) {
       console.error(err);
       toast.error(err?.message || "Failed to download resume");

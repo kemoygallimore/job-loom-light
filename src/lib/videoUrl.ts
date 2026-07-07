@@ -1,4 +1,4 @@
-const WORKER_URL = "https://api.rizonhire.com";
+import { R2_BUCKET_VIDEOS, getSignedR2Url } from "@/lib/r2Worker";
 
 function isFullUrl(value: string) {
   return /^https?:\/\//i.test(value);
@@ -11,23 +11,5 @@ export async function resolveVideoUrl(videoUrlOrKey: string | null | undefined):
     return videoUrlOrKey;
   }
 
-  // It's an R2 object key — request a signed/presigned URL from the Worker
-  const res = await fetch(`${WORKER_URL}/presign-download`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ key: videoUrlOrKey }),
-  });
-
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error("Failed to resolve video URL: " + errorText);
-  }
-
-  const { url } = await res.json();
-
-  if (!url) {
-    throw new Error("Invalid Worker response for video URL");
-  }
-
-  return url;
+  return getSignedR2Url(R2_BUCKET_VIDEOS, videoUrlOrKey);
 }

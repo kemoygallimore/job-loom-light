@@ -24,6 +24,7 @@ import AdminEmailTemplates from "./pages/admin/AdminEmailTemplates";
 import AdminPolicies from "./pages/admin/AdminPolicies";
 import Billing from "./pages/Billing";
 import Team from "./pages/Team";
+import Forms from "./pages/Forms";
 import CompanyEmailTemplates from "./pages/settings/CompanyEmailTemplates";
 import InvoiceDetail from "./pages/InvoiceDetail";
 import CareersPage from "./pages/careers/CareersPage";
@@ -33,6 +34,9 @@ import ScreeningSubmissions from "./pages/screening/ScreeningSubmissions";
 import PublicScreening from "./pages/screening/PublicScreening";
 import PublicJobApplication from "./pages/apply/PublicJobApplication";
 import PublicFeedback from "./pages/feedback/PublicFeedback";
+import PublicLeadForm from "./pages/forms/PublicLeadForm";
+import FormBuilder from "./pages/forms/FormBuilder";
+import FormSubmissions from "./pages/forms/FormSubmissions";
 import DataProtection from "./pages/legal/DataProtection";
 import NotFound from "./pages/NotFound";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -115,6 +119,10 @@ const App = () => (
               <Route path="/billing" element={<Billing />} />
               <Route path="/billing/invoices/:id" element={<InvoiceDetail />} />
               <Route path="/team" element={<Team />} />
+              <Route path="/forms" element={<Forms />} />
+              <Route path="/forms/new" element={<FormBuilder />} />
+              <Route path="/forms/:formId/edit" element={<FormBuilder />} />
+              <Route path="/forms/:formId/submissions" element={<FormSubmissions />} />
               <Route path="/settings/email-templates" element={<CompanyEmailTemplates />} />
               <Route path="/admin" element={<AdminDashboard />}>
                 <Route index element={<AdminOverview />} />
@@ -127,6 +135,7 @@ const App = () => (
                 <Route path="policies" element={<AdminPolicies />} />
               </Route>
             </Route>
+            <Route path="/forms/:publicId" element={<PublicLeadForm />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

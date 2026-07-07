@@ -1,5 +1,4 @@
-const WORKER_URL = "https://api.rizonhire.com";
-const DEFAULT_BUCKET = "silverweb-ats-videos";
+import { R2_BUCKET_VIDEOS, deleteR2Objects } from "@/lib/r2Worker";
 
 export interface DeleteVideoItem {
   bucket: string | null | undefined;
@@ -13,7 +12,7 @@ export interface DeleteVideoItem {
  */
 export async function deleteScreeningVideosFromR2(items: DeleteVideoItem[]): Promise<void> {
   const targets = items
-    .map((i) => ({ bucket: i.bucket || DEFAULT_BUCKET, key: (i.key || "").trim() }))
+    .map((i) => ({ bucket: i.bucket || R2_BUCKET_VIDEOS, key: (i.key || "").trim() }))
     .filter((i) => i.key.length > 0 && !/^https?:\/\//i.test(i.key));
 
   if (targets.length === 0) return;
@@ -30,15 +29,7 @@ export async function deleteScreeningVideosFromR2(items: DeleteVideoItem[]): Pro
 
   for (const [bucket, keys] of byBucket) {
     try {
-      const res = await fetch(`${WORKER_URL}/delete-object`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bucket, keys }),
-      });
-      if (!res.ok && res.status !== 404) {
-        const text = await res.text().catch(() => "");
-        errors.push(`R2 delete failed (${res.status}): ${text}`);
-      }
+      await deleteR2Objects(bucket, keys);
     } catch (err: any) {
       errors.push(err?.message || "Network error contacting storage");
     }

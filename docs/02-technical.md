@@ -39,6 +39,8 @@ supabase/
   functions/
     create-company-admin/ Provisions auth user + profile + role for a new tenant
     screening-cleanup/    Removes expired screening artifacts
+workers/
+  r2-api/                 Cloudflare Worker for R2 upload/sign/delete and invoice PDF generation
 ```
 
 ## Routing Map
@@ -101,8 +103,10 @@ supabase/
 
 | Bucket | Visibility | Contents |
 |---|---|---|
-| `silverweb-ats-resumes` | Private | Candidate CVs and supporting documents |
+| `silverweb-ats-resumes` | Private | Candidate CVs/resumes only |
 | `silverweb-ats-videos` | Private | Video screening submissions |
+| `silverweb-additional-documents` | Private | Candidate documents, public application extra documents, and lead form/TRN uploads |
+| `rizonhire-invoices` | Private | Generated invoice PDFs |
 
 All file access is mediated through the Cloudflare Worker at `https://api.rizonhire.com`; the app stores only R2 bucket names and object keys in Supabase tables.
 Legacy Supabase Storage buckets (`resumes`, `screening-videos`) should remain private and policy-free until they are confirmed empty, then deleted with `scripts/delete-supabase-storage-buckets.mjs`.

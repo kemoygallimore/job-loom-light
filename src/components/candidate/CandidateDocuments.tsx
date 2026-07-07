@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FileText, Download, Calendar, Upload, Trash2, User } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { getSignedR2Url } from "@/lib/r2Worker";
 
 interface CandidateDocument {
   id: string;
@@ -27,9 +28,10 @@ function formatBytes(bytes: number) {
 interface Props {
   candidateId: string;
   companyId: string;
+  readOnly?: boolean;
 }
 
-export default function CandidateDocuments({ candidateId, companyId }: Props) {
+export default function CandidateDocuments({ candidateId, companyId, readOnly = false }: Props) {
   const { profile } = useAuth();
   const [files, setFiles] = useState<CandidateDocument[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,9 +102,9 @@ export default function CandidateDocuments({ candidateId, companyId }: Props) {
 
       toast.success("Document uploaded");
       await load();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      toast.error(err?.message || "Upload failed");
+      toast.error(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -112,18 +114,11 @@ export default function CandidateDocuments({ candidateId, companyId }: Props) {
   const handleView = async (file: CandidateDocument) => {
     setBusyId(file.id);
     try {
-      const res = await fetch("https://api.rizonhire.com/sign-view", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bucket: file.bucket, key: file.file_key }),
-      });
-      if (!res.ok) throw new Error("Failed to get signed URL");
-      const data = await res.json();
-      if (!data.viewUrl) throw new Error("Invalid response");
-      window.open(data.viewUrl, "_blank", "noopener,noreferrer");
-    } catch (err: any) {
+      const viewUrl = await getSignedR2Url(file.bucket, file.file_key);
+      window.open(viewUrl, "_blank", "noopener,noreferrer");
+    } catch (err: unknown) {
       console.error(err);
-      toast.error(err?.message || "Failed to open document");
+      toast.error(err instanceof Error ? err.message : "Failed to open document");
     } finally {
       setBusyId(null);
     }
@@ -151,13 +146,15 @@ export default function CandidateDocuments({ candidateId, companyId }: Props) {
             Personal docs, application forms, references, etc. (max 25&nbsp;MB)
           </p>
         </div>
-        <div>
-          <input ref={inputRef} type="file" className="hidden" onChange={handleFileChange} disabled={uploading} />
-          <Button size="sm" className="gap-2" onClick={() => inputRef.current?.click()} disabled={uploading}>
-            <Upload className="w-4 h-4" />
-            {uploading ? "Uploading…" : "Upload document"}
-          </Button>
-        </div>
+        {!readOnly && (
+          <div>
+            <input ref={inputRef} type="file" className="hidden" onChange={handleFileChange} disabled={uploading} />
+            <Button size="sm" className="gap-2" onClick={() => inputRef.current?.click()} disabled={uploading}>
+              <Upload className="w-4 h-4" />
+              {uploading ? "Uploading…" : "Upload document"}
+            </Button>
+          </div>
+        )}
       </div>
 
       {loading ? (
@@ -195,16 +192,18 @@ export default function CandidateDocuments({ candidateId, companyId }: Props) {
                 <Download className="w-3.5 h-3.5" />
                 View
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="flex-shrink-0 text-muted-foreground hover:text-destructive"
-                disabled={busyId === f.id}
-                onClick={() => handleDelete(f)}
-                title="Delete"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </Button>
+              {!readOnly && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex-shrink-0 text-muted-foreground hover:text-destructive"
+                  disabled={busyId === f.id}
+                  onClick={() => handleDelete(f)}
+                  title="Delete"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              )}
             </div>
           ))}
         </div>

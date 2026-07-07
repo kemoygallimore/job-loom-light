@@ -2,39 +2,34 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
+import { ChevronDown, FileText, Mail, Plus, Video, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import KanbanCard from "@/components/pipeline/KanbanCard";
 import CandidatePanel from "@/components/pipeline/CandidatePanel";
-import { RejectionEmailDialog } from "@/components/pipeline/RejectionEmailDialog";
+import { CandidateEmailComposer, type CandidateEmailRecipient } from "@/components/email/CandidateEmailComposer";
+import type { CandidateEmailTemplatePurpose } from "@/lib/candidateEmailTemplates";
+import {
+  mapActivePipelineApplications,
+  reconcilePipelineSelection,
+  type PipelineApplication,
+  type PipelineApplicationRow,
+} from "@/lib/pipeline";
 
 const STAGES = ["applied", "shortlisted", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"] as const;
 type Stage = typeof STAGES[number];
 
-export interface Application {
-  id: string;
-  job_id: string;
-  candidate_id: string;
-  stage: Stage;
-  company_id: string;
-  candidate: { name: string; email: string | null };
-  job: { title: string; hiring_manager: string | null };
-}
-
-interface ApplicationQueryRow {
-  id: string;
-  job_id: string;
-  candidate_id: string;
-  stage: Stage;
-  company_id: string;
-  candidates: { name: string; email: string | null } | null;
-  jobs: { title: string; hiring_manager: string | null } | null;
-}
+export type Application = PipelineApplication;
 
 export default function Pipeline() {
   const { profile } = useAuth();
@@ -47,6 +42,8 @@ export default function Pipeline() {
   const [newCandidateId, setNewCandidateId] = useState("");
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [actionDialogOpen, setActionDialogOpen] = useState(false);
+  const [actionPurpose, setActionPurpose] = useState<CandidateEmailTemplatePurpose>("general");
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectDialogIds, setRejectDialogIds] = useState<string[]>([]);
   
@@ -54,15 +51,15 @@ export default function Pipeline() {
   const load = useCallback(async () => {
     const { data } = await supabase
       .from("applications")
-      .select("id, job_id, candidate_id, stage, company_id, candidates(name, email), jobs(title, hiring_manager)")
+      .select("id, job_id, candidate_id, stage, company_id, candidates(name, email), jobs!inner(title, hiring_manager, status)")
+      .eq("jobs.status", "open")
       .order("created_at", { ascending: false });
 
-    const mapped = ((data ?? []) as unknown as ApplicationQueryRow[]).map((d) => ({
-      ...d,
-      candidate: d.candidates ?? { name: "Unknown candidate", email: null },
-      job: d.jobs ?? { title: "Untitled job", hiring_manager: null },
-    }));
+    const mapped = mapActivePipelineApplications((data ?? []) as unknown as PipelineApplicationRow[]);
     setApplications(mapped);
+    setSelectedIds((current) => reconcilePipelineSelection(mapped, current, null).selectedIds);
+    setRejectDialogIds((current) => reconcilePipelineSelection(mapped, current, null).selectedIds);
+    setSelectedApp((current) => reconcilePipelineSelection(mapped, [], current).selectedApp);
   }, []);
 
   const loadOptions = useCallback(async () => {
@@ -70,7 +67,9 @@ export default function Pipeline() {
       supabase.from("jobs").select("id, title").eq("status", "open"),
       supabase.from("candidates").select("id, name"),
     ]);
-    setJobs((j.data ?? []) as { id: string; title: string }[]);
+    const openJobs = (j.data ?? []) as { id: string; title: string }[];
+    setJobs(openJobs);
+    setSelectedJobFilter((current) => current === "all" || openJobs.some((job) => job.id === current) ? current : "all");
     setCandidates((c.data ?? []) as { id: string; name: string }[]);
   }, []);
 
@@ -132,6 +131,23 @@ export default function Pipeline() {
     });
   };
 
+  const toggleStageSelection = (stageApps: Application[]) => {
+    const ids = stageApps.map((app) => app.id);
+    if (ids.length === 0) return;
+    const allSelected = ids.every((id) => selectedIds.includes(id));
+
+    setSelectedIds((current) => {
+      if (allSelected) return current.filter((id) => !ids.includes(id));
+      return Array.from(new Set([...current, ...ids]));
+    });
+  };
+
+  const openActionDialog = (purpose: CandidateEmailTemplatePurpose) => {
+    if (selectedIds.length === 0) return;
+    setActionPurpose(purpose);
+    setActionDialogOpen(true);
+  };
+
   const openRejectDialog = (ids: string[]) => {
     if (!profile) return;
     if (ids.length === 0) return;
@@ -157,6 +173,17 @@ export default function Pipeline() {
 
   const filtered = selectedJobFilter === "all" ? applications : applications.filter(a => a.job_id === selectedJobFilter);
   const rejectDialogApps = applications.filter((app) => rejectDialogIds.includes(app.id));
+  const selectedApps = applications.filter((app) => selectedIds.includes(app.id));
+
+  const toEmailRecipients = (apps: Application[]): CandidateEmailRecipient[] =>
+    apps.map((app) => ({
+      candidateId: app.candidate_id,
+      applicationId: app.id,
+      candidateName: app.candidate?.name ?? "Candidate",
+      candidateEmail: app.candidate?.email ?? null,
+      jobTitle: app.job?.title ?? null,
+      jobId: app.job_id,
+    }));
 
   const kanbanRef = useRef<HTMLDivElement>(null);
   const topScrollRef = useRef<HTMLDivElement>(null);
@@ -242,13 +269,34 @@ export default function Pipeline() {
               </form>
             </DialogContent>
           </Dialog>
-            <Button
-              className="bg-destructive text-destructive-foreground"
-              disabled={selectedIds.length === 0}
-              onClick={() => openRejectDialog(selectedIds)}
-            >
-              Reject selected
-            </Button>
+          {selectedIds.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  Actions
+                  <ChevronDown className="ml-2 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={() => openActionDialog("general")}>
+                  <Mail className="mr-2 h-4 w-4" />
+                  Email Selected
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openActionDialog("form_link")}>
+                  <FileText className="mr-2 h-4 w-4" />
+                  Send Form Link
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openActionDialog("video_screening")}>
+                  <Video className="mr-2 h-4 w-4" />
+                  Send Video Screening Link
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => openRejectDialog(selectedIds)}>
+                  <XCircle className="mr-2 h-4 w-4" />
+                  Reject Candidates
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </div>
 
@@ -270,6 +318,7 @@ export default function Pipeline() {
         >
           {STAGES.map(stage => {
             const stageApps = filtered.filter(a => a.stage === stage);
+            const allStageAppsSelected = stageApps.length > 0 && stageApps.every((app) => selectedIds.includes(app.id));
             return (
               <Droppable droppableId={stage} key={stage}>
                 {(provided, snapshot) => (
@@ -284,21 +333,19 @@ export default function Pipeline() {
                         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{stageLabels[stage]}</h3>
                       </div>
                       <div className="flex items-center gap-2">
-                        {stage !== "hired" && stage !== "rejected" && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-                            disabled={stageApps.length === 0}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openRejectDialog(stageApps.map((app) => app.id));
-                            }}
-                          >
-                            Reject all
-                          </Button>
-                        )}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          disabled={stageApps.length === 0}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleStageSelection(stageApps);
+                          }}
+                        >
+                          {allStageAppsSelected ? "Clear" : "Select all"}
+                        </Button>
                         <span className="text-xs text-muted-foreground tabular-nums bg-background/80 rounded-md px-1.5 py-0.5">{stageApps.length}</span>
                       </div>
                     </div>
@@ -348,9 +395,18 @@ export default function Pipeline() {
         />
       )}
 
-      <RejectionEmailDialog
+      <CandidateEmailComposer
+        open={actionDialogOpen}
+        purpose={actionPurpose}
+        recipients={toEmailRecipients(selectedApps)}
+        onOpenChange={setActionDialogOpen}
+        onSent={() => setSelectedIds([])}
+      />
+
+      <CandidateEmailComposer
         open={rejectDialogOpen}
-        applications={rejectDialogApps}
+        mode="rejection"
+        recipients={toEmailRecipients(rejectDialogApps)}
         onOpenChange={handleRejectDialogOpenChange}
         onSent={handleRejectSent}
       />

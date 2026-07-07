@@ -1,33 +1,15 @@
-const WORKER_URL = "https://api.rizonhire.com";
-const DEFAULT_BUCKET = "silverweb-ats-videos";
+import { R2_BUCKET_VIDEOS, getSignedR2Url } from "@/lib/r2Worker";
 
 export async function getSignedVideoViewUrl(
   bucket: string | null | undefined,
   key: string | null | undefined,
 ): Promise<string> {
   const resolvedKey = key ?? "";
-  const resolvedBucket = bucket ?? DEFAULT_BUCKET;
+  const resolvedBucket = bucket ?? R2_BUCKET_VIDEOS;
 
   if (!resolvedKey) {
     throw new Error("No video key available");
   }
 
-  const res = await fetch(`${WORKER_URL}/sign-view`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ bucket: resolvedBucket, key: resolvedKey }),
-  });
-
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`Failed to get signed video URL: ${errorText}`);
-  }
-
-  const { viewUrl } = await res.json();
-
-  if (!viewUrl) {
-    throw new Error("Invalid Worker response: missing viewUrl");
-  }
-
-  return viewUrl;
+  return getSignedR2Url(resolvedBucket, resolvedKey);
 }
