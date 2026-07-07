@@ -21,6 +21,7 @@ import {
   candidateEmailTemplateHasRequiredToken,
   defaultCandidateEmailTemplate,
   insertCandidateEmailTokenInText,
+  makeCandidateEmailTemplateKey,
   normalizeCandidateEmailTemplate,
   renderCandidateEmailTemplate,
   requiredTokenForCandidateEmailPurpose,
@@ -184,9 +185,10 @@ export default function CompanyEmailTemplates() {
       .map((template) => template.id)
       .filter(Boolean) as string[];
 
+    const isEditingExistingTemplate = editorMode === "edit" && Boolean(draft.id);
     const payload = {
       company_id: profile.company_id,
-      key: draft.key,
+      key: isEditingExistingTemplate ? draft.key : makeCandidateEmailTemplateKey(),
       name: draft.name.trim(),
       purpose: draft.purpose,
       is_default_for_purpose: shouldBecomeDefault && previousDefaultIds.length === 0,
@@ -199,11 +201,19 @@ export default function CompanyEmailTemplates() {
       updated_by: profile.user_id,
     };
 
-    const query = editorMode === "edit" && draft.id
-      ? supabase.from("company_email_templates").update(payload).eq("id", draft.id).select("*").single()
-      : supabase.from("company_email_templates").insert(payload).select("*").single();
+    const saveTemplate = async (templatePayload: typeof payload) => {
+      if (isEditingExistingTemplate && draft.id) {
+        return await supabase.from("company_email_templates").update(templatePayload).eq("id", draft.id).select("*").single();
+      }
 
-    const { data, error } = await query;
+      return await supabase.from("company_email_templates").insert(templatePayload).select("*").single();
+    };
+
+    let { data, error } = await saveTemplate(payload);
+
+    if (error && !isEditingExistingTemplate && /duplicate key|company_email_templates_company_key_unique|unique constraint/i.test(error.message)) {
+      ({ data, error } = await saveTemplate({ ...payload, key: makeCandidateEmailTemplateKey() }));
+    }
 
     if (error) {
       setSaving(false);

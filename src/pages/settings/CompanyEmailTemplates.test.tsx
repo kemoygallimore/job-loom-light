@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import CompanyEmailTemplates from "./CompanyEmailTemplates";
 import { CandidateEmailTemplate, REJECTION_TEMPLATE_KEY } from "@/lib/candidateEmailTemplates";
 
@@ -10,6 +10,8 @@ const state = vi.hoisted(() => ({
   insertPayloads: [] as Record<string, unknown>[],
   updatePayloads: [] as Array<{ payload: Record<string, unknown>; filters: Record<string, unknown> }>,
 }));
+
+const uuid = (value: string) => value as ReturnType<Crypto["randomUUID"]>;
 
 vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => ({
@@ -87,6 +89,20 @@ vi.mock("@/integrations/supabase/client", () => {
         }
 
         state.insertPayloads.push(mutationPayload);
+        if (
+          state.templateRows.some(
+            (template) => template.company_id === mutationPayload.company_id && template.key === mutationPayload.key,
+          )
+        ) {
+          return Promise.resolve({
+            data: null,
+            error: {
+              message:
+                'duplicate key value violates unique constraint "company_email_templates_company_key_unique"',
+            },
+          });
+        }
+
         const inserted = { ...mutationPayload, id: "created-template" } as CandidateEmailTemplate;
         state.templateRows = [inserted, ...state.templateRows];
         return Promise.resolve({ data: inserted, error: null });
@@ -148,6 +164,11 @@ function seedTemplates() {
       is_active: false,
     }),
     template({
+      id: "duplicate-key-template",
+      key: "candidate_email_duplicate",
+      name: "Duplicate Key Template",
+    }),
+    template({
       id: "archived-template",
       key: "candidate_email_archived",
       name: "Archived Template",
@@ -163,13 +184,17 @@ describe("CompanyEmailTemplates", () => {
     seedTemplates();
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("shows active and inactive non-archived templates grouped in the library", async () => {
     render(<CompanyEmailTemplates />);
 
     expect(await screen.findByText("Candidate Rejected")).toBeInTheDocument();
     expect(screen.getByText("Inactive Follow Up")).toBeInTheDocument();
     expect(screen.queryByText("Archived Template")).not.toBeInTheDocument();
-    expect(screen.getByText("2 visible templates")).toBeInTheDocument();
+    expect(screen.getByText("3 visible templates")).toBeInTheDocument();
   });
 
   it("starts a true new template after selecting the rejection template", async () => {
@@ -189,6 +214,22 @@ describe("CompanyEmailTemplates", () => {
     expect(state.insertPayloads[0].key).toMatch(/^candidate_email_/);
     expect(state.insertPayloads[0].key).not.toBe(REJECTION_TEMPLATE_KEY);
     expect(state.insertPayloads[0].subject).toBe("Update from {{company_name}}");
+  });
+
+  it("generates a fresh insert key at save time and retries once on duplicate keys", async () => {
+    vi.spyOn(crypto, "randomUUID")
+      .mockReturnValueOnce(uuid("draft-key"))
+      .mockReturnValueOnce(uuid("duplicate"))
+      .mockReturnValueOnce(uuid("fresh-key"));
+
+    render(<CompanyEmailTemplates />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /new template/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(state.insertPayloads).toHaveLength(2));
+    expect(state.insertPayloads[0].key).toBe("candidate_email_duplicate");
+    expect(state.insertPayloads[1].key).toBe("candidate_email_fresh-key");
   });
 
   it("updates an existing template when editing instead of inserting", async () => {
