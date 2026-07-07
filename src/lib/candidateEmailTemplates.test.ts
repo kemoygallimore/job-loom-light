@@ -3,6 +3,7 @@ import {
   candidateEmailTemplateHasRequiredToken,
   defaultCandidateEmailTemplate,
   normalizeCandidateEmailTemplate,
+  REJECTION_TEMPLATE_KEY,
   requiredTokenForCandidateEmailPurpose,
   variablesForCandidateEmailPurpose,
 } from "./candidateEmailTemplates";
@@ -39,5 +40,13 @@ describe("candidate email template purposes", () => {
         html_body: "<p>Please complete this form.</p>",
       }),
     ).toBe(false);
+  });
+
+  it("generates candidate_email keys for new client templates", () => {
+    const template = defaultCandidateEmailTemplate("company-1");
+
+    expect(template.key).toMatch(/^candidate_email_/);
+    expect(template.key).not.toBe(REJECTION_TEMPLATE_KEY);
+    expect(template.id).toBeUndefined();
   });
 });

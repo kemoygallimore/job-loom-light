@@ -30,20 +30,26 @@ import {
 } from "@/lib/candidateEmailTemplates";
 import { cn } from "@/lib/utils";
 
+type TemplateEditorMode = "new" | "edit";
+
+function candidateTemplateErrorMessage(message: string) {
+  if (/duplicate key|company_email_templates_company_key_unique|unique constraint/i.test(message)) {
+    return `${message}. Start a new template again to generate a fresh template key.`;
+  }
+  return message;
+}
+
 export default function CompanyEmailTemplates() {
   const { profile } = useAuth();
   const [templates, setTemplates] = useState<CandidateEmailTemplate[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editorMode, setEditorMode] = useState<TemplateEditorMode>("new");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [draft, setDraft] = useState<CandidateEmailTemplate | null>(null);
   const [companyName, setCompanyName] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const subjectInputRef = useRef<HTMLInputElement | null>(null);
 
-  const selectedTemplate = useMemo(
-    () => templates.find((template) => template.id === selectedId) ?? null,
-    [selectedId, templates],
-  );
   const templatesByPurpose = useMemo(
     () =>
       CANDIDATE_EMAIL_PURPOSES.map((purpose) => ({
@@ -53,9 +59,11 @@ export default function CompanyEmailTemplates() {
     [templates],
   );
 
-  const loadTemplates = useCallback(async () => {
+  const loadTemplates = useCallback(async (preferredTemplateId?: string | null) => {
     if (!profile?.company_id) {
       setTemplates([]);
+      setSelectedTemplateId(null);
+      setEditorMode("new");
       setDraft(null);
       setLoading(false);
       return;
@@ -82,15 +90,26 @@ export default function CompanyEmailTemplates() {
     if (templateResult.error) {
       toast.error(templateResult.error.message);
       setTemplates([]);
+      setSelectedTemplateId(null);
+      setEditorMode("new");
       setDraft(defaultCandidateEmailTemplate(profile.company_id));
       setLoading(false);
       return;
     }
 
     const list = ((templateResult.data ?? []) as CandidateEmailTemplate[]).map(normalizeCandidateEmailTemplate);
+    const selectedTemplate =
+      (preferredTemplateId ? list.find((template) => template.id === preferredTemplateId) : null) ?? list[0] ?? null;
     setTemplates(list);
-    setSelectedId((current) => (current && list.some((template) => template.id === current) ? current : list[0]?.id ?? null));
-    setDraft(list[0] ?? defaultCandidateEmailTemplate(profile.company_id));
+    if (selectedTemplate?.id) {
+      setEditorMode("edit");
+      setSelectedTemplateId(selectedTemplate.id);
+      setDraft({ ...selectedTemplate });
+    } else {
+      setEditorMode("new");
+      setSelectedTemplateId(null);
+      setDraft(defaultCandidateEmailTemplate(profile.company_id));
+    }
     setLoading(false);
   }, [profile?.company_id]);
 
@@ -98,14 +117,17 @@ export default function CompanyEmailTemplates() {
     loadTemplates();
   }, [loadTemplates]);
 
-  useEffect(() => {
-    if (selectedTemplate) setDraft(selectedTemplate);
-  }, [selectedTemplate]);
-
   const startNewTemplate = () => {
     if (!profile?.company_id) return;
-    setSelectedId(null);
+    setEditorMode("new");
+    setSelectedTemplateId(null);
     setDraft(defaultCandidateEmailTemplate(profile.company_id));
+  };
+
+  const selectTemplate = (template: CandidateEmailTemplate) => {
+    setEditorMode("edit");
+    setSelectedTemplateId(template.id ?? null);
+    setDraft({ ...template });
   };
 
   const insertSubjectToken = (token: string) => {
@@ -154,7 +176,11 @@ export default function CompanyEmailTemplates() {
     setSaving(true);
     const shouldBecomeDefault = draft.is_default_for_purpose;
     const previousDefaultIds = templates
-      .filter((template) => template.purpose === draft.purpose && template.is_default_for_purpose && template.id !== draft.id)
+      .filter((template) =>
+        template.purpose === draft.purpose &&
+        template.is_default_for_purpose &&
+        (editorMode === "new" || template.id !== draft.id),
+      )
       .map((template) => template.id)
       .filter(Boolean) as string[];
 
@@ -173,7 +199,7 @@ export default function CompanyEmailTemplates() {
       updated_by: profile.user_id,
     };
 
-    const query = draft.id
+    const query = editorMode === "edit" && draft.id
       ? supabase.from("company_email_templates").update(payload).eq("id", draft.id).select("*").single()
       : supabase.from("company_email_templates").insert(payload).select("*").single();
 
@@ -181,7 +207,7 @@ export default function CompanyEmailTemplates() {
 
     if (error) {
       setSaving(false);
-      toast.error(error.message);
+      toast.error(candidateTemplateErrorMessage(error.message));
       return;
     }
 
@@ -196,7 +222,7 @@ export default function CompanyEmailTemplates() {
 
       if (clearDefaultError) {
         setSaving(false);
-        toast.error(clearDefaultError.message);
+        toast.error(candidateTemplateErrorMessage(clearDefaultError.message));
         return;
       }
 
@@ -214,7 +240,7 @@ export default function CompanyEmailTemplates() {
           .update({ is_default_for_purpose: true })
           .in("id", previousDefaultIds);
         setSaving(false);
-        toast.error(setDefaultError.message);
+        toast.error(candidateTemplateErrorMessage(setDefaultError.message));
         return;
       }
 
@@ -222,41 +248,23 @@ export default function CompanyEmailTemplates() {
     }
 
     setSaving(false);
-    setTemplates((current) => {
-      const withoutSaved = current
-        .filter((template) => template.id !== saved.id)
-        .map((template) =>
-          shouldBecomeDefault && template.purpose === saved.purpose
-            ? { ...template, is_default_for_purpose: false }
-            : template,
-        );
-      return [...withoutSaved, saved].sort((left, right) => {
-        if (left.is_active !== right.is_active) return left.is_active ? -1 : 1;
-        if (left.purpose !== right.purpose) return left.purpose.localeCompare(right.purpose);
-        return left.name.localeCompare(right.name);
-      });
-    });
-    setSelectedId(saved.id ?? null);
-    setDraft(saved);
+    await loadTemplates(saved.id ?? null);
     toast.success("Email template saved");
   };
 
   const archiveTemplate = async () => {
-    if (!draft?.id) return;
+    if (editorMode !== "edit" || !draft?.id) return;
     const { error } = await supabase
       .from("company_email_templates")
       .update({ archived_at: new Date().toISOString(), is_active: false, updated_by: profile?.user_id })
       .eq("id", draft.id);
 
     if (error) {
-      toast.error(error.message);
+      toast.error(candidateTemplateErrorMessage(error.message));
       return;
     }
 
-    const remaining = templates.filter((template) => template.id !== draft.id);
-    setTemplates(remaining);
-    setSelectedId(remaining[0]?.id ?? null);
-    setDraft(remaining[0] ?? (profile?.company_id ? defaultCandidateEmailTemplate(profile.company_id) : null));
+    await loadTemplates(null);
     toast.success("Template archived");
   };
 
@@ -299,6 +307,12 @@ export default function CompanyEmailTemplates() {
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[300px_minmax(0,1fr)_360px]">
         <Card className="h-fit p-3">
+          <div className="mb-3 flex items-center justify-between px-1">
+            <h2 className="text-sm font-semibold">Template library</h2>
+            <span className="text-xs text-muted-foreground">
+              {templates.length} visible {templates.length === 1 ? "template" : "templates"}
+            </span>
+          </div>
           {templates.length === 0 ? (
             <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
               No saved templates yet. Create a general template to start sending candidate emails.
@@ -322,10 +336,10 @@ export default function CompanyEmailTemplates() {
                       <button
                         key={template.id}
                         type="button"
-                        onClick={() => setSelectedId(template.id ?? null)}
+                        onClick={() => selectTemplate(template)}
                         className={cn(
                           "w-full rounded-lg border px-3 py-2 text-left text-sm transition-colors",
-                          selectedId === template.id
+                          editorMode === "edit" && selectedTemplateId === template.id
                             ? "border-primary bg-primary/5 text-foreground shadow-sm"
                             : "border-transparent hover:border-border hover:bg-muted/50",
                         )}
@@ -357,7 +371,7 @@ export default function CompanyEmailTemplates() {
         <Card className="space-y-5 p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
-              <h2 className="font-semibold">{draft.id ? "Edit template" : "New template"}</h2>
+              <h2 className="font-semibold">{editorMode === "edit" ? "Edit template" : "New template"}</h2>
               <p className="text-sm text-muted-foreground">Templates are required when emailing candidates.</p>
             </div>
             <Label className="flex items-center gap-2 text-sm">
@@ -444,7 +458,7 @@ export default function CompanyEmailTemplates() {
           </div>
 
           <div className="flex flex-wrap justify-between gap-3 border-t pt-4">
-            <Button type="button" variant="outline" onClick={archiveTemplate} disabled={!draft.id}>
+            <Button type="button" variant="outline" onClick={archiveTemplate} disabled={editorMode !== "edit" || !draft.id}>
               <Archive className="mr-2 h-4 w-4" />
               Archive
             </Button>
