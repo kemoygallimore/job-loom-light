@@ -112,6 +112,7 @@ export default function CandidateProfile() {
   const [notes, setNotes] = useState<NoteWithAuthor[]>([]);
   const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
   const [emailComposerOpen, setEmailComposerOpen] = useState(false);
+  const [rejectionApplication, setRejectionApplication] = useState<ApplicationWithJob | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -180,6 +181,16 @@ export default function CandidateProfile() {
   }, [id, navigate, profile]);
 
   const handleStageChange = async (appId: string, newStage: string) => {
+    if (newStage === "rejected") {
+      const application = applications.find((app) => app.id === appId);
+      if (!application) {
+        toast.error("Application not found");
+        return;
+      }
+      setRejectionApplication(application);
+      return;
+    }
+
     const { error } = await supabase
       .from("applications")
       .update({ stage: newStage })
@@ -192,6 +203,20 @@ export default function CandidateProfile() {
     setApplications((prev) =>
       prev.map((a) => (a.id === appId ? { ...a, stage: newStage, updated_at: new Date().toISOString() } : a)),
     );
+  };
+
+  const handleRejectionComposerOpenChange = (open: boolean) => {
+    if (!open) setRejectionApplication(null);
+  };
+
+  const handleRejectionSent = (applicationIds: string[]) => {
+    const targetIds = new Set(applicationIds.length > 0 ? applicationIds : rejectionApplication ? [rejectionApplication.id] : []);
+    setApplications((prev) =>
+      prev.map((app) =>
+        targetIds.has(app.id) ? { ...app, stage: "rejected", updated_at: new Date().toISOString() } : app,
+      ),
+    );
+    setRejectionApplication(null);
   };
 
   // Build activity timeline events
@@ -574,6 +599,27 @@ export default function CandidateProfile() {
             jobTitle: latestApp?.job_title ?? null,
           },
         ]}
+      />
+
+      <CandidateEmailComposer
+        open={Boolean(rejectionApplication)}
+        mode="rejection"
+        onOpenChange={handleRejectionComposerOpenChange}
+        onSent={handleRejectionSent}
+        recipients={
+          rejectionApplication
+            ? [
+                {
+                  candidateId: candidate.id,
+                  applicationId: rejectionApplication.id,
+                  candidateName: candidate.name,
+                  candidateEmail: candidate.email,
+                  jobId: rejectionApplication.job_id,
+                  jobTitle: rejectionApplication.job_title,
+                },
+              ]
+            : []
+        }
       />
     </div>
   );

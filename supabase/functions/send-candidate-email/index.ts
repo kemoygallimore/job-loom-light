@@ -122,6 +122,7 @@ const CANDIDATE_EMAIL_PURPOSES = new Set<CandidateEmailPurpose>(["general", "for
 
 const DEFAULT_ALLOWED_ORIGINS = [
   "https://app.rizonhire.com",
+  "https://test.rizonhire.com",
   "http://localhost:8080",
   "http://127.0.0.1:8080",
 ];
