@@ -19,29 +19,17 @@ import KanbanCard from "@/components/pipeline/KanbanCard";
 import CandidatePanel from "@/components/pipeline/CandidatePanel";
 import { CandidateEmailComposer, type CandidateEmailRecipient } from "@/components/email/CandidateEmailComposer";
 import type { CandidateEmailTemplatePurpose } from "@/lib/candidateEmailTemplates";
+import {
+  mapActivePipelineApplications,
+  reconcilePipelineSelection,
+  type PipelineApplication,
+  type PipelineApplicationRow,
+} from "@/lib/pipeline";
 
 const STAGES = ["applied", "shortlisted", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"] as const;
 type Stage = typeof STAGES[number];
 
-export interface Application {
-  id: string;
-  job_id: string;
-  candidate_id: string;
-  stage: Stage;
-  company_id: string;
-  candidate: { name: string; email: string | null };
-  job: { title: string; hiring_manager: string | null };
-}
-
-interface ApplicationQueryRow {
-  id: string;
-  job_id: string;
-  candidate_id: string;
-  stage: Stage;
-  company_id: string;
-  candidates: { name: string; email: string | null } | null;
-  jobs: { title: string; hiring_manager: string | null } | null;
-}
+export type Application = PipelineApplication;
 
 export default function Pipeline() {
   const { profile } = useAuth();
@@ -63,15 +51,15 @@ export default function Pipeline() {
   const load = useCallback(async () => {
     const { data } = await supabase
       .from("applications")
-      .select("id, job_id, candidate_id, stage, company_id, candidates(name, email), jobs(title, hiring_manager)")
+      .select("id, job_id, candidate_id, stage, company_id, candidates(name, email), jobs!inner(title, hiring_manager, status)")
+      .eq("jobs.status", "open")
       .order("created_at", { ascending: false });
 
-    const mapped = ((data ?? []) as unknown as ApplicationQueryRow[]).map((d) => ({
-      ...d,
-      candidate: d.candidates ?? { name: "Unknown candidate", email: null },
-      job: d.jobs ?? { title: "Untitled job", hiring_manager: null },
-    }));
+    const mapped = mapActivePipelineApplications((data ?? []) as unknown as PipelineApplicationRow[]);
     setApplications(mapped);
+    setSelectedIds((current) => reconcilePipelineSelection(mapped, current, null).selectedIds);
+    setRejectDialogIds((current) => reconcilePipelineSelection(mapped, current, null).selectedIds);
+    setSelectedApp((current) => reconcilePipelineSelection(mapped, [], current).selectedApp);
   }, []);
 
   const loadOptions = useCallback(async () => {
@@ -79,7 +67,9 @@ export default function Pipeline() {
       supabase.from("jobs").select("id, title").eq("status", "open"),
       supabase.from("candidates").select("id, name"),
     ]);
-    setJobs((j.data ?? []) as { id: string; title: string }[]);
+    const openJobs = (j.data ?? []) as { id: string; title: string }[];
+    setJobs(openJobs);
+    setSelectedJobFilter((current) => current === "all" || openJobs.some((job) => job.id === current) ? current : "all");
     setCandidates((c.data ?? []) as { id: string; name: string }[]);
   }, []);
 
