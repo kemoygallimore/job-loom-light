@@ -189,8 +189,11 @@ CREATE POLICY "Applicants submit screening responses" ON public.job_screening_re
       SELECT 1 FROM public.applications a
       JOIN public.job_screening_versions v ON v.job_id = a.job_id
       JOIN public.jobs j ON j.id = a.job_id
-      WHERE a.id = application_id AND a.company_id = company_id
-        AND v.id = version_id AND v.status = 'published' AND j.status = 'open'
+      WHERE a.id = public.job_screening_responses.application_id
+      AND a.company_id = public.job_screening_responses.company_id
+      AND v.id = public.job_screening_responses.version_id
+      AND v.status = 'published'
+      AND j.status = 'open'
     )
   );
 CREATE POLICY "Applicants submit screening answers" ON public.job_screening_answers
