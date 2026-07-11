@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Copy, Check, Video, Eye, ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { Plus, Copy, Check, Video, Eye, Pencil, Trash2 } from "lucide-react";
 import { format, addDays, isAfter } from "date-fns";
 import { Link } from "react-router-dom";
 import { Calendar } from "@/components/ui/calendar";

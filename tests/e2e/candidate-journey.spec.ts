@@ -217,7 +217,7 @@ test.describe("Candidate journey", () => {
   // ---- 06 · Wait for word ----------------------------------------------
   test.fixme(
     "06 · receives status emails (needs a test mailbox)",
-    async ({ page }) => {
+    async ({ page: _page }) => {
       // There is no candidate login, so the only signal is email from
       // send-candidate-email. To automate this, point the app's email provider
       // at a test inbox (e.g. Mailosaur / Mailpit) and assert delivery:
@@ -232,7 +232,7 @@ test.describe("Candidate journey", () => {
   // ---- 07 · Outcome -----------------------------------------------------
   test.fixme(
     "07 · receives offer or rejection (needs a test mailbox)",
-    async ({ page }) => {
+    async ({ page: _page }) => {
       // Same constraint as step 06. Assert the offer/rejection template lands
       // in the test inbox once a mailbox is configured.
     },

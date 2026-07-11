@@ -10,7 +10,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Briefcase,
   Calendar,
   Check,
   Clock,
@@ -77,6 +76,14 @@ interface CandidateDetails {
   linkedin_url: string | null;
   created_at: string;
 }
+
+type CandidateLinkedInQuery = {
+  select: (columns: string) => {
+    eq: (column: "id", value: string) => {
+      maybeSingle: () => PromiseLike<{ data: CandidateDetails | null; error: { message: string } | null }>;
+    };
+  };
+};
 
 interface Note {
   id: string;
@@ -158,8 +165,8 @@ export default function CandidatePanel({ app, onClose, onStageChange }: Props) {
   const loadPanelData = async () => {
     setLoading(true);
     const [candidateResult, applicationsResult, notesResult, emailsResult] = await Promise.all([
-      supabase
-        .from("candidates")
+      // TODO: Regenerate Supabase types so candidates.linkedin_url is available without this cast.
+      (supabase.from("candidates") as unknown as CandidateLinkedInQuery)
         .select("id, company_id, name, email, phone, country, street_address, parish_state, education_level, linkedin_url, created_at")
         .eq("id", app.candidate_id)
         .maybeSingle(),
@@ -187,7 +194,7 @@ export default function CandidatePanel({ app, onClose, onStageChange }: Props) {
       return;
     }
 
-    setCandidate(candidateResult.data as CandidateDetails);
+    setCandidate(candidateResult.data);
     setApplications(
       ((applicationsResult.data ?? []) as unknown as ApplicationHistoryRow[]).map((item) => ({
         id: item.id,

@@ -21,6 +21,7 @@ import CandidateForms from "@/components/candidate/CandidateForms";
 import ScreeningReview from "@/components/candidate/ScreeningReview";
 
 const STAGES = ["applied", "shortlisted", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"] as const;
+type Stage = (typeof STAGES)[number];
 
 const STAGE_LABELS: Record<string, string> = {
   applied: "Applied",
@@ -182,7 +183,7 @@ export default function CandidateProfile() {
     load();
   }, [id, navigate, profile]);
 
-  const handleStageChange = async (appId: string, newStage: string) => {
+  const handleStageChange = async (appId: string, newStage: Stage) => {
     if (newStage === "rejected") {
       const application = applications.find((app) => app.id === appId);
       if (!application) {
@@ -510,7 +511,7 @@ export default function CandidateProfile() {
                           >
                             {STAGE_LABELS[app.stage] ?? app.stage}
                           </Badge>
-                          <Select value={app.stage} onValueChange={(v) => handleStageChange(app.id, v)}>
+                          <Select value={app.stage} onValueChange={(v) => handleStageChange(app.id, v as Stage)}>
                             <SelectTrigger className="w-[120px] h-7 text-xs">
                               <SelectValue />
                             </SelectTrigger>

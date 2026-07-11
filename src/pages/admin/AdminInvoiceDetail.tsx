@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { getInvoiceDownloadUrl, requestInvoicePdf } from "@/lib/invoiceUrl";
 import { logInvoiceEvent } from "@/lib/invoices";
 import InvoiceEventsTimeline from "@/components/billing/InvoiceEventsTimeline";
@@ -71,7 +71,7 @@ export default function AdminInvoiceDetail() {
       (supabase as any).from("invoices").select("*").eq("id", id).maybeSingle(),
       (supabase as any).from("invoice_line_items").select("*").eq("invoice_id", id).order("created_at"),
     ]);
-    if (error) toast({ title: "Failed to load invoice", description: error.message, variant: "destructive" });
+    if (error) toast.error("Failed to load invoice", { description: error.message });
     setInvoice((data as Invoice) ?? null);
     setLineItems((liRes.data as LineItem[]) ?? []);
     setLoading(false);
@@ -86,11 +86,11 @@ export default function AdminInvoiceDetail() {
       const wasPresent = !!invoice?.pdf_r2_key;
       await requestInvoicePdf(id);
       await logInvoiceEvent(id, wasPresent ? "pdf_regenerated" : "pdf_generated", { actor_user_id: user?.id ?? null });
-      toast({ title: "PDF generated" });
+      toast.success("PDF generated");
       setEventsKey((k) => k + 1);
       await load();
     } catch (e: any) {
-      toast({ title: "PDF generation failed", description: e.message, variant: "destructive" });
+      toast.error("PDF generation failed", { description: e.message });
     } finally {
       setBusy(false);
     }
@@ -102,7 +102,7 @@ export default function AdminInvoiceDetail() {
       const url = await getInvoiceDownloadUrl(id);
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (e: any) {
-      toast({ title: "Download failed", description: e.message, variant: "destructive" });
+      toast.error("Download failed", { description: e.message });
     }
   }
 
@@ -110,20 +110,20 @@ export default function AdminInvoiceDetail() {
     if (!id || !invoice) return;
     const to = invoice.bill_to_email;
     if (!to) {
-      toast({ title: "No billing email on invoice", variant: "destructive" });
+      toast.error("No billing email on invoice");
       return;
     }
     if (!confirm(`Send this invoice to ${to}?`)) return;
     setBusy(true);
     try {
-      const { data, error } = await (supabase as any).functions.invoke("send-invoice-email", {
+      const { error } = await (supabase as any).functions.invoke("send-invoice-email", {
         body: { invoice_id: id },
       });
       if (error) throw error;
-      toast({ title: "Invoice emailed", description: `Sent to ${to}` });
+      toast.success("Invoice emailed", { description: `Sent to ${to}` });
       setEventsKey((k) => k + 1);
     } catch (e: any) {
-      toast({ title: "Email failed", description: e.message, variant: "destructive" });
+      toast.error("Email failed", { description: e.message });
     } finally {
       setBusy(false);
     }
@@ -135,11 +135,11 @@ export default function AdminInvoiceDetail() {
     const { error } = await (supabase as any).from("invoices").update(patch).eq("id", id);
     setBusy(false);
     if (error) {
-      toast({ title: `${label} failed`, description: error.message, variant: "destructive" });
+      toast.error(`${label} failed`, { description: error.message });
       return;
     }
     await logInvoiceEvent(id, event, { actor_user_id: user?.id ?? null, patch });
-    toast({ title: label });
+    toast.success(label);
     setEventsKey((k) => k + 1);
     await load();
   }
@@ -165,8 +165,7 @@ export default function AdminInvoiceDetail() {
         },
       });
       if (error) throw error;
-      toast({
-        title: "Invoice marked paid",
+      toast.success("Invoice marked paid", {
         description: data?.advanced
           ? `Subscription advanced to ${data.advanced.to}`
           : "Receipt emailed to customer.",
@@ -176,7 +175,7 @@ export default function AdminInvoiceDetail() {
       setEventsKey((k) => k + 1);
       await load();
     } catch (e: any) {
-      toast({ title: "Mark paid failed", description: e.message, variant: "destructive" });
+      toast.error("Mark paid failed", { description: e.message });
     } finally {
       setBusy(false);
     }

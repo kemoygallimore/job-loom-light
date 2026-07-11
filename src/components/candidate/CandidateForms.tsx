@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { addDays, format } from "date-fns";
-import { Copy, FileText, Plus } from "lucide-react";
+import { FileText, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";

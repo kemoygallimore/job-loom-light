@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import {
-  Check,
-  Copy,
   Eye,
   FileText,
   Inbox,
-  Link2,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -67,7 +64,6 @@ export default function Forms() {
   const navigate = useNavigate();
   const [forms, setForms] = useState<LeadForm[]>([]);
   const [loading, setLoading] = useState(true);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [previewForm, setPreviewForm] = useState<LeadForm | null>(null);
 
   const load = useCallback(async () => {
@@ -121,14 +117,6 @@ export default function Forms() {
       return;
     }
     navigate("/forms/new");
-  };
-
-  const copyLink = async (form: LeadForm) => {
-    const url = `${window.location.origin}/forms/${form.public_id}`;
-    await navigator.clipboard.writeText(url);
-    setCopiedId(form.id);
-    toast.success("Form link copied");
-    setTimeout(() => setCopiedId(null), 2000);
   };
 
   const toggleStatus = async (form: LeadForm) => {

@@ -28,10 +28,6 @@ export default function PublicFeedback() {
   const [submitted, setSubmitted] = useState(false);
 
   const [feedbackBy, setFeedbackBy] = useState("");
-  const [strengths, setStrengths] = useState("");
-  const [opportunities, setOpportunities] = useState("");
-  const [weaknesses, setWeaknesses] = useState("");
-  const [rating, setRating] = useState(0);
   const [scorecardVersionId, setScorecardVersionId] = useState<string | null>(null);
   const [areas, setAreas] = useState<Array<{ id: string; label: string; description: string | null }>>([]);
   const [ratings, setRatings] = useState<Record<string, number>>({});

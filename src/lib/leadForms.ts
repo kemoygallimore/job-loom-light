@@ -238,7 +238,7 @@ export function createPublicId() {
 }
 
 export function createField(type: LeadFormFieldType): LeadFormField {
-  const id = `field_${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`;
+  const id = `field_${crypto.randomUUID().split("-").join("").slice(0, 12)}`;
   const label = FIELD_TYPE_LABELS[type];
   return {
     id,

@@ -47,7 +47,7 @@ export default function AdminPolicies() {
     }
   }, [activeKey]);
 
-  useEffect(() => { refresh(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  useEffect(() => { refresh(); }, []);
 
   const selectPolicy = (key: string) => {
     const row = policies.find((p) => p.key === key);

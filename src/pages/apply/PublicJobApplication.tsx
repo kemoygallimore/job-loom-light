@@ -14,6 +14,20 @@ import { sanitizeRichHtml } from "@/lib/sanitizeHtml";
 import { Textarea } from "@/components/ui/textarea";
 import { calculateScreeningScore, objectiveCredit, type ScreeningQuestion } from "@/lib/jobScreening";
 import type { Json } from "@/integrations/supabase/types";
+
+type SupabaseMutationResult = { error: { message: string } | null };
+type CandidateLinkedInMutation = {
+  update: (values: Record<string, unknown>) => {
+    eq: (column: "id", value: string) => PromiseLike<SupabaseMutationResult>;
+  };
+  insert: (values: Record<string, unknown>) => PromiseLike<SupabaseMutationResult>;
+};
+
+function candidatesWithLinkedIn() {
+  // TODO: Regenerate Supabase types so candidates.linkedin_url is available without this cast.
+  return supabase.from("candidates") as unknown as CandidateLinkedInMutation;
+}
+
 const EDUCATION_LEVELS = [
   "Primary Level Education",
   "Trade Certificate",
@@ -221,7 +235,7 @@ export default function PublicJobApplication() {
     if (!jobId) return;
 
     const load = async () => {
-      const { data: jobData, error: jobError } = await supabase
+      const { data: jobData } = await supabase
         .from("jobs")
         .select("id, title, description, company_id")
         .eq("id", jobId)
@@ -348,8 +362,7 @@ export default function PublicJobApplication() {
           jobId: job.id,
         });
 
-        const { error: updateError } = await supabase
-          .from("candidates")
+        const { error: updateError } = await candidatesWithLinkedIn()
           .update({
             name: name.trim(),
             phone: phone.trim(),
@@ -385,7 +398,7 @@ export default function PublicJobApplication() {
         // 2b. New candidate — insert first, then upload, then patch
         candidateId = crypto.randomUUID();
 
-        const { error: candidateError } = await supabase.from("candidates").insert({
+        const { error: candidateError } = await candidatesWithLinkedIn().insert({
           id: candidateId,
           company_id: company.id,
           name: name.trim(),

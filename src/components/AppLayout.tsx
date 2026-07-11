@@ -33,7 +33,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
-import rizonhireLogoWhite from "@/assets/RIZONHire_logo_White.png";
 import rizonhireLogoBlack from "@/assets/RIZONHire_logo_Black.png";
 import rizonhireLogoBlue from "@/assets/rizonhire blue logo.png";
 

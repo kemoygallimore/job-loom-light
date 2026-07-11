@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { uploadToStorage } from "@/lib/uploadToStorage";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FileText, Download, Calendar, Upload, Trash2, User } from "lucide-react";
+import { FileText, Download, Calendar, Upload, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { getSignedR2Url } from "@/lib/r2Worker";

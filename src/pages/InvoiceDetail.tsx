@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { getInvoiceDownloadUrl } from "@/lib/invoiceUrl";
 import { logInvoiceEvent } from "@/lib/invoices";
 import { ArrowLeft, Download } from "lucide-react";
@@ -58,7 +58,7 @@ export default function InvoiceDetail() {
         (supabase as any).from("invoices").select("*").eq("id", id).maybeSingle(),
         (supabase as any).from("invoice_line_items").select("*").eq("invoice_id", id).order("created_at"),
       ]);
-      if (error) toast({ title: "Failed to load invoice", description: error.message, variant: "destructive" });
+      if (error) toast.error("Failed to load invoice", { description: error.message });
       setInvoice((data as Invoice) ?? null);
       setLineItems((liRes.data as LineItem[]) ?? []);
       setLoading(false);
@@ -83,7 +83,7 @@ export default function InvoiceDetail() {
       await logInvoiceEvent(id, "pdf_downloaded", { actor_user_id: user?.id ?? null });
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (e: any) {
-      toast({ title: "Download failed", description: e.message, variant: "destructive" });
+      toast.error("Download failed", { description: e.message });
     }
   }
 

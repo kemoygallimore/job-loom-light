@@ -24,10 +24,8 @@ import CandidatePanel from "@/components/pipeline/CandidatePanel";
 import { CandidateEmailComposer, type CandidateEmailRecipient } from "@/components/email/CandidateEmailComposer";
 import type { CandidateEmailTemplatePurpose } from "@/lib/candidateEmailTemplates";
 import {
-  mapActivePipelineApplications,
   reconcilePipelineSelection,
   type PipelineApplication,
-  type PipelineApplicationRow,
 } from "@/lib/pipeline";
 
 const STAGES = ["applied", "shortlisted", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"] as const;

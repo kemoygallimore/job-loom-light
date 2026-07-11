@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { getInvoiceDownloadUrl } from "@/lib/invoiceUrl";
 import { logInvoiceEvent } from "@/lib/invoices";
 import { Download, ExternalLink } from "lucide-react";
@@ -37,7 +37,7 @@ export default function Billing() {
         .eq("company_id", profile.company_id)
         .neq("status", "draft")
         .order("issued_at", { ascending: false });
-      if (error) toast({ title: "Failed to load invoices", description: error.message, variant: "destructive" });
+      if (error) toast.error("Failed to load invoices", { description: error.message });
       setInvoices((data as Invoice[]) ?? []);
       setLoading(false);
     })();
@@ -49,7 +49,7 @@ export default function Billing() {
       await logInvoiceEvent(invoiceId, "pdf_downloaded", { actor_user_id: user?.id ?? null });
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (e: any) {
-      toast({ title: "Download failed", description: e.message, variant: "destructive" });
+      toast.error("Download failed", { description: e.message });
     }
   }
 

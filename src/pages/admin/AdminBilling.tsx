@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { FileText } from "lucide-react";
 
 type InvoiceRow = {
@@ -40,14 +40,14 @@ export default function AdminBilling() {
       if (status !== "all") query = query.eq("status", status);
       const { data, error } = await query;
       if (error) {
-        toast({ title: "Failed to load invoices", description: error.message, variant: "destructive" });
+        toast.error("Failed to load invoices", { description: error.message });
         setRows([]);
         setLoading(false);
         return;
       }
       const invoices = (data as InvoiceRow[]) ?? [];
       const companyIds = Array.from(new Set(invoices.map((i) => i.company_id).filter(Boolean)));
-      let companyMap: Record<string, string> = {};
+      const companyMap: Record<string, string> = {};
       if (companyIds.length) {
         const { data: cdata } = await (supabase as any)
           .from("companies")

@@ -50,6 +50,8 @@ import {
   FILE_CATEGORY_OPTIONS,
   FORM_THEME_OPTIONS,
   LeadForm,
+  type LeadFormFieldColor,
+  type LeadFormMaskPreset,
   LeadFormField,
   LeadFormFieldType,
   LeadFormSchema,
@@ -62,7 +64,6 @@ import {
   defaultLeadFormSchema,
   normalizeSchema,
 } from "@/lib/leadForms";
-import { cn } from "@/lib/utils";
 
 type QueryResult = { data: unknown; error: { message: string } | null };
 type LeadFormsQuery = PromiseLike<QueryResult> & {
@@ -78,10 +79,6 @@ type LeadFormsDb = {
 };
 
 const leadFormsDb = supabase as unknown as LeadFormsDb;
-
-function messageFromError(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback;
-}
 
 function blankDraft(companyId: string, userId: string): Partial<LeadForm> {
   return {
@@ -554,7 +551,7 @@ export default function FormBuilder() {
                         value={selectedField.validation?.maskPreset ?? "none"}
                         onValueChange={(value) =>
                           updateField(selectedField.id, {
-                            validation: { ...selectedField.validation, maskPreset: value as LeadFormField["validation"]["maskPreset"] },
+                            validation: { ...selectedField.validation, maskPreset: value as LeadFormMaskPreset },
                           })
                         }
                       >
@@ -657,7 +654,7 @@ export default function FormBuilder() {
                         value={selectedField.style?.accent ?? "default"}
                         onValueChange={(value) =>
                           updateField(selectedField.id, {
-                            style: { ...selectedField.style, accent: value as LeadFormField["style"]["accent"] },
+                            style: { ...selectedField.style, accent: value as LeadFormFieldColor },
                           })
                         }
                       >
@@ -679,7 +676,7 @@ export default function FormBuilder() {
                         value={selectedField.style?.background ?? "default"}
                         onValueChange={(value) =>
                           updateField(selectedField.id, {
-                            style: { ...selectedField.style, background: value as LeadFormField["style"]["background"] },
+                            style: { ...selectedField.style, background: value as LeadFormFieldColor },
                           })
                         }
                       >
