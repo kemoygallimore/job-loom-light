@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -27,17 +28,76 @@ import {
   reconcilePipelineSelection,
   type PipelineApplication,
 } from "@/lib/pipeline";
+import { keys, type PipelineFilters } from "@/lib/queryKeys";
 
 const STAGES = ["applied", "shortlisted", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"] as const;
 type Stage = typeof STAGES[number];
 
 export type Application = PipelineApplication;
 
+type PipelineRow = {
+  id: string;
+  job_id: string;
+  candidate_id: string;
+  stage: string;
+  company_id: string;
+  candidate_name: string;
+  candidate_email: string | null;
+  job_title: string;
+  hiring_manager: string | null;
+  screening_score: number | null;
+  screening_status: string | null;
+  review_needed_count: number | null;
+  interview_average: number | null;
+};
+
+async function fetchPipeline(jobId: string, filters: PipelineFilters): Promise<Application[]> {
+  const { data, error } = await supabase.rpc("get_job_pipeline", {
+    _job_id: jobId,
+    _search: filters.search.trim() || null,
+    _screening_min: filters.screeningMin ? Number(filters.screeningMin) : null,
+    _screening_max: filters.screeningMax ? Number(filters.screeningMax) : null,
+    _screening_status: filters.screeningStatus === "all" ? null : filters.screeningStatus,
+    _sort: filters.sort,
+  });
+  if (error) throw error;
+  return ((data ?? []) as PipelineRow[]).map((row) => ({
+    id: row.id,
+    job_id: row.job_id,
+    candidate_id: row.candidate_id,
+    stage: row.stage as Stage,
+    company_id: row.company_id,
+    candidate: { name: row.candidate_name, email: row.candidate_email },
+    job: { title: row.job_title, hiring_manager: row.hiring_manager, status: "open" },
+    screening_score: row.screening_score,
+    screening_status: row.screening_status,
+    review_needed_count: row.review_needed_count ?? 0,
+    interview_average: row.interview_average,
+  }));
+}
+
+async function fetchOpenJobs() {
+  const { data, error } = await supabase.from("jobs").select("id, title").eq("status", "open");
+  if (error) throw error;
+  return (data ?? []) as { id: string; title: string }[];
+}
+
+async function fetchCandidateOptions() {
+  const { data, error } = await supabase.from("candidates").select("id, name");
+  if (error) throw error;
+  return (data ?? []) as { id: string; name: string }[];
+}
+
+function errorMessage(error: unknown, fallback: string) {
+  if (error && typeof error === "object" && "message" in error && typeof error.message === "string") {
+    return error.message;
+  }
+  return fallback;
+}
+
 export default function Pipeline() {
   const { profile } = useAuth();
-  const [applications, setApplications] = useState<Application[]>([]);
-  const [jobs, setJobs] = useState<{ id: string; title: string }[]>([]);
-  const [candidates, setCandidates] = useState<{ id: string; name: string }[]>([]);
+  const queryClient = useQueryClient();
   const [selectedJobFilter, setSelectedJobFilter] = useState<string>("");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("screening_desc");
@@ -56,45 +116,50 @@ export default function Pipeline() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectDialogIds, setRejectDialogIds] = useState<string[]>([]);
   
+  const pipelineFilters = useMemo<PipelineFilters>(
+    () => ({ search, screeningMax, screeningMin, screeningStatus, sort }),
+    [search, screeningMax, screeningMin, screeningStatus, sort],
+  );
+  const pipelineKey = keys.pipeline(selectedJobFilter, pipelineFilters);
 
-  const load = useCallback(async () => {
-    if (!selectedJobFilter) { setApplications([]); return; }
-    const { data, error } = await supabase.rpc("get_job_pipeline", {
-      _job_id: selectedJobFilter, _search: search.trim() || null,
-      _screening_min: screeningMin ? Number(screeningMin) : null, _screening_max: screeningMax ? Number(screeningMax) : null,
-      _screening_status: screeningStatus === "all" ? null : screeningStatus, _sort: sort,
-    });
-    if (error) { toast.error(error.message); return; }
-    const mapped: Application[] = (data ?? []).map((row) => ({
-      id: row.id, job_id: row.job_id, candidate_id: row.candidate_id, stage: row.stage as Stage, company_id: row.company_id,
-      candidate: { name: row.candidate_name, email: row.candidate_email },
-      job: { title: row.job_title, hiring_manager: row.hiring_manager, status: "open" },
-      screening_score: row.screening_score, screening_status: row.screening_status,
-      review_needed_count: row.review_needed_count ?? 0, interview_average: row.interview_average,
-    }));
-    setApplications(mapped);
-    setSelectedIds((current) => reconcilePipelineSelection(mapped, current, null).selectedIds);
-    setRejectDialogIds((current) => reconcilePipelineSelection(mapped, current, null).selectedIds);
-    setSelectedApp((current) => reconcilePipelineSelection(mapped, [], current).selectedApp);
-  }, [selectedJobFilter, search, screeningMin, screeningMax, screeningStatus, sort]);
-
-  const loadOptions = useCallback(async () => {
-    const [j, c] = await Promise.all([
-      supabase.from("jobs").select("id, title").eq("status", "open"),
-      supabase.from("candidates").select("id, name"),
-    ]);
-    const openJobs = (j.data ?? []) as { id: string; title: string }[];
-    setJobs(openJobs);
-    setSelectedJobFilter((current) => openJobs.some((job) => job.id === current) ? current : (openJobs[0]?.id ?? ""));
-    setCandidates((c.data ?? []) as { id: string; name: string }[]);
-  }, []);
+  const jobsQuery = useQuery({
+    queryKey: keys.jobsOpen(),
+    queryFn: fetchOpenJobs,
+    enabled: Boolean(profile),
+  });
+  const candidateOptionsQuery = useQuery({
+    queryKey: keys.candidateOptions(),
+    queryFn: fetchCandidateOptions,
+    enabled: Boolean(profile),
+  });
+  const pipelineQuery = useQuery({
+    queryKey: pipelineKey,
+    queryFn: () => fetchPipeline(selectedJobFilter, pipelineFilters),
+    enabled: Boolean(profile && selectedJobFilter && filterStorageKey && loadedFilterKey === filterStorageKey),
+  });
 
   useEffect(() => {
-    if (profile) {
-      load();
-      loadOptions();
-    }
-  }, [profile, load, loadOptions]);
+    const openJobs = jobsQuery.data ?? [];
+    setSelectedJobFilter((current) => openJobs.some((job) => job.id === current) ? current : (openJobs[0]?.id ?? ""));
+  }, [jobsQuery.data]);
+
+  useEffect(() => {
+    if (pipelineQuery.error) toast.error(errorMessage(pipelineQuery.error, "Failed to load pipeline"));
+  }, [pipelineQuery.error]);
+
+  useEffect(() => {
+    if (jobsQuery.error || candidateOptionsQuery.error) toast.error("Failed to load options");
+  }, [candidateOptionsQuery.error, jobsQuery.error]);
+
+  const applications = pipelineQuery.data ?? [];
+  const jobs = jobsQuery.data ?? [];
+  const candidates = candidateOptionsQuery.data ?? [];
+
+  useEffect(() => {
+    setSelectedIds((current) => reconcilePipelineSelection(applications, current, null).selectedIds);
+    setRejectDialogIds((current) => reconcilePipelineSelection(applications, current, null).selectedIds);
+    setSelectedApp((current) => reconcilePipelineSelection(applications, [], current).selectedApp);
+  }, [applications]);
 
   useEffect(() => {
     if (!filterStorageKey) return;
@@ -112,15 +177,53 @@ export default function Pipeline() {
     window.localStorage.setItem(filterStorageKey, JSON.stringify({ search, sort, screeningStatus, screeningMin, screeningMax }));
   }, [filterStorageKey, loadedFilterKey, search, screeningMax, screeningMin, screeningStatus, sort]);
 
-  const moveStage = async (appId: string, newStage: Stage) => {
-    const { error } = await supabase.from("applications").update({ stage: newStage }).eq("id", appId);
-    if (error) {
-      toast.error(error.message);
-      load(); // revert
-      return;
-    }
-    setApplications(prev => prev.map(a => a.id === appId ? { ...a, stage: newStage } : a));
-  };
+  const moveStageMutation = useMutation({
+    mutationFn: async ({ appId, newStage }: { appId: string; newStage: Stage }) => {
+      const { error } = await supabase.from("applications").update({ stage: newStage }).eq("id", appId);
+      if (error) throw error;
+    },
+    onMutate: async ({ appId, newStage }) => {
+      await queryClient.cancelQueries({ queryKey: pipelineKey });
+      const previous = queryClient.getQueryData<Application[]>(pipelineKey);
+      queryClient.setQueryData<Application[]>(pipelineKey, (current = []) =>
+        current.map((app) => (app.id === appId ? { ...app, stage: newStage } : app)),
+      );
+      return { previous };
+    },
+    onError: (error, _variables, context) => {
+      if (context?.previous) queryClient.setQueryData(pipelineKey, context.previous);
+      toast.error(errorMessage(error, "Failed"));
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: pipelineKey });
+    },
+  });
+
+  const createApplicationMutation = useMutation({
+    mutationFn: async () => {
+      if (!profile) return;
+      const { error } = await supabase.from("applications").insert({
+        company_id: profile.company_id,
+        job_id: newJobId,
+        candidate_id: newCandidateId,
+        stage: "applied" as Stage,
+      });
+      if (error) throw error;
+    },
+    onError: (error) => {
+      toast.error(errorMessage(error, "Failed"));
+    },
+    onSuccess: () => {
+      toast.success("Application created");
+      setCreateOpen(false);
+      setNewJobId("");
+      setNewCandidateId("");
+      queryClient.invalidateQueries({ queryKey: [...keys.all, "pipeline"] });
+      queryClient.invalidateQueries({ queryKey: keys.candidateOptions() });
+      queryClient.invalidateQueries({ queryKey: [...keys.all, "candidates"] });
+      queryClient.invalidateQueries({ queryKey: keys.candidate(newCandidateId) });
+    },
+  });
 
   const onDragEnd = (result: DropResult) => {
     const { destination, draggableId } = result;
@@ -134,26 +237,13 @@ export default function Pipeline() {
       return;
     }
 
-    // Optimistic update
-    setApplications(prev => prev.map(a => a.id === draggableId ? { ...a, stage: newStage } : a));
-    moveStage(draggableId, newStage);
+    moveStageMutation.mutate({ appId: draggableId, newStage });
   };
 
   const createApplication = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile) return;
-    const { error } = await supabase.from("applications").insert({
-      company_id: profile.company_id,
-      job_id: newJobId,
-      candidate_id: newCandidateId,
-      stage: "applied" as Stage,
-    });
-    if (error) { toast.error(error.message); return; }
-    toast.success("Application created");
-    setCreateOpen(false);
-    setNewJobId("");
-    setNewCandidateId("");
-    load();
+    createApplicationMutation.mutate();
   };
 
   const toggleSelected = (id: string, checked: boolean) => {
@@ -194,11 +284,14 @@ export default function Pipeline() {
 
   const handleRejectSent = (ids: string[]) => {
     const targetIdSet = new Set(ids);
-    setApplications(prev => prev.map(a => targetIdSet.has(a.id) ? { ...a, stage: "rejected" as Stage } : a));
+    queryClient.setQueryData<Application[]>(pipelineKey, (current = []) =>
+      current.map((app) => (targetIdSet.has(app.id) ? { ...app, stage: "rejected" as Stage } : app)),
+    );
     setSelectedIds(prev => prev.filter(id => !targetIdSet.has(id)));
     if (selectedApp && targetIdSet.has(selectedApp.id)) {
       setSelectedApp({ ...selectedApp, stage: "rejected" as Stage });
     }
+    queryClient.invalidateQueries({ queryKey: pipelineKey });
   };
 
 
@@ -423,8 +516,7 @@ export default function Pipeline() {
               openRejectDialog([selectedApp.id]);
               return;
             }
-            moveStage(selectedApp.id, newStage as Stage);
-            setSelectedApp({ ...selectedApp, stage: newStage as Stage });
+            moveStageMutation.mutate({ appId: selectedApp.id, newStage: newStage as Stage });
           }}
         />
       )}

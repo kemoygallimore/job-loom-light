@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ import { useNavigate } from "react-router-dom";
 import CandidateFilters from "@/components/candidate/CandidateFilters";
 import CandidateQuickActions from "@/components/candidate/CandidateQuickActions";
 import { fetchTagsForCandidates, getTagColorClasses, type CandidateTag } from "@/lib/candidateTags";
+import { keys, type CandidateFilters as CandidateQueryFilters } from "@/lib/queryKeys";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface CandidateWithContext {
@@ -54,6 +56,22 @@ interface Job {
   title: string;
 }
 
+interface ApplicationRow {
+  id: string;
+  candidate_id: string;
+  stage: string | null;
+  updated_at: string | null;
+  created_at: string;
+  job_id: string | null;
+  jobs: { title: string | null; status: string | null } | null;
+}
+
+interface CandidatesQueryData {
+  candidates: CandidateWithContext[];
+  jobs: Job[];
+  tagsByCandidate: Map<string, CandidateTag[]>;
+}
+
 const STAGE_COLORS: Record<string, string> = {
   applied: "bg-muted text-muted-foreground",
   shortlisted: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
@@ -67,8 +85,60 @@ const STAGE_COLORS: Record<string, string> = {
   rejected: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
 };
 
+function errorMessage(error: unknown, fallback: string) {
+  if (error && typeof error === "object" && "message" in error && typeof error.message === "string") {
+    return error.message;
+  }
+  return fallback;
+}
+
+async function fetchCandidatesData(): Promise<CandidatesQueryData> {
+  const [cRes, aRes, jRes] = await Promise.all([
+    supabase.from("candidates").select("*").order("created_at", { ascending: false }),
+    supabase
+      .from("applications")
+      .select("id, candidate_id, stage, updated_at, created_at, job_id, jobs(title, status)")
+      .order("updated_at", { ascending: false }),
+    supabase.from("jobs").select("id, title").order("title"),
+  ]);
+
+  if (cRes.error) throw cRes.error;
+  if (aRes.error) throw aRes.error;
+
+  const appsByCandidateId = new Map<string, ApplicationRow[]>();
+  for (const app of (aRes.data ?? []) as unknown as ApplicationRow[]) {
+    const list = appsByCandidateId.get(app.candidate_id) ?? [];
+    list.push(app);
+    appsByCandidateId.set(app.candidate_id, list);
+  }
+
+  const candidates: CandidateWithContext[] = (cRes.data ?? []).map((c) => {
+    const apps = appsByCandidateId.get(c.id) ?? [];
+    const latest = apps[0];
+    return {
+      ...c,
+      latest_app_id: latest?.id ?? null,
+      latest_job_id: latest?.job_id ?? null,
+      latest_job_title: latest?.jobs?.title ?? null,
+      latest_job_status: latest?.jobs?.status ?? null,
+      latest_stage: latest?.stage ?? null,
+      latest_updated_at: latest?.updated_at ?? null,
+      application_count: apps.length,
+    };
+  });
+
+  const tagsByCandidate = await fetchTagsForCandidates(candidates.map((candidate) => candidate.id));
+
+  return {
+    candidates,
+    jobs: (jRes.data ?? []) as Job[],
+    tagsByCandidate,
+  };
+}
+
 export default function Candidates() {
   const { profile, role, loading: loadingAuth, refreshAuth } = useAuth();
+  const queryClient = useQueryClient();
   const notifiedMissingRoleRef = useRef(false);
 
   useEffect(() => {
@@ -83,11 +153,6 @@ export default function Candidates() {
     }
   }, [loadingAuth, profile, role, refreshAuth]);
   const navigate = useNavigate();
-  const [candidates, setCandidates] = useState<CandidateWithContext[]>([]);
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [tagsByCandidate, setTagsByCandidate] = useState<Map<string, CandidateTag[]>>(new Map());
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"active" | "all">("active");
 
@@ -117,58 +182,36 @@ export default function Candidates() {
     setRepeatOnly(false);
   };
 
-  const load = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [cRes, aRes, jRes] = await Promise.all([
-        supabase.from("candidates").select("*").order("created_at", { ascending: false }),
-        supabase.from("applications").select("id, candidate_id, stage, updated_at, created_at, job_id, jobs(title, status)").order("updated_at", { ascending: false }),
-        supabase.from("jobs").select("id, title").order("title"),
-      ]);
+  const candidateListFilters = useMemo<CandidateQueryFilters>(
+    () => ({
+      jobFilter: "all",
+      parishFilter: "all",
+      repeatOnly: false,
+      search: "",
+      stageFilter: "all",
+    }),
+    [],
+  );
 
-      if (cRes.error) throw cRes.error;
-      if (aRes.error) throw aRes.error;
-
-      setJobs((jRes.data ?? []) as Job[]);
-
-      // Group applications per candidate
-      const appsByCandidateId = new Map<string, any[]>();
-      for (const app of aRes.data ?? []) {
-        const list = appsByCandidateId.get(app.candidate_id) ?? [];
-        list.push(app);
-        appsByCandidateId.set(app.candidate_id, list);
-      }
-
-      const enriched: CandidateWithContext[] = (cRes.data ?? []).map((c) => {
-        const apps = appsByCandidateId.get(c.id) ?? [];
-        const latest = apps[0];
-        return {
-          ...c,
-          latest_app_id: latest?.id ?? null,
-          latest_job_id: latest?.job_id ?? null,
-          latest_job_title: (latest as any)?.jobs?.title ?? null,
-          latest_job_status: (latest as any)?.jobs?.status ?? null,
-          latest_stage: latest?.stage ?? null,
-          latest_updated_at: latest?.updated_at ?? null,
-          application_count: apps.length,
-        };
-      });
-
-      setCandidates(enriched);
-      const tagMap = await fetchTagsForCandidates(enriched.map(c => c.id));
-      setTagsByCandidate(tagMap);
-    } catch (err: any) {
-      setError(err.message ?? "Failed to load candidates");
-      toast.error("Failed to load candidates");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const candidatesQuery = useQuery({
+    queryKey: keys.candidates("all", candidateListFilters),
+    queryFn: fetchCandidatesData,
+    enabled: Boolean(profile),
+  });
 
   useEffect(() => {
-    if (profile) load();
-  }, [profile]);
+    if (candidatesQuery.error) toast.error("Failed to load candidates");
+  }, [candidatesQuery.error]);
+
+  const candidates = candidatesQuery.data?.candidates ?? [];
+  const jobs = candidatesQuery.data?.jobs ?? [];
+  const tagsByCandidate = candidatesQuery.data?.tagsByCandidate ?? new Map<string, CandidateTag[]>();
+  const loading = candidatesQuery.isLoading;
+  const error = candidatesQuery.error ? errorMessage(candidatesQuery.error, "Failed to load candidates") : null;
+
+  const refreshCandidates = () => {
+    queryClient.invalidateQueries({ queryKey: [...keys.all, "candidates"] });
+  };
 
   const filtered = useMemo(() => {
     let result = candidates;
@@ -234,11 +277,26 @@ export default function Candidates() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [candidates]);
 
-  const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("candidates").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Candidate deleted");
-    load();
+  const deleteCandidateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("candidates").delete().eq("id", id);
+      if (error) throw error;
+      return id;
+    },
+    onError: (error) => {
+      toast.error(errorMessage(error, "Failed to delete candidate"));
+    },
+    onSuccess: (id) => {
+      toast.success("Candidate deleted");
+      queryClient.invalidateQueries({ queryKey: [...keys.all, "candidates"] });
+      queryClient.invalidateQueries({ queryKey: [...keys.all, "tags"] });
+      queryClient.invalidateQueries({ queryKey: keys.candidate(id) });
+      queryClient.invalidateQueries({ queryKey: [...keys.all, "pipeline"] });
+    },
+  });
+
+  const handleDelete = (id: string) => {
+    deleteCandidateMutation.mutate(id);
   };
 
   return (
@@ -299,7 +357,7 @@ export default function Candidates() {
       {error && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive animate-fade-in">
           {error}
-          <Button variant="ghost" size="sm" className="ml-2" onClick={load}>Retry</Button>
+          <Button variant="ghost" size="sm" className="ml-2" onClick={() => candidatesQuery.refetch()}>Retry</Button>
         </div>
       )}
 
@@ -395,8 +453,8 @@ export default function Candidates() {
                         resumeUrl={c.resume_url}
                         resumeBucket={c.resume_bucket}
                         resumeObjectKey={c.resume_object_key}
-                        onStageChanged={load}
-                        onNoteAdded={load}
+                        onStageChanged={refreshCandidates}
+                        onNoteAdded={refreshCandidates}
                         hideStageChange
                       />
                       <div className="flex items-center gap-0.5 border-l border-border ml-1 pl-1" onClick={(e) => e.stopPropagation()}>

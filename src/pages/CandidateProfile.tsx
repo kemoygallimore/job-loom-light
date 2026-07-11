@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -19,6 +20,7 @@ import { R2_BUCKET_RESUMES, getSignedR2Url } from "@/lib/r2Worker";
 import { CandidateEmailComposer } from "@/components/email/CandidateEmailComposer";
 import CandidateForms from "@/components/candidate/CandidateForms";
 import ScreeningReview from "@/components/candidate/ScreeningReview";
+import { keys } from "@/lib/queryKeys";
 
 const STAGES = ["applied", "shortlisted", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"] as const;
 type Stage = (typeof STAGES)[number];
@@ -105,85 +107,130 @@ interface ApplicationQueryRow {
   jobs: { title: string | null; hiring_manager: string | null } | null;
 }
 
+interface CandidateProfileData {
+  applications: ApplicationWithJob[];
+  candidate: Candidate;
+  emailLogs: EmailLog[];
+  notes: NoteWithAuthor[];
+}
+
+function errorMessage(error: unknown, fallback: string) {
+  if (error && typeof error === "object" && "message" in error && typeof error.message === "string") {
+    return error.message;
+  }
+  return fallback;
+}
+
+async function fetchCandidateProfile(candidateId: string): Promise<CandidateProfileData> {
+  const [cRes, aRes, nRes, eRes] = await Promise.all([
+    supabase.from("candidates").select("*").eq("id", candidateId).single(),
+    supabase
+      .from("applications")
+      .select("id, stage, updated_at, created_at, job_id, jobs(title, hiring_manager)")
+      .eq("candidate_id", candidateId)
+      .order("updated_at", { ascending: false }),
+    supabase.from("notes").select("*").eq("candidate_id", candidateId).order("created_at", { ascending: false }),
+    supabase
+      .from("email_send_log")
+      .select("id, template_key, recipient_email, status, context, created_at")
+      .eq("candidate_id", candidateId)
+      .eq("status", "sent")
+      .order("created_at", { ascending: false }),
+  ]);
+
+  if (cRes.error || !cRes.data) {
+    throw new Error("Candidate not found");
+  }
+
+  const rawNotes = (nRes.data ?? []) as NoteRow[];
+  const authorIds = [...new Set(rawNotes.map((note) => note.user_id))];
+  const authorMap: Record<string, string> = {};
+
+  if (authorIds.length > 0) {
+    const { data: profiles } = await supabase.from("profiles").select("user_id, name").in("user_id", authorIds);
+    ((profiles ?? []) as ProfileNameRow[]).forEach((profileRow) => {
+      authorMap[profileRow.user_id] = profileRow.name ?? "Unknown";
+    });
+  }
+
+  return {
+    candidate: cRes.data as unknown as Candidate,
+    applications: ((aRes.data ?? []) as unknown as ApplicationQueryRow[]).map((a) => ({
+      id: a.id,
+      stage: a.stage,
+      updated_at: a.updated_at,
+      created_at: a.created_at,
+      job_id: a.job_id,
+      job_title: a.jobs?.title ?? "Unknown",
+      hiring_manager: a.jobs?.hiring_manager ?? null,
+    })),
+    notes: rawNotes.map((n) => ({
+      id: n.id,
+      content: n.content,
+      created_at: n.created_at,
+      user_id: n.user_id,
+      author_name: authorMap[n.user_id] ?? "Unknown",
+    })),
+    emailLogs: (eRes.data ?? []) as unknown as EmailLog[],
+  };
+}
+
 export default function CandidateProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { profile } = useAuth();
-
-  const [candidate, setCandidate] = useState<Candidate | null>(null);
-  const [applications, setApplications] = useState<ApplicationWithJob[]>([]);
-  const [notes, setNotes] = useState<NoteWithAuthor[]>([]);
-  const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
+  const queryClient = useQueryClient();
   const [emailComposerOpen, setEmailComposerOpen] = useState(false);
   const [rejectionApplication, setRejectionApplication] = useState<ApplicationWithJob | null>(null);
-  const [loading, setLoading] = useState(true);
+
+  const candidateQuery = useQuery({
+    queryKey: keys.candidate(id),
+    queryFn: () => fetchCandidateProfile(id!),
+    enabled: Boolean(id && profile),
+  });
 
   useEffect(() => {
-    if (!id || !profile) return;
-    const load = async () => {
-      setLoading(true);
-      const [cRes, aRes, nRes, eRes] = await Promise.all([
-        supabase.from("candidates").select("*").eq("id", id).single(),
-        supabase
-          .from("applications")
-          .select("id, stage, updated_at, created_at, job_id, jobs(title, hiring_manager)")
-          .eq("candidate_id", id)
-          .order("updated_at", { ascending: false }),
-        supabase.from("notes").select("*").eq("candidate_id", id).order("created_at", { ascending: false }),
-        supabase
-          .from("email_send_log")
-          .select("id, template_key, recipient_email, status, context, created_at")
-          .eq("candidate_id", id)
-          .eq("status", "sent")
-          .order("created_at", { ascending: false }),
-      ]);
+    if (candidateQuery.error) {
+      toast.error("Candidate not found");
+      navigate("/candidates");
+    }
+  }, [candidateQuery.error, navigate]);
 
-      if (cRes.error || !cRes.data) {
-        toast.error("Candidate not found");
-        navigate("/candidates");
-        return;
-      }
+  const candidate = candidateQuery.data?.candidate ?? null;
+  const applications = candidateQuery.data?.applications ?? [];
+  const notes = candidateQuery.data?.notes ?? [];
+  const emailLogs = candidateQuery.data?.emailLogs ?? [];
+  const loading = Boolean(id && profile && candidateQuery.isLoading);
 
-      const rawNotes = (nRes.data ?? []) as NoteRow[];
+  const updateCandidateDetail = (updater: (current: CandidateProfileData) => CandidateProfileData) => {
+    if (!id) return;
+    queryClient.setQueryData<CandidateProfileData>(keys.candidate(id), (current) => (current ? updater(current) : current));
+  };
 
-      // Fetch author names for notes
-      const authorIds = [...new Set(rawNotes.map((note) => note.user_id))];
-      const authorMap: Record<string, string> = {};
-      if (authorIds.length > 0) {
-        const { data: profiles } = await supabase.from("profiles").select("user_id, name").in("user_id", authorIds);
-        ((profiles ?? []) as ProfileNameRow[]).forEach((profileRow) => {
-          authorMap[profileRow.user_id] = profileRow.name ?? "Unknown";
-        });
-      }
+  const stageChangeMutation = useMutation({
+    mutationFn: async ({ appId, newStage }: { appId: string; newStage: Stage }) => {
+      const { error } = await supabase.from("applications").update({ stage: newStage }).eq("id", appId);
+      if (error) throw error;
+      return { appId, newStage };
+    },
+    onError: (error) => {
+      toast.error(errorMessage(error, "Failed to update stage"));
+    },
+    onSuccess: ({ appId, newStage }) => {
+      toast.success(`Stage updated to ${newStage}`);
+      updateCandidateDetail((current) => ({
+        ...current,
+        applications: current.applications.map((a) =>
+          a.id === appId ? { ...a, stage: newStage, updated_at: new Date().toISOString() } : a,
+        ),
+      }));
+      if (id) queryClient.invalidateQueries({ queryKey: keys.candidate(id) });
+      queryClient.invalidateQueries({ queryKey: [...keys.all, "candidates"] });
+      queryClient.invalidateQueries({ queryKey: [...keys.all, "pipeline"] });
+    },
+  });
 
-      setCandidate(cRes.data as unknown as Candidate);
-      setApplications(
-        ((aRes.data ?? []) as unknown as ApplicationQueryRow[]).map((a) => ({
-          id: a.id,
-          stage: a.stage,
-          updated_at: a.updated_at,
-          created_at: a.created_at,
-          job_id: a.job_id,
-          job_title: a.jobs?.title ?? "Unknown",
-          hiring_manager: a.jobs?.hiring_manager ?? null,
-        })),
-      );
-      setNotes(
-        rawNotes.map((n) => ({
-          id: n.id,
-          content: n.content,
-          created_at: n.created_at,
-          user_id: n.user_id,
-          author_name: authorMap[n.user_id] ?? "Unknown",
-        })),
-      );
-      setEmailLogs((eRes.data ?? []) as unknown as EmailLog[]);
-      setLoading(false);
-    };
-    load();
-  }, [id, navigate, profile]);
-
-  const handleStageChange = async (appId: string, newStage: Stage) => {
+  const handleStageChange = (appId: string, newStage: Stage) => {
     if (newStage === "rejected") {
       const application = applications.find((app) => app.id === appId);
       if (!application) {
@@ -194,18 +241,7 @@ export default function CandidateProfile() {
       return;
     }
 
-    const { error } = await supabase
-      .from("applications")
-      .update({ stage: newStage })
-      .eq("id", appId);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    toast.success(`Stage updated to ${newStage}`);
-    setApplications((prev) =>
-      prev.map((a) => (a.id === appId ? { ...a, stage: newStage, updated_at: new Date().toISOString() } : a)),
-    );
+    stageChangeMutation.mutate({ appId, newStage });
   };
 
   const handleRejectionComposerOpenChange = (open: boolean) => {
@@ -214,12 +250,16 @@ export default function CandidateProfile() {
 
   const handleRejectionSent = (applicationIds: string[]) => {
     const targetIds = new Set(applicationIds.length > 0 ? applicationIds : rejectionApplication ? [rejectionApplication.id] : []);
-    setApplications((prev) =>
-      prev.map((app) =>
+    updateCandidateDetail((current) => ({
+      ...current,
+      applications: current.applications.map((app) =>
         targetIds.has(app.id) ? { ...app, stage: "rejected", updated_at: new Date().toISOString() } : app,
       ),
-    );
+    }));
     setRejectionApplication(null);
+    if (id) queryClient.invalidateQueries({ queryKey: keys.candidate(id) });
+    queryClient.invalidateQueries({ queryKey: [...keys.all, "candidates"] });
+    queryClient.invalidateQueries({ queryKey: [...keys.all, "pipeline"] });
   };
 
   // Build activity timeline events
@@ -551,7 +591,10 @@ export default function CandidateProfile() {
             companyId={candidate.company_id}
             userId={profile!.user_id}
             notes={notes}
-            onNotesChange={setNotes}
+            onNotesChange={(nextNotes) => {
+              updateCandidateDetail((current) => ({ ...current, notes: nextNotes }));
+              if (id) queryClient.invalidateQueries({ queryKey: keys.candidate(id) });
+            }}
           />
         </TabsContent>
 

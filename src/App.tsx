@@ -40,9 +40,18 @@ import DataProtection from "./pages/legal/DataProtection";
 import NotFound from "./pages/NotFound";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 30_000,
+    },
+  },
+});
 
 function ProtectedRoutes() {
   const { user, loading, profile } = useAuth();
@@ -91,51 +100,53 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <Routes>
-            <Route path="/" element={<Navigate to="/auth" replace />} />
-            <Route path="/auth" element={<AuthRoute />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/careers/:companySlug" element={<LegacyCareersRedirect />} />
-            <Route path="/careers/:companySlug/:jobId" element={<LegacyJobRedirect />} />
-            <Route path="/:companySlug/careers" element={<CareersPage />} />
-            <Route path="/:companySlug/careers/:jobId" element={<JobDetailsPage />} />
-            <Route path="/screen/:linkId" element={<PublicScreening />} />
-            <Route path="/apply/:jobId" element={<PublicJobApplication />} />
-            <Route path="/feedback/:token" element={<PublicFeedback />} />
-            <Route path="/candidate-form/:token" element={<CandidateAssignedForm />} />
-            <Route path="/legal/data-protection" element={<DataProtection />} />
-            <Route element={<ProtectedRoutes />}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/jobs" element={<Jobs />} />
-              <Route path="/candidates" element={<Candidates />} />
-              <Route path="/candidates/:id" element={<CandidateProfile />} />
-              <Route path="/pipeline" element={<Pipeline />} />
-              <Route path="/admin/candidate-tags" element={<CandidateTagsAdmin />} />
-              <Route path="/screening" element={<ScreeningJobs />} />
-              <Route path="/screening/:jobId/submissions" element={<ScreeningSubmissions />} />
-              <Route path="/assessment" element={<Assessment />} />
-              <Route path="/billing" element={<Billing />} />
-              <Route path="/billing/invoices/:id" element={<InvoiceDetail />} />
-              <Route path="/team" element={<Team />} />
-              <Route path="/forms" element={<Forms />} />
-              <Route path="/forms/new" element={<FormBuilder />} />
-              <Route path="/forms/:formId/edit" element={<FormBuilder />} />
-              <Route path="/forms/:formId/submissions" element={<FormSubmissions />} />
-              <Route path="/settings/email-templates" element={<CompanyEmailTemplates />} />
-              <Route path="/admin" element={<AdminDashboard />}>
-                <Route index element={<AdminOverview />} />
-                <Route path="companies" element={<AdminCompanies />} />
-                <Route path="companies/:id" element={<AdminCompanyDetail />} />
-                <Route path="pricing" element={<AdminPricing />} />
-                <Route path="billing" element={<AdminBilling />} />
-                <Route path="billing/invoices/:id" element={<AdminInvoiceDetail />} />
-                <Route path="email-templates" element={<AdminEmailTemplates />} />
-                <Route path="policies" element={<AdminPolicies />} />
+          <ErrorBoundary>
+            <Routes>
+              <Route path="/" element={<Navigate to="/auth" replace />} />
+              <Route path="/auth" element={<AuthRoute />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/careers/:companySlug" element={<LegacyCareersRedirect />} />
+              <Route path="/careers/:companySlug/:jobId" element={<LegacyJobRedirect />} />
+              <Route path="/:companySlug/careers" element={<CareersPage />} />
+              <Route path="/:companySlug/careers/:jobId" element={<JobDetailsPage />} />
+              <Route path="/screen/:linkId" element={<PublicScreening />} />
+              <Route path="/apply/:jobId" element={<PublicJobApplication />} />
+              <Route path="/feedback/:token" element={<PublicFeedback />} />
+              <Route path="/candidate-form/:token" element={<CandidateAssignedForm />} />
+              <Route path="/legal/data-protection" element={<DataProtection />} />
+              <Route element={<ProtectedRoutes />}>
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/jobs" element={<Jobs />} />
+                <Route path="/candidates" element={<Candidates />} />
+                <Route path="/candidates/:id" element={<CandidateProfile />} />
+                <Route path="/pipeline" element={<Pipeline />} />
+                <Route path="/admin/candidate-tags" element={<CandidateTagsAdmin />} />
+                <Route path="/screening" element={<ScreeningJobs />} />
+                <Route path="/screening/:jobId/submissions" element={<ScreeningSubmissions />} />
+                <Route path="/assessment" element={<Assessment />} />
+                <Route path="/billing" element={<Billing />} />
+                <Route path="/billing/invoices/:id" element={<InvoiceDetail />} />
+                <Route path="/team" element={<Team />} />
+                <Route path="/forms" element={<Forms />} />
+                <Route path="/forms/new" element={<FormBuilder />} />
+                <Route path="/forms/:formId/edit" element={<FormBuilder />} />
+                <Route path="/forms/:formId/submissions" element={<FormSubmissions />} />
+                <Route path="/settings/email-templates" element={<CompanyEmailTemplates />} />
+                <Route path="/admin" element={<AdminDashboard />}>
+                  <Route index element={<AdminOverview />} />
+                  <Route path="companies" element={<AdminCompanies />} />
+                  <Route path="companies/:id" element={<AdminCompanyDetail />} />
+                  <Route path="pricing" element={<AdminPricing />} />
+                  <Route path="billing" element={<AdminBilling />} />
+                  <Route path="billing/invoices/:id" element={<AdminInvoiceDetail />} />
+                  <Route path="email-templates" element={<AdminEmailTemplates />} />
+                  <Route path="policies" element={<AdminPolicies />} />
+                </Route>
               </Route>
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </ErrorBoundary>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
