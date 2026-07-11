@@ -13,6 +13,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Badge } from "@/components/ui/badge";
+import { Search, SlidersHorizontal } from "lucide-react";
 
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import KanbanCard from "@/components/pipeline/KanbanCard";
@@ -36,7 +40,14 @@ export default function Pipeline() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [jobs, setJobs] = useState<{ id: string; title: string }[]>([]);
   const [candidates, setCandidates] = useState<{ id: string; name: string }[]>([]);
-  const [selectedJobFilter, setSelectedJobFilter] = useState<string>("all");
+  const [selectedJobFilter, setSelectedJobFilter] = useState<string>("");
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState("screening_desc");
+  const [screeningStatus, setScreeningStatus] = useState("all");
+  const [screeningMin, setScreeningMin] = useState("");
+  const [screeningMax, setScreeningMax] = useState("");
+  const filterStorageKey = profile?.user_id && selectedJobFilter ? `pipeline:${profile.user_id}:${selectedJobFilter}` : null;
+  const [loadedFilterKey, setLoadedFilterKey] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [newJobId, setNewJobId] = useState("");
   const [newCandidateId, setNewCandidateId] = useState("");
@@ -49,18 +60,25 @@ export default function Pipeline() {
   
 
   const load = useCallback(async () => {
-    const { data } = await supabase
-      .from("applications")
-      .select("id, job_id, candidate_id, stage, company_id, candidates(name, email), jobs!inner(title, hiring_manager, status)")
-      .eq("jobs.status", "open")
-      .order("created_at", { ascending: false });
-
-    const mapped = mapActivePipelineApplications((data ?? []) as unknown as PipelineApplicationRow[]);
+    if (!selectedJobFilter) { setApplications([]); return; }
+    const { data, error } = await supabase.rpc("get_job_pipeline", {
+      _job_id: selectedJobFilter, _search: search.trim() || null,
+      _screening_min: screeningMin ? Number(screeningMin) : null, _screening_max: screeningMax ? Number(screeningMax) : null,
+      _screening_status: screeningStatus === "all" ? null : screeningStatus, _sort: sort,
+    });
+    if (error) { toast.error(error.message); return; }
+    const mapped: Application[] = (data ?? []).map((row) => ({
+      id: row.id, job_id: row.job_id, candidate_id: row.candidate_id, stage: row.stage as Stage, company_id: row.company_id,
+      candidate: { name: row.candidate_name, email: row.candidate_email },
+      job: { title: row.job_title, hiring_manager: row.hiring_manager, status: "open" },
+      screening_score: row.screening_score, screening_status: row.screening_status,
+      review_needed_count: row.review_needed_count ?? 0, interview_average: row.interview_average,
+    }));
     setApplications(mapped);
     setSelectedIds((current) => reconcilePipelineSelection(mapped, current, null).selectedIds);
     setRejectDialogIds((current) => reconcilePipelineSelection(mapped, current, null).selectedIds);
     setSelectedApp((current) => reconcilePipelineSelection(mapped, [], current).selectedApp);
-  }, []);
+  }, [selectedJobFilter, search, screeningMin, screeningMax, screeningStatus, sort]);
 
   const loadOptions = useCallback(async () => {
     const [j, c] = await Promise.all([
@@ -69,7 +87,7 @@ export default function Pipeline() {
     ]);
     const openJobs = (j.data ?? []) as { id: string; title: string }[];
     setJobs(openJobs);
-    setSelectedJobFilter((current) => current === "all" || openJobs.some((job) => job.id === current) ? current : "all");
+    setSelectedJobFilter((current) => openJobs.some((job) => job.id === current) ? current : (openJobs[0]?.id ?? ""));
     setCandidates((c.data ?? []) as { id: string; name: string }[]);
   }, []);
 
@@ -79,6 +97,22 @@ export default function Pipeline() {
       loadOptions();
     }
   }, [profile, load, loadOptions]);
+
+  useEffect(() => {
+    if (!filterStorageKey) return;
+    const saved = window.localStorage.getItem(filterStorageKey);
+    if (!saved) { setLoadedFilterKey(filterStorageKey); return; }
+    try {
+      const state = JSON.parse(saved) as { search?: string; sort?: string; screeningStatus?: string; screeningMin?: string; screeningMax?: string };
+      setSearch(state.search ?? ""); setSort(state.sort ?? "screening_desc"); setScreeningStatus(state.screeningStatus ?? "all"); setScreeningMin(state.screeningMin ?? ""); setScreeningMax(state.screeningMax ?? "");
+    } catch { window.localStorage.removeItem(filterStorageKey); }
+    setLoadedFilterKey(filterStorageKey);
+  }, [filterStorageKey]);
+
+  useEffect(() => {
+    if (!filterStorageKey || loadedFilterKey !== filterStorageKey) return;
+    window.localStorage.setItem(filterStorageKey, JSON.stringify({ search, sort, screeningStatus, screeningMin, screeningMax }));
+  }, [filterStorageKey, loadedFilterKey, search, screeningMax, screeningMin, screeningStatus, sort]);
 
   const moveStage = async (appId: string, newStage: Stage) => {
     const { error } = await supabase.from("applications").update({ stage: newStage }).eq("id", appId);
@@ -171,7 +205,7 @@ export default function Pipeline() {
 
 
 
-  const filtered = selectedJobFilter === "all" ? applications : applications.filter(a => a.job_id === selectedJobFilter);
+  const filtered = applications;
   const rejectDialogApps = applications.filter((app) => rejectDialogIds.includes(app.id));
   const selectedApps = applications.filter((app) => selectedIds.includes(app.id));
 
@@ -236,10 +270,12 @@ export default function Pipeline() {
           <Select value={selectedJobFilter} onValueChange={setSelectedJobFilter}>
             <SelectTrigger className="w-48"><SelectValue placeholder="Filter by job" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Jobs</SelectItem>
               {jobs.map(j => <SelectItem key={j.id} value={j.id}>{j.title}</SelectItem>)}
             </SelectContent>
           </Select>
+          <div className="relative w-52"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search candidates" /></div>
+          <Select value={sort} onValueChange={setSort}><SelectTrigger className="w-48"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="screening_desc">Highest screening</SelectItem><SelectItem value="interview_desc">Highest interview</SelectItem><SelectItem value="newest">Newest</SelectItem><SelectItem value="oldest">Oldest</SelectItem><SelectItem value="name_asc">Candidate name</SelectItem></SelectContent></Select>
+          <Sheet><SheetTrigger asChild><Button variant="outline"><SlidersHorizontal className="mr-2 size-4" />Filters{(screeningStatus !== "all" || screeningMin || screeningMax) && <Badge className="ml-2" variant="secondary">{[screeningStatus !== "all", screeningMin, screeningMax].filter(Boolean).length}</Badge>}</Button></SheetTrigger><SheetContent><SheetHeader><SheetTitle>Pipeline filters</SheetTitle><SheetDescription>Filters apply only to the selected job.</SheetDescription></SheetHeader><div className="mt-6 space-y-5"><div className="space-y-2"><Label>Screening status</Label><Select value={screeningStatus} onValueChange={setScreeningStatus}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All statuses</SelectItem><SelectItem value="final">Final</SelectItem><SelectItem value="provisional">Provisional</SelectItem></SelectContent></Select></div><div className="grid grid-cols-2 gap-3"><div className="space-y-2"><Label>Minimum score</Label><Input type="number" min={0} max={100} value={screeningMin} onChange={(event) => setScreeningMin(event.target.value)} /></div><div className="space-y-2"><Label>Maximum score</Label><Input type="number" min={0} max={100} value={screeningMax} onChange={(event) => setScreeningMax(event.target.value)} /></div></div><Button variant="outline" className="w-full" onClick={() => { setScreeningStatus("all"); setScreeningMin(""); setScreeningMax(""); }}>Clear all</Button></div></SheetContent></Sheet>
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogTrigger asChild>
               <Button><Plus className="w-4 h-4 mr-2" />New Application</Button>

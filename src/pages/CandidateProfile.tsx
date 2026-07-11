@@ -17,6 +17,8 @@ import CandidateTagsBar from "@/components/candidate/CandidateTagsBar";
 import CandidateDocuments from "@/components/candidate/CandidateDocuments";
 import { R2_BUCKET_RESUMES, getSignedR2Url } from "@/lib/r2Worker";
 import { CandidateEmailComposer } from "@/components/email/CandidateEmailComposer";
+import CandidateForms from "@/components/candidate/CandidateForms";
+import ScreeningReview from "@/components/candidate/ScreeningReview";
 
 const STAGES = ["applied", "shortlisted", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"] as const;
 
@@ -532,11 +534,13 @@ export default function CandidateProfile() {
 
       {/* Tabs: Notes / Interview Feedback / Resume History */}
       <Tabs defaultValue="notes" className="w-full">
-        <TabsList className="flex w-full max-w-2xl h-auto overflow-x-auto justify-start sm:grid sm:grid-cols-4">
+        <TabsList className="flex w-full h-auto overflow-x-auto justify-start sm:grid sm:grid-cols-6">
           <TabsTrigger value="notes" className="whitespace-nowrap flex-shrink-0 sm:flex-1">Notes</TabsTrigger>
           <TabsTrigger value="feedback" className="whitespace-nowrap flex-shrink-0 sm:flex-1">Interview Feedback</TabsTrigger>
           <TabsTrigger value="resumes" className="whitespace-nowrap flex-shrink-0 sm:flex-1">Resume History</TabsTrigger>
           <TabsTrigger value="documents" className="whitespace-nowrap flex-shrink-0 sm:flex-1">Documents</TabsTrigger>
+          <TabsTrigger value="forms" className="whitespace-nowrap flex-shrink-0 sm:flex-1">Forms</TabsTrigger>
+          <TabsTrigger value="screening" className="whitespace-nowrap flex-shrink-0 sm:flex-1">Screening</TabsTrigger>
         </TabsList>
 
         <TabsContent value="notes" className="mt-4">
@@ -581,6 +585,10 @@ export default function CandidateProfile() {
             <CandidateDocuments candidateId={candidate.id} companyId={candidate.company_id} />
           </div>
         </TabsContent>
+        <TabsContent value="forms" className="mt-4">
+          <CandidateForms candidateId={candidate.id} companyId={candidate.company_id} userId={profile!.user_id} candidateEmail={candidate.email} />
+        </TabsContent>
+        <TabsContent value="screening" className="mt-4">{latestApp && <ScreeningReview applicationId={latestApp.id} />}</TabsContent>
       </Tabs>
 
       {/* Standalone Activity Timeline */}

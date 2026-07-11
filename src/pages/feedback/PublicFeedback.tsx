@@ -32,12 +32,16 @@ export default function PublicFeedback() {
   const [opportunities, setOpportunities] = useState("");
   const [weaknesses, setWeaknesses] = useState("");
   const [rating, setRating] = useState(0);
+  const [scorecardVersionId, setScorecardVersionId] = useState<string | null>(null);
+  const [areas, setAreas] = useState<Array<{ id: string; label: string; description: string | null }>>([]);
+  const [ratings, setRatings] = useState<Record<string, number>>({});
+  const [summary, setSummary] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     const load = async () => {
       if (!token) return;
-      const { data: link, error: e } = await (supabase as any)
+      const { data: link, error: e } = await supabase
         .from("feedback_links")
         .select("id, company_id, candidate_id, job_id, expires_at")
         .eq("token", token)
@@ -47,7 +51,7 @@ export default function PublicFeedback() {
         setLoading(false);
         return;
       }
-      const { data: enabled } = await (supabase as any).rpc("is_feature_enabled", {
+      const { data: enabled } = await supabase.rpc("is_feature_enabled", {
         _company_id: link.company_id,
         _feature: "guest_feedback",
       });
@@ -66,6 +70,8 @@ export default function PublicFeedback() {
         job_title: j?.title ?? "Position",
         hiring_manager: j?.hiring_manager ?? null,
       });
+      const { data: version } = await supabase.from("interview_scorecard_versions").select("id").eq("company_id", link.company_id).eq("status", "published").order("version", { ascending: false }).limit(1).maybeSingle();
+      if (version) { const { data: areaRows } = await supabase.from("interview_scorecard_areas").select("id, label, description").eq("version_id", version.id).order("position"); setScorecardVersionId(version.id); setAreas(areaRows ?? []); }
       setLoading(false);
     };
     load();
@@ -74,31 +80,24 @@ export default function PublicFeedback() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!ctx) return;
-    if (!feedbackBy.trim() || !strengths.trim() || rating === 0) {
-      toast.error("Please fill in your name, strengths, and a rating");
+    if (!feedbackBy.trim() || !summary.trim() || areas.length < 2 || areas.some((area) => !ratings[area.id])) {
+      toast.error("Please enter your name, rate every area, and add a summary");
       return;
     }
     setSubmitting(true);
-    const composedText = [
-      strengths.trim() && `STRENGTHS:\n${strengths.trim()}`,
-      opportunities.trim() && `OPPORTUNITIES:\n${opportunities.trim()}`,
-      weaknesses.trim() && `WEAKNESSES:\n${weaknesses.trim()}`,
-    ]
-      .filter(Boolean)
-      .join("\n\n");
+    const average = Number((areas.reduce((sum, area) => sum + ratings[area.id], 0) / areas.length).toFixed(2));
+    const snapshot = { areas, scale: ["Poor", "Below expectations", "Meets expectations", "Exceeds expectations", "Exceptional"] };
 
-    const { error: insertErr } = await (supabase as any).from("interview_feedback").insert({
+    const { error: insertErr } = await supabase.from("interview_feedback").insert({
       candidate_id: ctx.candidate_id,
       job_id: ctx.job_id,
       company_id: ctx.company_id,
-      feedback_text: composedText,
+      feedback_text: summary.trim(),
       feedback_by: feedbackBy.trim(),
       feedback_date: new Date().toISOString().slice(0, 10),
       hiring_manager: ctx.hiring_manager,
-      strengths: strengths.trim() || null,
-      opportunities: opportunities.trim() || null,
-      weaknesses: weaknesses.trim() || null,
-      rating,
+      summary: summary.trim(), scorecard_version_id: scorecardVersionId, scorecard_snapshot: snapshot,
+      ratings, panelist_average: average, rating: Math.round(average), source: "guest",
     });
     setSubmitting(false);
     if (insertErr) {
@@ -166,41 +165,8 @@ export default function PublicFeedback() {
             />
           </div>
 
-          <div className="space-y-1.5">
-            <Label>Strengths *</Label>
-            <Textarea
-              value={strengths}
-              onChange={(e) => setStrengths(e.target.value)}
-              rows={3}
-              placeholder="What did the candidate do well?"
-              required
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Opportunities</Label>
-            <Textarea
-              value={opportunities}
-              onChange={(e) => setOpportunities(e.target.value)}
-              rows={3}
-              placeholder="Areas where they could grow"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Weaknesses</Label>
-            <Textarea
-              value={weaknesses}
-              onChange={(e) => setWeaknesses(e.target.value)}
-              rows={3}
-              placeholder="Concerns or weaknesses"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Overall rating *</Label>
-            <StarRating value={rating} onChange={setRating} size={28} />
-          </div>
+          {areas.map((area) => <div key={area.id} className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"><div><Label>{area.label} *</Label>{area.description && <p className="text-xs text-muted-foreground">{area.description}</p>}</div><StarRating value={ratings[area.id] ?? 0} onChange={(value) => setRatings((current) => ({ ...current, [area.id]: value }))} size={26} /></div>)}
+          <div className="space-y-1.5"><Label>Written summary *</Label><Textarea value={summary} onChange={(event) => setSummary(event.target.value)} rows={4} required /></div>
 
           <Button type="submit" disabled={submitting} className="w-full">
             {submitting ? "Submitting…" : "Submit Feedback"}

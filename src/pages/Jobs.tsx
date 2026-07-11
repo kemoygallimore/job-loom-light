@@ -14,10 +14,11 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Search, Link2, Check, Video, ChevronDown, CalendarIcon, Copy, AlertCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Link2, Check, Video, ChevronDown, CalendarIcon, Copy, AlertCircle, ListChecks } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { htmlToPlainText } from "@/lib/htmlToPlainText";
+import ScreeningQuestionBuilder from "@/components/jobs/ScreeningQuestionBuilder";
 
 interface Job {
   id: string;
@@ -45,6 +46,7 @@ export default function Jobs() {
   const [copiedJobId, setCopiedJobId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"open" | "closed">("open");
   const [limitDialogOpen, setLimitDialogOpen] = useState(false);
+  const [screeningJob, setScreeningJob] = useState<Job | null>(null);
 
   // Screening defaults
   const [screeningOpen, setScreeningOpen] = useState(false);
@@ -346,6 +348,9 @@ export default function Jobs() {
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(job)}>
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" title="Configure screening questions" onClick={() => setScreeningJob(job)}>
+                      <ListChecks className="w-3.5 h-3.5" />
+                    </Button>
                     {role === "admin" && (
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(job.id)}>
                         <Trash2 className="w-3.5 h-3.5 text-destructive" />
@@ -371,6 +376,13 @@ export default function Jobs() {
       </div>
 
       {/* Limit reached dialog */}
+      <Dialog open={Boolean(screeningJob)} onOpenChange={(value) => !value && setScreeningJob(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Screening · {screeningJob?.title}</DialogTitle></DialogHeader>
+          {screeningJob && profile && user && <ScreeningQuestionBuilder jobId={screeningJob.id} companyId={profile.company_id} userId={user.id} />}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={limitDialogOpen} onOpenChange={setLimitDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

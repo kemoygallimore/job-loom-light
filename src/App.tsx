@@ -34,9 +34,9 @@ import ScreeningSubmissions from "./pages/screening/ScreeningSubmissions";
 import PublicScreening from "./pages/screening/PublicScreening";
 import PublicJobApplication from "./pages/apply/PublicJobApplication";
 import PublicFeedback from "./pages/feedback/PublicFeedback";
-import PublicLeadForm from "./pages/forms/PublicLeadForm";
 import FormBuilder from "./pages/forms/FormBuilder";
 import FormSubmissions from "./pages/forms/FormSubmissions";
+import CandidateAssignedForm from "./pages/forms/CandidateAssignedForm";
 import DataProtection from "./pages/legal/DataProtection";
 import NotFound from "./pages/NotFound";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -105,6 +105,7 @@ const App = () => (
             <Route path="/screen/:linkId" element={<PublicScreening />} />
             <Route path="/apply/:jobId" element={<PublicJobApplication />} />
             <Route path="/feedback/:token" element={<PublicFeedback />} />
+            <Route path="/candidate-form/:token" element={<CandidateAssignedForm />} />
             <Route path="/legal/data-protection" element={<DataProtection />} />
             <Route element={<ProtectedRoutes />}>
               <Route path="/dashboard" element={<Dashboard />} />
@@ -135,7 +136,6 @@ const App = () => (
                 <Route path="policies" element={<AdminPolicies />} />
               </Route>
             </Route>
-            <Route path="/forms/:publicId" element={<PublicLeadForm />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

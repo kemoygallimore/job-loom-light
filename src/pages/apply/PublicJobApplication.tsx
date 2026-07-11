@@ -11,6 +11,9 @@ import { CheckCircle2, FileText, Loader2, AlertCircle, Upload, X, Building2, Lin
 import { uploadResumeToR2 } from "@/lib/uploadResumeToR2";
 import { uploadToStorage } from "@/lib/uploadToStorage";
 import { sanitizeRichHtml } from "@/lib/sanitizeHtml";
+import { Textarea } from "@/components/ui/textarea";
+import { calculateScreeningScore, objectiveCredit, type ScreeningQuestion } from "@/lib/jobScreening";
+import type { Json } from "@/integrations/supabase/types";
 const EDUCATION_LEVELS = [
   "Primary Level Education",
   "Trade Certificate",
@@ -202,6 +205,9 @@ export default function PublicJobApplication() {
   const [additionalFiles, setAdditionalFiles] = useState<File[]>([]);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [screeningVersionId, setScreeningVersionId] = useState<string | null>(null);
+  const [screeningQuestions, setScreeningQuestions] = useState<ScreeningQuestion[]>([]);
+  const [screeningAnswers, setScreeningAnswers] = useState<Record<string, Json>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const additionalFilesInputRef = useRef<HTMLInputElement>(null);
 
@@ -236,6 +242,14 @@ export default function PublicJobApplication() {
         .eq("id", jobData.company_id)
         .maybeSingle();
       setCompany(companyData ?? null);
+      const { data: screeningVersion } = await supabase.from("job_screening_versions").select("id").eq("job_id", jobData.id).eq("status", "published").order("version", { ascending: false }).limit(1).maybeSingle();
+      if (screeningVersion) {
+        const { data: questionRows } = await supabase.from("job_screening_questions").select("*").eq("version_id", screeningVersion.id).order("position");
+        const questionIds = (questionRows ?? []).map((question) => question.id);
+        const { data: choiceRows } = questionIds.length ? await supabase.from("job_screening_choices").select("*").in("question_id", questionIds).order("position") : { data: [] };
+        setScreeningVersionId(screeningVersion.id);
+        setScreeningQuestions((questionRows ?? []).map((question) => ({ ...question, rubric: question.rubric, settings: question.settings, choices: (choiceRows ?? []).filter((choice) => choice.question_id === question.id) })));
+      }
       setLoading(false);
     };
 
@@ -268,6 +282,10 @@ export default function PublicJobApplication() {
       e.additionalFiles = `You can upload at most ${MAX_ADDITIONAL_FILES} additional documents`;
     }
     if (!agreedToTerms) e.terms = "You must agree to the Data Protection Agreement to continue";
+    for (const question of screeningQuestions) {
+      const value = screeningAnswers[question.id];
+      if (question.required && (value == null || value === "" || (Array.isArray(value) && value.length === 0))) e[`screening-${question.id}`] = "This answer is required";
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -345,13 +363,13 @@ export default function PublicJobApplication() {
             resume_filename: resumeResult.filename,
             resume_content_type: resumeResult.contentType,
             resume_size_bytes: resumeResult.size,
-          } as any)
+          })
           .eq("id", candidateId);
 
         if (updateError) throw updateError;
 
         // Archive resume version
-        const { error: archiveError } = await supabase.rpc("archive_resume_version" as any, {
+        const { error: archiveError } = await supabase.rpc("archive_resume_version", {
           _candidate_id: candidateId,
           _company_id: company.id,
           _job_id: job.id,
@@ -377,7 +395,7 @@ export default function PublicJobApplication() {
           street_address: streetAddress.trim(),
           parish_state: parishState,
           education_level: educationLevel,
-        } as any);
+        });
 
         if (candidateError) throw candidateError;
 
@@ -396,13 +414,13 @@ export default function PublicJobApplication() {
             resume_filename: resumeResult.filename,
             resume_content_type: resumeResult.contentType,
             resume_size_bytes: resumeResult.size,
-          } as any)
+          })
           .eq("id", candidateId);
 
         if (resumeUpdateError) throw resumeUpdateError;
 
         // Archive resume version
-        const { error: archiveError } = await supabase.rpc("archive_resume_version" as any, {
+        const { error: archiveError } = await supabase.rpc("archive_resume_version", {
           _candidate_id: candidateId,
           _company_id: company.id,
           _job_id: job.id,
@@ -416,16 +434,31 @@ export default function PublicJobApplication() {
       }
 
       // 3. Create application
-      const { error: appError } = await supabase
+      const { data: application, error: appError } = await supabase
         .from("applications")
         .insert({
           company_id: company.id,
           job_id: job.id,
           candidate_id: candidateId,
           stage: "applied",
-        });
+        }).select("id").single();
 
       if (appError) throw appError;
+
+      if (screeningVersionId && screeningQuestions.length) {
+        const calculated = calculateScreeningScore(screeningQuestions, screeningAnswers);
+        const { data: response, error: responseError } = await supabase.from("job_screening_responses").insert({
+          company_id: company.id, application_id: application.id, version_id: screeningVersionId,
+          status: calculated.status, score: calculated.score, review_needed_count: calculated.reviewNeededCount,
+          finalized_at: calculated.status === "final" ? new Date().toISOString() : null,
+        }).select("id").single();
+        if (responseError) throw responseError;
+        const { error: answerError } = await supabase.from("job_screening_answers").insert(screeningQuestions.map((question) => ({
+          response_id: response.id, question_id: question.id, answer: screeningAnswers[question.id] ?? null,
+          earned_percent: objectiveCredit(question, screeningAnswers[question.id]),
+        })));
+        if (answerError) throw answerError;
+      }
 
       // Upload additional documents (best-effort; failures logged but do not block submission)
       for (const file of additionalFiles) {
@@ -455,9 +488,9 @@ export default function PublicJobApplication() {
       }
 
       setSubmitted(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Submit error:", err);
-      const msg: string = err?.message || "Something went wrong";
+      const msg = err instanceof Error ? err.message : "Something went wrong";
       if (/linkedin/i.test(msg)) {
         setErrors((p) => ({ ...p, linkedinUrl: msg }));
         toast.error(msg);
@@ -844,6 +877,18 @@ export default function PublicJobApplication() {
           </div>
 
           {/* Data protection consent */}
+          {screeningQuestions.length > 0 && <section className="space-y-4 rounded-xl border p-4">
+            <div><h2 className="font-semibold">Screening questions</h2><p className="text-xs text-muted-foreground">Your answers help the hiring team review this application.</p></div>
+            {screeningQuestions.map((question, index) => <div key={question.id} className="space-y-2">
+              <Label>{index + 1}. {question.prompt}{question.required ? " *" : ""}</Label>
+              {(question.type === "short_text" || question.type === "long_text") && <Textarea rows={question.type === "long_text" ? 5 : 2} value={String(screeningAnswers[question.id] ?? "")} onChange={(event) => setScreeningAnswers((current) => ({ ...current, [question.id]: event.target.value }))} />}
+              {question.type === "number" && <Input type="number" value={String(screeningAnswers[question.id] ?? "")} onChange={(event) => setScreeningAnswers((current) => ({ ...current, [question.id]: Number(event.target.value) }))} />}
+              {(question.type === "yes_no" || question.type === "single_choice") && <Select value={String(screeningAnswers[question.id] ?? "")} onValueChange={(value) => setScreeningAnswers((current) => ({ ...current, [question.id]: value }))}><SelectTrigger><SelectValue placeholder="Select an answer" /></SelectTrigger><SelectContent>{question.choices.map((choice) => <SelectItem key={choice.id} value={choice.id}>{choice.label}</SelectItem>)}</SelectContent></Select>}
+              {question.type === "multi_select" && <div className="space-y-2">{question.choices.map((choice) => { const selected = Array.isArray(screeningAnswers[question.id]) ? screeningAnswers[question.id] as Json[] : []; return <label key={choice.id} className="flex items-center gap-2 rounded-md border p-2 text-sm"><Checkbox checked={selected.includes(choice.id)} onCheckedChange={(checked) => setScreeningAnswers((current) => ({ ...current, [question.id]: checked ? [...selected, choice.id] : selected.filter((value) => value !== choice.id) }))} />{choice.label}</label>; })}</div>}
+              {errors[`screening-${question.id}`] && <p className="text-xs text-destructive">{errors[`screening-${question.id}`]}</p>}
+            </div>)}
+          </section>}
+
           <div className="space-y-1.5 pt-2">
             <div className="flex items-start gap-2.5 rounded-lg border bg-muted/30 p-3">
               <Checkbox

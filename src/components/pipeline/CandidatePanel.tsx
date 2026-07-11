@@ -35,6 +35,8 @@ import CandidateDocuments from "@/components/candidate/CandidateDocuments";
 import ActivityTimeline from "@/components/candidate/ActivityTimeline";
 import { CandidateEmailComposer } from "@/components/email/CandidateEmailComposer";
 import { buildPipelineCandidateTimeline } from "@/lib/pipeline";
+import ScreeningReview from "@/components/candidate/ScreeningReview";
+import CandidateForms from "@/components/candidate/CandidateForms";
 
 const STAGES = ["applied", "shortlisted", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"] as const;
 
@@ -380,13 +382,15 @@ export default function CandidatePanel({ app, onClose, onStageChange }: Props) {
                 </section>
 
                 <Tabs defaultValue="history" className="w-full">
-                  <TabsList className="grid h-auto w-full grid-cols-3 sm:grid-cols-6">
+                  <TabsList className="grid h-auto w-full grid-cols-3 sm:grid-cols-8">
                     <TabsTrigger value="history">History</TabsTrigger>
                     <TabsTrigger value="notes">Notes</TabsTrigger>
                     <TabsTrigger value="feedback">Feedback</TabsTrigger>
                     <TabsTrigger value="resumes">Resumes</TabsTrigger>
                     <TabsTrigger value="documents">Docs</TabsTrigger>
                     <TabsTrigger value="timeline">Timeline</TabsTrigger>
+                    <TabsTrigger value="screening">Screening</TabsTrigger>
+                    <TabsTrigger value="forms">Forms</TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="history" className="mt-4 space-y-2">
@@ -470,6 +474,8 @@ export default function CandidatePanel({ app, onClose, onStageChange }: Props) {
                   <TabsContent value="timeline" className="mt-4">
                     <ActivityTimeline events={timelineEvents} />
                   </TabsContent>
+                  <TabsContent value="screening" className="mt-4"><ScreeningReview applicationId={app.id} /></TabsContent>
+                  <TabsContent value="forms" className="mt-4">{candidate && profile && <CandidateForms candidateId={candidate.id} companyId={candidate.company_id} userId={profile.user_id} candidateEmail={candidate.email} />}</TabsContent>
                 </Tabs>
               </>
             )}

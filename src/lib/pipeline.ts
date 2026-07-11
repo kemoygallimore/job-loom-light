@@ -19,6 +19,10 @@ export interface PipelineApplication {
   company_id: string;
   candidate: { name: string; email: string | null };
   job: { title: string; hiring_manager: string | null; status: string | null };
+  screening_score: number | null;
+  screening_status: string | null;
+  review_needed_count: number;
+  interview_average: number | null;
 }
 
 export interface PipelineApplicationRow {
@@ -46,6 +50,10 @@ export function mapActivePipelineApplications(rows: PipelineApplicationRow[]): P
         hiring_manager: row.jobs?.hiring_manager ?? null,
         status: row.jobs?.status ?? null,
       },
+      screening_score: null,
+      screening_status: null,
+      review_needed_count: 0,
+      interview_average: null,
     }));
 }
 

@@ -170,7 +170,7 @@ export default function Forms() {
             <FileText className="size-6 text-primary" />
             Forms
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">Create standalone lead forms and review submissions.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Build reusable forms, then assign them from a candidate profile.</p>
         </div>
         <Button onClick={openCreate}>
           <Plus className="size-4" />
@@ -238,10 +238,6 @@ export default function Forms() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem onClick={() => copyLink(form)}>
-                            {copiedId === form.id ? <Check className="mr-2 size-4" /> : <Copy className="mr-2 size-4" />}
-                            {copiedId === form.id ? "Copied" : "Copy link"}
-                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => setPreviewForm(form)}>
                             <Eye className="mr-2 size-4" />
                             Preview
@@ -267,7 +263,7 @@ export default function Forms() {
                         <AlertDialogHeader>
                           <AlertDialogTitle>Delete this form?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            This hides the form and disables its public link, but keeps submission history.
+                            This hides the form and prevents new candidate assignments. Existing candidate history remains available.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
@@ -290,7 +286,7 @@ export default function Forms() {
                 <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
                   <div className="mx-auto max-w-sm space-y-3">
                     <div className="font-medium text-foreground">No forms yet</div>
-                    <div>Create your first lead form to collect details, uploads, and submissions from a public link.</div>
+                    <div>Create your first reusable form, then assign it securely from a candidate profile.</div>
                     <Button type="button" onClick={openCreate}>
                       <Plus className="size-4" />
                       New Form
@@ -312,15 +308,6 @@ export default function Forms() {
             <div className="flex flex-col gap-5">
               {previewForm.description && <p className="text-sm text-muted-foreground">{previewForm.description}</p>}
               <LeadFormRenderer schema={previewForm.schema} values={{}} disabled onChange={() => {}} />
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/40 p-3 text-sm">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Link2 className="size-4" />
-                  Public link preview
-                </div>
-                <Link className="font-medium text-primary hover:underline" to={`/forms/${previewForm.public_id}`} target="_blank">
-                  Open public form
-                </Link>
-              </div>
             </div>
           )}
         </DialogContent>
