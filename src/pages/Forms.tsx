@@ -24,20 +24,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import LeadFormRenderer from "@/components/forms/LeadFormRenderer";
 import { LeadForm, LeadFormSubmission, normalizeSchema } from "@/lib/leadForms";
+import PageHeader from "@/components/shared/PageHeader";
+import ConfirmDialog from "@/components/shared/ConfirmDialog";
 
 const FORM_LIMIT = 5;
 
@@ -152,19 +143,21 @@ export default function Forms() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 animate-fade-in">
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold">
+      <PageHeader
+        title={
+          <>
             <FileText className="size-6 text-primary" />
             Forms
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">Build reusable forms, then assign them from a candidate profile.</p>
-        </div>
-        <Button onClick={openCreate}>
-          <Plus className="size-4" />
-          New Form
-        </Button>
-      </div>
+          </>
+        }
+        description="Build reusable forms, then assign them from a candidate profile."
+        actions={
+          <Button onClick={openCreate}>
+            <Plus className="size-4" />
+            New Form
+          </Button>
+        }
+      />
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3 text-sm shadow-sm">
         <div>
@@ -218,53 +211,41 @@ export default function Forms() {
                       <Inbox className="size-4" />
                       Submissions
                     </Button>
-                    <AlertDialog>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="size-8" aria-label={`More actions for ${form.title}`}>
-                            <MoreHorizontal className="size-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem onClick={() => setPreviewForm(form)}>
-                            <Eye className="mr-2 size-4" />
-                            Preview
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => navigate(`/forms/${form.id}/edit`)}>
-                            <Pencil className="mr-2 size-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => toggleStatus(form)}>
-                            <Power className="mr-2 size-4" />
-                            {form.status === "active" ? "Disable form" : "Enable form"}
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <AlertDialogTrigger asChild>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="size-8" aria-label={`More actions for ${form.title}`}>
+                          <MoreHorizontal className="size-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem onClick={() => setPreviewForm(form)}>
+                          <Eye className="mr-2 size-4" />
+                          Preview
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => navigate(`/forms/${form.id}/edit`)}>
+                          <Pencil className="mr-2 size-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => toggleStatus(form)}>
+                          <Power className="mr-2 size-4" />
+                          {form.status === "active" ? "Disable form" : "Enable form"}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <ConfirmDialog
+                          title="Delete this form?"
+                          description="This hides the form and prevents new candidate assignments. Existing candidate history remains available."
+                          confirmLabel="Delete form"
+                          destructive
+                          onConfirm={() => softDelete(form)}
+                          trigger={
                             <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={(event) => event.preventDefault()}>
                               <Trash2 className="mr-2 size-4" />
                               Delete
                             </DropdownMenuItem>
-                          </AlertDialogTrigger>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete this form?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This hides the form and prevents new candidate assignments. Existing candidate history remains available.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            onClick={() => softDelete(form)}
-                          >
-                            Delete form
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                          }
+                        />
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </TableCell>
               </TableRow>

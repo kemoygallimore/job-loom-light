@@ -11,6 +11,7 @@ import { logInvoiceEvent } from "@/lib/invoices";
 import { Download, ExternalLink } from "lucide-react";
 import BillingProfileForm from "@/components/billing/BillingProfileForm";
 import BillingCycleCard from "@/components/billing/BillingCycleCard";
+import PageHeader from "@/components/shared/PageHeader";
 
 type Invoice = {
   id: string;
@@ -55,7 +56,7 @@ export default function Billing() {
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">Billing</h1>
+      <PageHeader title="Billing" />
       {profile?.company_id && (
         <Card>
           <CardContent className="pt-6">

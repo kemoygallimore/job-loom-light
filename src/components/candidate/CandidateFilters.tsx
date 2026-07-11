@@ -5,20 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { CalendarIcon, Filter, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-
-const STAGES = ["applied", "shortlisted", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"];
-
-const STAGE_LABELS: Record<string, string> = {
-  applied: "Applied",
-  shortlisted: "Shortlisted",
-  screening: "Screening",
-  scheduling: "Scheduling",
-  "1st_interview": "1st Interview",
-  "2nd_interview": "2nd Interview",
-  offer: "Offer",
-  hired: "Hired",
-  rejected: "Rejected",
-};
+import { PIPELINE_STAGES, STAGE_LABELS } from "@/lib/stages";
 
 interface Job {
   id: string;
@@ -64,7 +51,7 @@ export default function CandidateFilters({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all" className="text-xs">All stages</SelectItem>
-            {STAGES.map((s) => (
+            {PIPELINE_STAGES.map((s) => (
               <SelectItem key={s} value={s} className="text-xs">{STAGE_LABELS[s] ?? s}</SelectItem>
             ))}
           </SelectContent>

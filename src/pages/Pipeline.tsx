@@ -27,11 +27,13 @@ import type { CandidateEmailTemplatePurpose } from "@/lib/candidateEmailTemplate
 import {
   reconcilePipelineSelection,
   type PipelineApplication,
+  type PipelineStage,
 } from "@/lib/pipeline";
 import { keys, type PipelineFilters } from "@/lib/queryKeys";
+import { PIPELINE_STAGES, STAGE_LABELS } from "@/lib/stages";
+import PageHeader from "@/components/shared/PageHeader";
 
-const STAGES = ["applied", "shortlisted", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"] as const;
-type Stage = typeof STAGES[number];
+type Stage = PipelineStage;
 
 export type Application = PipelineApplication;
 
@@ -341,91 +343,81 @@ export default function Pipeline() {
     }
   };
 
-  const stageLabels: Record<Stage, string> = {
-    applied: "Applied",
-    shortlisted: "Shortlisted",
-    screening: "Screening",
-    scheduling: "Scheduling",
-    "1st_interview": "1st Interview",
-    "2nd_interview": "2nd Interview",
-    offer: "Offer",
-    hired: "Hired",
-    rejected: "Rejected",
-  };
-
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3 animate-fade-in">
-        <h1 className="text-2xl font-bold">Pipeline</h1>
-        <div className="flex items-center gap-3">
-          <Select value={selectedJobFilter} onValueChange={setSelectedJobFilter}>
-            <SelectTrigger className="w-48"><SelectValue placeholder="Filter by job" /></SelectTrigger>
-            <SelectContent>
-              {jobs.map(j => <SelectItem key={j.id} value={j.id}>{j.title}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <div className="relative w-52"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search candidates" /></div>
-          <Select value={sort} onValueChange={setSort}><SelectTrigger className="w-48"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="screening_desc">Highest screening</SelectItem><SelectItem value="interview_desc">Highest interview</SelectItem><SelectItem value="newest">Newest</SelectItem><SelectItem value="oldest">Oldest</SelectItem><SelectItem value="name_asc">Candidate name</SelectItem></SelectContent></Select>
-          <Sheet><SheetTrigger asChild><Button variant="outline"><SlidersHorizontal className="mr-2 size-4" />Filters{(screeningStatus !== "all" || screeningMin || screeningMax) && <Badge className="ml-2" variant="secondary">{[screeningStatus !== "all", screeningMin, screeningMax].filter(Boolean).length}</Badge>}</Button></SheetTrigger><SheetContent><SheetHeader><SheetTitle>Pipeline filters</SheetTitle><SheetDescription>Filters apply only to the selected job.</SheetDescription></SheetHeader><div className="mt-6 space-y-5"><div className="space-y-2"><Label>Screening status</Label><Select value={screeningStatus} onValueChange={setScreeningStatus}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All statuses</SelectItem><SelectItem value="final">Final</SelectItem><SelectItem value="provisional">Provisional</SelectItem></SelectContent></Select></div><div className="grid grid-cols-2 gap-3"><div className="space-y-2"><Label>Minimum score</Label><Input type="number" min={0} max={100} value={screeningMin} onChange={(event) => setScreeningMin(event.target.value)} /></div><div className="space-y-2"><Label>Maximum score</Label><Input type="number" min={0} max={100} value={screeningMax} onChange={(event) => setScreeningMax(event.target.value)} /></div></div><Button variant="outline" className="w-full" onClick={() => { setScreeningStatus("all"); setScreeningMin(""); setScreeningMax(""); }}>Clear all</Button></div></SheetContent></Sheet>
-          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-            <DialogTrigger asChild>
-              <Button><Plus className="w-4 h-4 mr-2" />New Application</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>Create Application</DialogTitle></DialogHeader>
-              <form onSubmit={createApplication} className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Job</Label>
-                  <Select value={newJobId} onValueChange={setNewJobId}>
-                    <SelectTrigger><SelectValue placeholder="Select job" /></SelectTrigger>
-                    <SelectContent>
-                      {jobs.map(j => <SelectItem key={j.id} value={j.id}>{j.title}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Candidate</Label>
-                  <Select value={newCandidateId} onValueChange={setNewCandidateId}>
-                    <SelectTrigger><SelectValue placeholder="Select candidate" /></SelectTrigger>
-                    <SelectContent>
-                      {candidates.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button type="submit" className="w-full" disabled={!newJobId || !newCandidateId}>Create</Button>
-              </form>
-            </DialogContent>
-          </Dialog>
-          {selectedIds.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline">
-                  Actions
-                  <ChevronDown className="ml-2 h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem onClick={() => openActionDialog("general")}>
-                  <Mail className="mr-2 h-4 w-4" />
-                  Email Selected
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => openActionDialog("form_link")}>
-                  <FileText className="mr-2 h-4 w-4" />
-                  Send Form Link
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => openActionDialog("video_screening")}>
-                  <Video className="mr-2 h-4 w-4" />
-                  Send Video Screening Link
-                </DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => openRejectDialog(selectedIds)}>
-                  <XCircle className="mr-2 h-4 w-4" />
-                  Reject Candidates
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Pipeline"
+        actions={
+          <div className="flex items-center gap-3">
+            <Select value={selectedJobFilter} onValueChange={setSelectedJobFilter}>
+              <SelectTrigger className="w-48"><SelectValue placeholder="Filter by job" /></SelectTrigger>
+              <SelectContent>
+                {jobs.map(j => <SelectItem key={j.id} value={j.id}>{j.title}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <div className="relative w-52"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search candidates" /></div>
+            <Select value={sort} onValueChange={setSort}><SelectTrigger className="w-48"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="screening_desc">Highest screening</SelectItem><SelectItem value="interview_desc">Highest interview</SelectItem><SelectItem value="newest">Newest</SelectItem><SelectItem value="oldest">Oldest</SelectItem><SelectItem value="name_asc">Candidate name</SelectItem></SelectContent></Select>
+            <Sheet><SheetTrigger asChild><Button variant="outline"><SlidersHorizontal className="mr-2 size-4" />Filters{(screeningStatus !== "all" || screeningMin || screeningMax) && <Badge className="ml-2" variant="secondary">{[screeningStatus !== "all", screeningMin, screeningMax].filter(Boolean).length}</Badge>}</Button></SheetTrigger><SheetContent><SheetHeader><SheetTitle>Pipeline filters</SheetTitle><SheetDescription>Filters apply only to the selected job.</SheetDescription></SheetHeader><div className="mt-6 space-y-5"><div className="space-y-2"><Label>Screening status</Label><Select value={screeningStatus} onValueChange={setScreeningStatus}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All statuses</SelectItem><SelectItem value="final">Final</SelectItem><SelectItem value="provisional">Provisional</SelectItem></SelectContent></Select></div><div className="grid grid-cols-2 gap-3"><div className="space-y-2"><Label>Minimum score</Label><Input type="number" min={0} max={100} value={screeningMin} onChange={(event) => setScreeningMin(event.target.value)} /></div><div className="space-y-2"><Label>Maximum score</Label><Input type="number" min={0} max={100} value={screeningMax} onChange={(event) => setScreeningMax(event.target.value)} /></div></div><Button variant="outline" className="w-full" onClick={() => { setScreeningStatus("all"); setScreeningMin(""); setScreeningMax(""); }}>Clear all</Button></div></SheetContent></Sheet>
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+              <DialogTrigger asChild>
+                <Button><Plus className="w-4 h-4 mr-2" />New Application</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader><DialogTitle>Create Application</DialogTitle></DialogHeader>
+                <form onSubmit={createApplication} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Job</Label>
+                    <Select value={newJobId} onValueChange={setNewJobId}>
+                      <SelectTrigger><SelectValue placeholder="Select job" /></SelectTrigger>
+                      <SelectContent>
+                        {jobs.map(j => <SelectItem key={j.id} value={j.id}>{j.title}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Candidate</Label>
+                    <Select value={newCandidateId} onValueChange={setNewCandidateId}>
+                      <SelectTrigger><SelectValue placeholder="Select candidate" /></SelectTrigger>
+                      <SelectContent>
+                        {candidates.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button type="submit" className="w-full" disabled={!newJobId || !newCandidateId}>Create</Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+            {selectedIds.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline">
+                    Actions
+                    <ChevronDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={() => openActionDialog("general")}>
+                    <Mail className="mr-2 h-4 w-4" />
+                    Email Selected
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => openActionDialog("form_link")}>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Send Form Link
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => openActionDialog("video_screening")}>
+                    <Video className="mr-2 h-4 w-4" />
+                    Send Video Screening Link
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => openRejectDialog(selectedIds)}>
+                    <XCircle className="mr-2 h-4 w-4" />
+                    Reject Candidates
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+        }
+      />
 
       {/* Kanban */}
       <DragDropContext onDragEnd={onDragEnd}>
@@ -443,7 +435,7 @@ export default function Pipeline() {
           className="flex gap-3 overflow-x-auto pb-4 animate-opacity-in"
           style={{ animationDelay: "100ms" }}
         >
-          {STAGES.map(stage => {
+          {PIPELINE_STAGES.map(stage => {
             const stageApps = filtered.filter(a => a.stage === stage);
             const allStageAppsSelected = stageApps.length > 0 && stageApps.every((app) => selectedIds.includes(app.id));
             return (
@@ -457,7 +449,7 @@ export default function Pipeline() {
                     <div className="flex items-center justify-between mb-3 px-1">
                       <div className="flex items-center gap-2">
                         <div className={`w-2 h-2 rounded-full badge-${stage}`} style={{ background: `var(--stage-${stage})` }} />
-                        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{stageLabels[stage]}</h3>
+                        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{STAGE_LABELS[stage]}</h3>
                       </div>
                       <div className="flex items-center gap-2">
                         <Button

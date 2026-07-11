@@ -18,43 +18,7 @@ import {
   avgDaysBetween,
   timeToFill,
 } from "@/lib/dashboardMetrics";
-
-const STAGE_COLORS: Record<string, string> = {
-  applied: "hsl(220, 70%, 52%)",
-  shortlisted: "hsl(160, 60%, 42%)",
-  screening: "hsl(38, 92%, 50%)",
-  scheduling: "hsl(190, 70%, 45%)",
-  "1st_interview": "hsl(270, 50%, 52%)",
-  "2nd_interview": "hsl(290, 55%, 50%)",
-  interview: "hsl(270, 50%, 52%)",
-  offer: "hsl(152, 55%, 42%)",
-  hired: "hsl(142, 60%, 42%)",
-  rejected: "hsl(4, 68%, 48%)",
-};
-
-const STAGE_LABELS: Record<string, string> = {
-  applied: "Applied",
-  shortlisted: "Shortlisted",
-  screening: "Screening",
-  scheduling: "Scheduling",
-  "1st_interview": "1st Interview",
-  "2nd_interview": "2nd Interview",
-  offer: "Offer",
-  hired: "Hired",
-  rejected: "Rejected",
-};
-
-const STAGE_ORDER = [
-  "applied",
-  "shortlisted",
-  "screening",
-  "scheduling",
-  "1st_interview",
-  "2nd_interview",
-  "offer",
-  "hired",
-  "rejected",
-];
+import { PIPELINE_STAGES, STAGE_CHART_COLORS, STAGE_LABELS } from "@/lib/stages";
 
 interface AppRow {
   stage: string;
@@ -139,11 +103,11 @@ export default function Dashboard() {
   const applicantsSpark = bucketByDay(scopedAll, "created_at", sparkDays);
   const trendData = bucketByDay(scopedAll, "created_at", sparkDays);
 
-  const stageCounts = STAGE_ORDER.map((s) => ({
+  const stageCounts = PIPELINE_STAGES.map((s) => ({
     stage: s,
     label: STAGE_LABELS[s],
     count: scopedAll.filter((a) => a.stage === s).length,
-    color: STAGE_COLORS[s],
+    color: STAGE_CHART_COLORS[s],
   }));
   const maxStage = Math.max(1, ...stageCounts.map((s) => s.count));
 

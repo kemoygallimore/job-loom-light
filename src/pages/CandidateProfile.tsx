@@ -21,34 +21,11 @@ import { CandidateEmailComposer } from "@/components/email/CandidateEmailCompose
 import CandidateForms from "@/components/candidate/CandidateForms";
 import ScreeningReview from "@/components/candidate/ScreeningReview";
 import { keys } from "@/lib/queryKeys";
+import { PIPELINE_STAGES, STAGE_LABELS } from "@/lib/stages";
+import type { PipelineStage } from "@/lib/pipeline";
+import StageBadge from "@/components/shared/StageBadge";
 
-const STAGES = ["applied", "shortlisted", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"] as const;
-type Stage = (typeof STAGES)[number];
-
-const STAGE_LABELS: Record<string, string> = {
-  applied: "Applied",
-  shortlisted: "Shortlisted",
-  screening: "Screening",
-  scheduling: "Scheduling",
-  "1st_interview": "1st Interview",
-  "2nd_interview": "2nd Interview",
-  offer: "Offer",
-  hired: "Hired",
-  rejected: "Rejected",
-};
-
-const STAGE_COLORS: Record<string, string> = {
-  applied: "bg-muted text-muted-foreground",
-  shortlisted: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-  screening: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  scheduling: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400",
-  "1st_interview": "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
-  "2nd_interview": "bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-400",
-  interview: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  offer: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
-  hired: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  rejected: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-};
+type Stage = PipelineStage;
 
 interface Candidate {
   id: string;
@@ -387,12 +364,7 @@ export default function CandidateProfile() {
               </div>
             </div>
             {latestApp && (
-              <Badge
-                variant="secondary"
-                className={`capitalize text-xs font-medium ${STAGE_COLORS[latestApp.stage] ?? ""}`}
-              >
-                {STAGE_LABELS[latestApp.stage] ?? latestApp.stage}
-              </Badge>
+              <StageBadge stage={latestApp.stage} />
             )}
           </div>
 
@@ -545,18 +517,13 @@ export default function CandidateProfile() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge
-                            variant="secondary"
-                            className={`capitalize text-xs font-medium ${STAGE_COLORS[app.stage] ?? ""}`}
-                          >
-                            {STAGE_LABELS[app.stage] ?? app.stage}
-                          </Badge>
+                          <StageBadge stage={app.stage} />
                           <Select value={app.stage} onValueChange={(v) => handleStageChange(app.id, v as Stage)}>
                             <SelectTrigger className="w-[120px] h-7 text-xs">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              {STAGES.map((s) => (
+                              {PIPELINE_STAGES.map((s) => (
                                 <SelectItem key={s} value={s} className="text-xs">
                                   {STAGE_LABELS[s] ?? s}
                                 </SelectItem>

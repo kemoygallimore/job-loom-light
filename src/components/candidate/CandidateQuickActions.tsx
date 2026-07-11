@@ -9,20 +9,7 @@ import { ArrowRightLeft, MessageSquarePlus, FileText, History } from "lucide-rea
 import { getSignedVideoViewUrl } from "@/lib/getSignedVideoViewUrl";
 import { R2_BUCKET_RESUMES } from "@/lib/r2Worker";
 import { useNavigate } from "react-router-dom";
-
-const STAGES = ["applied", "shortlisted", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"];
-
-const STAGE_LABELS: Record<string, string> = {
-  applied: "Applied",
-  shortlisted: "Shortlisted",
-  screening: "Screening",
-  scheduling: "Scheduling",
-  "1st_interview": "1st Interview",
-  "2nd_interview": "2nd Interview",
-  offer: "Offer",
-  hired: "Hired",
-  rejected: "Rejected",
-};
+import { PIPELINE_STAGES, STAGE_LABELS } from "@/lib/stages";
 
 interface CandidateQuickActionsProps {
   candidateId: string;
@@ -84,7 +71,7 @@ export default function CandidateQuickActions({
               </Button>
             </SelectTrigger>
             <SelectContent>
-              {STAGES.map((s) => (
+              {PIPELINE_STAGES.map((s) => (
                 <SelectItem key={s} value={s} className="text-xs">{STAGE_LABELS[s] ?? s}</SelectItem>
               ))}
             </SelectContent>

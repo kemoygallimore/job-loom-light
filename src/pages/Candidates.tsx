@@ -5,17 +5,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -26,6 +15,9 @@ import CandidateQuickActions from "@/components/candidate/CandidateQuickActions"
 import { fetchTagsForCandidates, getTagColorClasses, type CandidateTag } from "@/lib/candidateTags";
 import { keys, type CandidateFilters as CandidateQueryFilters } from "@/lib/queryKeys";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import StageBadge from "@/components/shared/StageBadge";
+import PageHeader from "@/components/shared/PageHeader";
+import ConfirmDialog from "@/components/shared/ConfirmDialog";
 
 interface CandidateWithContext {
   id: string;
@@ -71,19 +63,6 @@ interface CandidatesQueryData {
   jobs: Job[];
   tagsByCandidate: Map<string, CandidateTag[]>;
 }
-
-const STAGE_COLORS: Record<string, string> = {
-  applied: "bg-muted text-muted-foreground",
-  shortlisted: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-  screening: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  scheduling: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400",
-  "1st_interview": "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
-  "2nd_interview": "bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-400",
-  interview: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  offer: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
-  hired: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  rejected: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-};
 
 function errorMessage(error: unknown, fallback: string) {
   if (error && typeof error === "object" && "message" in error && typeof error.message === "string") {
@@ -302,17 +281,17 @@ export default function Candidates() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3 animate-fade-in">
-        <div>
-          <h1 className="text-2xl font-bold">Candidates</h1>
-          {!loading && (
-            <p className="text-sm text-muted-foreground mt-0.5">
+      <PageHeader
+        title="Candidates"
+        description={
+          !loading ? (
+            <p>
               {filtered.length} candidate{filtered.length !== 1 ? "s" : ""}
               {activeFilterCount > 0 ? " (filtered)" : ""}
             </p>
-          )}
-        </div>
-      </div>
+          ) : undefined
+        }
+      />
 
       {/* View toggle */}
       <Tabs value={view} onValueChange={(v) => setView(v as "active" | "all")} className="animate-fade-in">
@@ -432,9 +411,7 @@ export default function Candidates() {
                   <TableCell className="text-sm hidden lg:table-cell">{c.latest_job_title ?? <span className="text-muted-foreground">—</span>}</TableCell>
                   <TableCell className="hidden sm:table-cell">
                     {c.latest_stage ? (
-                      <Badge variant="secondary" className={`capitalize text-xs font-medium ${STAGE_COLORS[c.latest_stage] ?? ""}`}>
-                        {c.latest_stage.replace(/_/g, " ")}
-                      </Badge>
+                      <StageBadge stage={c.latest_stage} />
                     ) : (
                       <span className="text-muted-foreground text-sm">—</span>
                     )}
@@ -459,30 +436,22 @@ export default function Candidates() {
                       />
                       <div className="flex items-center gap-0.5 border-l border-border ml-1 pl-1" onClick={(e) => e.stopPropagation()}>
                         {loadingAuth ? null : !role ? null : role === "admin" && (
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
+                          <ConfirmDialog
+                            title="Delete this candidate?"
+                            description={
+                              <>
+                                This will permanently remove <span className="font-medium text-foreground">{c.name}</span> along with their applications, notes, feedback, tags, and uploaded files. This action cannot be undone.
+                              </>
+                            }
+                            confirmLabel="Delete candidate"
+                            destructive
+                            onConfirm={() => handleDelete(c.id)}
+                            trigger={
                               <Button variant="ghost" size="icon" className="h-8 w-8">
                                 <Trash2 className="w-3.5 h-3.5 text-destructive" />
                               </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete this candidate?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This will permanently remove <span className="font-medium text-foreground">{c.name}</span> along with their applications, notes, feedback, tags, and uploaded files. This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                  onClick={() => handleDelete(c.id)}
-                                >
-                                  Delete candidate
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                            }
+                          />
                         )}
                       </div>
                     </div>

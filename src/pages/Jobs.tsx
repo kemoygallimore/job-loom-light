@@ -19,6 +19,8 @@ import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { htmlToPlainText } from "@/lib/htmlToPlainText";
 import ScreeningQuestionBuilder from "@/components/jobs/ScreeningQuestionBuilder";
+import PageHeader from "@/components/shared/PageHeader";
+import ConfirmDialog from "@/components/shared/ConfirmDialog";
 
 interface Job {
   id: string;
@@ -163,120 +165,122 @@ export default function Jobs() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3 animate-fade-in">
-        <div>
-          <h1 className="text-2xl font-bold">Jobs</h1>
-          <p className="text-sm text-muted-foreground mt-1 tabular-nums">
+      <PageHeader
+        title="Jobs"
+        description={
+          <p className="tabular-nums">
             <span className={atLimit ? "text-destructive font-medium" : ""}>{openJobsCount}</span>
             {" / "}{maxOpenJobs} open jobs used
           </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {careersUrl && (
-            <Button variant="outline" onClick={handleCopyLink} className="gap-2">
-              {copied ? <Check className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
-              {copied ? "Copied!" : "Copy Careers Link"}
-            </Button>
-          )}
-          <Dialog
-            open={open}
-            onOpenChange={v => {
-              if (!v) { resetForm(); return; }
-              if (atLimit) { setLimitDialogOpen(true); return; }
-              setOpen(true);
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button><Plus className="w-4 h-4 mr-2" />Add Job</Button>
-            </DialogTrigger>
-          <DialogContent className="max-h-[85vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>{editJob ? "Edit Job" : "New Job"}</DialogTitle></DialogHeader>
-            <form onSubmit={handleSave} className="space-y-4">
-              <div className="space-y-1.5">
-                <Label>Title</Label>
-                <Input value={title} onChange={e => setTitle(e.target.value)} required />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Description</Label>
-                <RichTextEditor value={description} onChange={setDescription} placeholder="Describe the role, responsibilities, and requirements..." />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Hiring Manager <span className="text-xs text-muted-foreground font-normal">(internal only)</span></Label>
-                <Input
-                  value={hiringManager}
-                  onChange={e => setHiringManager(e.target.value)}
-                  placeholder="e.g. Jane Smith"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Status</Label>
-                <Select value={status} onValueChange={setStatus}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="open">Open</SelectItem>
-                    <SelectItem value="closed">Closed</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+        }
+        actions={
+          <>
+            {careersUrl && (
+              <Button variant="outline" onClick={handleCopyLink} className="gap-2">
+                {copied ? <Check className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
+                {copied ? "Copied!" : "Copy Careers Link"}
+              </Button>
+            )}
+            <Dialog
+              open={open}
+              onOpenChange={v => {
+                if (!v) { resetForm(); return; }
+                if (atLimit) { setLimitDialogOpen(true); return; }
+                setOpen(true);
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button><Plus className="w-4 h-4 mr-2" />Add Job</Button>
+              </DialogTrigger>
+              <DialogContent className="max-h-[85vh] overflow-y-auto">
+                <DialogHeader><DialogTitle>{editJob ? "Edit Job" : "New Job"}</DialogTitle></DialogHeader>
+                <form onSubmit={handleSave} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label>Title</Label>
+                    <Input value={title} onChange={e => setTitle(e.target.value)} required />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Description</Label>
+                    <RichTextEditor value={description} onChange={setDescription} placeholder="Describe the role, responsibilities, and requirements..." />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Hiring Manager <span className="text-xs text-muted-foreground font-normal">(internal only)</span></Label>
+                    <Input
+                      value={hiringManager}
+                      onChange={e => setHiringManager(e.target.value)}
+                      placeholder="e.g. Jane Smith"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Status</Label>
+                    <Select value={status} onValueChange={setStatus}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="open">Open</SelectItem>
+                        <SelectItem value="closed">Closed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              {/* Screening settings - only for new jobs */}
-              {!editJob && (
-                <Collapsible open={screeningOpen} onOpenChange={setScreeningOpen}>
-                  <CollapsibleTrigger asChild>
-                    <Button type="button" variant="ghost" className="w-full justify-between px-3 py-2 h-auto text-sm font-medium text-muted-foreground hover:text-foreground">
-                      <span className="flex items-center gap-2">
-                        <Video className="w-4 h-4" />
-                        Video Screening Settings
-                      </span>
-                      <ChevronDown className={cn("w-4 h-4 transition-transform", screeningOpen && "rotate-180")} />
-                    </Button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="space-y-3 pt-2 border-t mt-2">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Screening Question</Label>
-                      <Textarea
-                        value={screeningQuestion}
-                        onChange={e => setScreeningQuestion(e.target.value)}
-                        rows={2}
-                        placeholder="e.g. Tell us about your experience with React"
-                        className="text-sm"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Expiration Date (max 30 days)</Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className={cn("w-full justify-start text-left font-normal text-sm", !screeningExpiry && "text-muted-foreground")}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {screeningExpiry ? format(screeningExpiry, "PPP") : "Pick a date"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={screeningExpiry}
-                            onSelect={setScreeningExpiry}
-                            disabled={(date) => date < new Date() || date > addDays(new Date(), 30)}
-                            initialFocus
-                            className={cn("p-3 pointer-events-auto")}
+                  {/* Screening settings - only for new jobs */}
+                  {!editJob && (
+                    <Collapsible open={screeningOpen} onOpenChange={setScreeningOpen}>
+                      <CollapsibleTrigger asChild>
+                        <Button type="button" variant="ghost" className="w-full justify-between px-3 py-2 h-auto text-sm font-medium text-muted-foreground hover:text-foreground">
+                          <span className="flex items-center gap-2">
+                            <Video className="w-4 h-4" />
+                            Video Screening Settings
+                          </span>
+                          <ChevronDown className={cn("w-4 h-4 transition-transform", screeningOpen && "rotate-180")} />
+                        </Button>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="space-y-3 pt-2 border-t mt-2">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Screening Question</Label>
+                          <Textarea
+                            value={screeningQuestion}
+                            onChange={e => setScreeningQuestion(e.target.value)}
+                            rows={2}
+                            placeholder="e.g. Tell us about your experience with React"
+                            className="text-sm"
                           />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              )}
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Expiration Date (max 30 days)</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className={cn("w-full justify-start text-left font-normal text-sm", !screeningExpiry && "text-muted-foreground")}
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {screeningExpiry ? format(screeningExpiry, "PPP") : "Pick a date"}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={screeningExpiry}
+                                onSelect={setScreeningExpiry}
+                                disabled={(date) => date < new Date() || date > addDays(new Date(), 30)}
+                                initialFocus
+                                className={cn("p-3 pointer-events-auto")}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  )}
 
-              <Button type="submit" className="w-full">Save</Button>
-            </form>
-          </DialogContent>
-        </Dialog>
-        </div>
-      </div>
+                  <Button type="submit" className="w-full">Save</Button>
+                </form>
+              </DialogContent>
+          </Dialog>
+          </>
+        }
+      />
 
       {/* Tabs + Search */}
       <div className="flex items-center justify-between flex-wrap gap-3 animate-fade-in" style={{ animationDelay: "80ms" }}>
@@ -352,9 +356,18 @@ export default function Jobs() {
                       <ListChecks className="w-3.5 h-3.5" />
                     </Button>
                     {role === "admin" && (
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(job.id)}>
-                        <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                      </Button>
+                      <ConfirmDialog
+                        title="Delete this job?"
+                        description="This will permanently delete the job. This action cannot be undone."
+                        confirmLabel="Delete job"
+                        destructive
+                        onConfirm={() => handleDelete(job.id)}
+                        trigger={
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                          </Button>
+                        }
+                      />
                     )}
                   </div>
                 </TableCell>

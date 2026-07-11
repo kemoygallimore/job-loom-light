@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate, useParams } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -5,43 +6,44 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import Auth from "./pages/Auth";
 import AppLayout from "./components/AppLayout";
-import Dashboard from "./pages/Dashboard";
-import Jobs from "./pages/Jobs";
-import Candidates from "./pages/Candidates";
-import CandidateProfile from "./pages/CandidateProfile";
-import Pipeline from "./pages/Pipeline";
-import Assessment from "./pages/Assessment";
-import AdminDashboard from "./pages/AdminDashboard";
-import AdminOverview from "./pages/admin/AdminOverview";
-import AdminCompanies from "./pages/admin/AdminCompanies";
-import AdminPricing from "./pages/admin/AdminPricing";
-import AdminCompanyDetail from "./pages/admin/AdminCompanyDetail";
-import CandidateTagsAdmin from "./pages/admin/CandidateTagsAdmin";
-import AdminInvoiceDetail from "./pages/admin/AdminInvoiceDetail";
-import AdminBilling from "./pages/admin/AdminBilling";
-import AdminEmailTemplates from "./pages/admin/AdminEmailTemplates";
-import AdminPolicies from "./pages/admin/AdminPolicies";
-import Billing from "./pages/Billing";
-import Team from "./pages/Team";
-import Forms from "./pages/Forms";
-import CompanyEmailTemplates from "./pages/settings/CompanyEmailTemplates";
-import InvoiceDetail from "./pages/InvoiceDetail";
-import CareersPage from "./pages/careers/CareersPage";
-import JobDetailsPage from "./pages/careers/JobDetailsPage";
-import ScreeningJobs from "./pages/screening/ScreeningJobs";
-import ScreeningSubmissions from "./pages/screening/ScreeningSubmissions";
-import PublicScreening from "./pages/screening/PublicScreening";
-import PublicJobApplication from "./pages/apply/PublicJobApplication";
-import PublicFeedback from "./pages/feedback/PublicFeedback";
-import FormBuilder from "./pages/forms/FormBuilder";
-import FormSubmissions from "./pages/forms/FormSubmissions";
-import CandidateAssignedForm from "./pages/forms/CandidateAssignedForm";
-import DataProtection from "./pages/legal/DataProtection";
 import NotFound from "./pages/NotFound";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
 import ErrorBoundary from "./components/ErrorBoundary";
+import FullPageLoader from "./components/FullPageLoader";
 
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Jobs = lazy(() => import("./pages/Jobs"));
+const Candidates = lazy(() => import("./pages/Candidates"));
+const CandidateProfile = lazy(() => import("./pages/CandidateProfile"));
+const Pipeline = lazy(() => import("./pages/Pipeline"));
+const Assessment = lazy(() => import("./pages/Assessment"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const AdminOverview = lazy(() => import("./pages/admin/AdminOverview"));
+const AdminCompanies = lazy(() => import("./pages/admin/AdminCompanies"));
+const AdminPricing = lazy(() => import("./pages/admin/AdminPricing"));
+const AdminCompanyDetail = lazy(() => import("./pages/admin/AdminCompanyDetail"));
+const CandidateTagsAdmin = lazy(() => import("./pages/admin/CandidateTagsAdmin"));
+const AdminInvoiceDetail = lazy(() => import("./pages/admin/AdminInvoiceDetail"));
+const AdminBilling = lazy(() => import("./pages/admin/AdminBilling"));
+const AdminEmailTemplates = lazy(() => import("./pages/admin/AdminEmailTemplates"));
+const AdminPolicies = lazy(() => import("./pages/admin/AdminPolicies"));
+const Billing = lazy(() => import("./pages/Billing"));
+const Team = lazy(() => import("./pages/Team"));
+const Forms = lazy(() => import("./pages/Forms"));
+const CompanyEmailTemplates = lazy(() => import("./pages/settings/CompanyEmailTemplates"));
+const InvoiceDetail = lazy(() => import("./pages/InvoiceDetail"));
+const CareersPage = lazy(() => import("./pages/careers/CareersPage"));
+const JobDetailsPage = lazy(() => import("./pages/careers/JobDetailsPage"));
+const ScreeningJobs = lazy(() => import("./pages/screening/ScreeningJobs"));
+const ScreeningSubmissions = lazy(() => import("./pages/screening/ScreeningSubmissions"));
+const PublicScreening = lazy(() => import("./pages/screening/PublicScreening"));
+const PublicJobApplication = lazy(() => import("./pages/apply/PublicJobApplication"));
+const PublicFeedback = lazy(() => import("./pages/feedback/PublicFeedback"));
+const FormBuilder = lazy(() => import("./pages/forms/FormBuilder"));
+const FormSubmissions = lazy(() => import("./pages/forms/FormSubmissions"));
+const CandidateAssignedForm = lazy(() => import("./pages/forms/CandidateAssignedForm"));
+const DataProtection = lazy(() => import("./pages/legal/DataProtection"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -57,17 +59,7 @@ function ProtectedRoutes() {
   const { user, loading, profile } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <div className="relative h-10 w-10">
-            <div className="absolute inset-0 rounded-full border-[3px] border-muted" />
-            <div className="absolute inset-0 rounded-full border-[3px] border-t-primary animate-spin" />
-          </div>
-          <p className="text-sm text-muted-foreground animate-pulse">Loading your workspace…</p>
-        </div>
-      </div>
-    );
+    return <FullPageLoader />;
   }
 
   if (!user || (!profile && !loading)) return <Navigate to="/auth" replace />;
@@ -101,51 +93,53 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <ErrorBoundary>
-            <Routes>
-              <Route path="/" element={<Navigate to="/auth" replace />} />
-              <Route path="/auth" element={<AuthRoute />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/careers/:companySlug" element={<LegacyCareersRedirect />} />
-              <Route path="/careers/:companySlug/:jobId" element={<LegacyJobRedirect />} />
-              <Route path="/:companySlug/careers" element={<CareersPage />} />
-              <Route path="/:companySlug/careers/:jobId" element={<JobDetailsPage />} />
-              <Route path="/screen/:linkId" element={<PublicScreening />} />
-              <Route path="/apply/:jobId" element={<PublicJobApplication />} />
-              <Route path="/feedback/:token" element={<PublicFeedback />} />
-              <Route path="/candidate-form/:token" element={<CandidateAssignedForm />} />
-              <Route path="/legal/data-protection" element={<DataProtection />} />
-              <Route element={<ProtectedRoutes />}>
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/jobs" element={<Jobs />} />
-                <Route path="/candidates" element={<Candidates />} />
-                <Route path="/candidates/:id" element={<CandidateProfile />} />
-                <Route path="/pipeline" element={<Pipeline />} />
-                <Route path="/admin/candidate-tags" element={<CandidateTagsAdmin />} />
-                <Route path="/screening" element={<ScreeningJobs />} />
-                <Route path="/screening/:jobId/submissions" element={<ScreeningSubmissions />} />
-                <Route path="/assessment" element={<Assessment />} />
-                <Route path="/billing" element={<Billing />} />
-                <Route path="/billing/invoices/:id" element={<InvoiceDetail />} />
-                <Route path="/team" element={<Team />} />
-                <Route path="/forms" element={<Forms />} />
-                <Route path="/forms/new" element={<FormBuilder />} />
-                <Route path="/forms/:formId/edit" element={<FormBuilder />} />
-                <Route path="/forms/:formId/submissions" element={<FormSubmissions />} />
-                <Route path="/settings/email-templates" element={<CompanyEmailTemplates />} />
-                <Route path="/admin" element={<AdminDashboard />}>
-                  <Route index element={<AdminOverview />} />
-                  <Route path="companies" element={<AdminCompanies />} />
-                  <Route path="companies/:id" element={<AdminCompanyDetail />} />
-                  <Route path="pricing" element={<AdminPricing />} />
-                  <Route path="billing" element={<AdminBilling />} />
-                  <Route path="billing/invoices/:id" element={<AdminInvoiceDetail />} />
-                  <Route path="email-templates" element={<AdminEmailTemplates />} />
-                  <Route path="policies" element={<AdminPolicies />} />
+            <Suspense fallback={<FullPageLoader />}>
+              <Routes>
+                <Route path="/" element={<Navigate to="/auth" replace />} />
+                <Route path="/auth" element={<AuthRoute />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/careers/:companySlug" element={<LegacyCareersRedirect />} />
+                <Route path="/careers/:companySlug/:jobId" element={<LegacyJobRedirect />} />
+                <Route path="/:companySlug/careers" element={<CareersPage />} />
+                <Route path="/:companySlug/careers/:jobId" element={<JobDetailsPage />} />
+                <Route path="/screen/:linkId" element={<PublicScreening />} />
+                <Route path="/apply/:jobId" element={<PublicJobApplication />} />
+                <Route path="/feedback/:token" element={<PublicFeedback />} />
+                <Route path="/candidate-form/:token" element={<CandidateAssignedForm />} />
+                <Route path="/legal/data-protection" element={<DataProtection />} />
+                <Route element={<ProtectedRoutes />}>
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/jobs" element={<Jobs />} />
+                  <Route path="/candidates" element={<Candidates />} />
+                  <Route path="/candidates/:id" element={<CandidateProfile />} />
+                  <Route path="/pipeline" element={<Pipeline />} />
+                  <Route path="/admin/candidate-tags" element={<CandidateTagsAdmin />} />
+                  <Route path="/screening" element={<ScreeningJobs />} />
+                  <Route path="/screening/:jobId/submissions" element={<ScreeningSubmissions />} />
+                  <Route path="/assessment" element={<Assessment />} />
+                  <Route path="/billing" element={<Billing />} />
+                  <Route path="/billing/invoices/:id" element={<InvoiceDetail />} />
+                  <Route path="/team" element={<Team />} />
+                  <Route path="/forms" element={<Forms />} />
+                  <Route path="/forms/new" element={<FormBuilder />} />
+                  <Route path="/forms/:formId/edit" element={<FormBuilder />} />
+                  <Route path="/forms/:formId/submissions" element={<FormSubmissions />} />
+                  <Route path="/settings/email-templates" element={<CompanyEmailTemplates />} />
+                  <Route path="/admin" element={<AdminDashboard />}>
+                    <Route index element={<AdminOverview />} />
+                    <Route path="companies" element={<AdminCompanies />} />
+                    <Route path="companies/:id" element={<AdminCompanyDetail />} />
+                    <Route path="pricing" element={<AdminPricing />} />
+                    <Route path="billing" element={<AdminBilling />} />
+                    <Route path="billing/invoices/:id" element={<AdminInvoiceDetail />} />
+                    <Route path="email-templates" element={<AdminEmailTemplates />} />
+                    <Route path="policies" element={<AdminPolicies />} />
+                  </Route>
                 </Route>
-              </Route>
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
           </ErrorBoundary>
         </AuthProvider>
       </BrowserRouter>

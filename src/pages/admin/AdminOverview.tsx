@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Building2, Users, Briefcase, FileText, Trophy, UserCheck } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import ScreeningAnalytics from "@/pages/screening/ScreeningAnalytics";
+import ScreeningAnalytics from "@/components/screening/ScreeningAnalytics";
 import { BentoGrid, BentoTile } from "@/components/dashboard/BentoGrid";
 import { KpiTile } from "@/components/dashboard/KpiTile";
 import { RangeFilter } from "@/components/dashboard/RangeFilter";
