@@ -10,7 +10,7 @@ export interface DeleteVideoItem {
  * Silently ignores items without a key and 404 responses (object already gone).
  * Throws on other errors so callers can surface a toast.
  */
-export async function deleteScreeningVideosFromR2(items: DeleteVideoItem[]): Promise<void> {
+export async function deleteScreeningVideosFromR2(items: DeleteVideoItem[], accessToken?: string): Promise<void> {
   const targets = items
     .map((i) => ({ bucket: i.bucket || R2_BUCKET_VIDEOS, key: (i.key || "").trim() }))
     .filter((i) => i.key.length > 0 && !/^https?:\/\//i.test(i.key));
@@ -29,7 +29,7 @@ export async function deleteScreeningVideosFromR2(items: DeleteVideoItem[]): Pro
 
   for (const [bucket, keys] of byBucket) {
     try {
-      await deleteR2Objects(bucket, keys);
+      await deleteR2Objects(bucket, keys, accessToken);
     } catch (err: any) {
       errors.push(err?.message || "Network error contacting storage");
     }

@@ -8,6 +8,7 @@ export interface UploadToStorageParams {
   jobId?: string;
   candidateId: string;
   category: UploadCategory;
+  accessToken?: string;
 }
 
 export interface UploadToStorageResult {
@@ -30,6 +31,7 @@ export async function uploadToStorage({
   jobId,
   candidateId,
   category,
+  accessToken,
 }: UploadToStorageParams): Promise<UploadToStorageResult> {
   const folder = getFolder(category);
   const result = await uploadFileToR2({
@@ -38,6 +40,7 @@ export async function uploadToStorage({
     companyId,
     candidateId,
     jobId,
+    accessToken,
   });
 
   return {

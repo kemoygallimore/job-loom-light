@@ -119,7 +119,8 @@ export default function CandidateQuickActions({
               try {
                 const key = resumeObjectKey || resumeUrl!;
                 const bucket = resumeBucket || R2_BUCKET_RESUMES;
-                const viewUrl = await getSignedVideoViewUrl(bucket, key);
+                const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
+                const viewUrl = await getSignedVideoViewUrl(bucket, key, accessToken);
                 window.open(viewUrl, "_blank");
               } catch {
                 toast.error("Failed to load resume");

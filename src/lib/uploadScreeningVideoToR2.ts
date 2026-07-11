@@ -5,6 +5,7 @@ export interface UploadScreeningVideoParams {
   companyId: string;
   jobId: string;
   candidateEmail: string;
+  accessToken?: string;
 }
 
 export interface UploadScreeningVideoResult {
@@ -20,6 +21,7 @@ export async function uploadScreeningVideoToR2({
   companyId,
   jobId,
   candidateEmail,
+  accessToken,
 }: UploadScreeningVideoParams): Promise<UploadScreeningVideoResult> {
   return uploadFileToR2({
     file,
@@ -28,5 +30,6 @@ export async function uploadScreeningVideoToR2({
     jobId,
     candidateId: candidateEmail.trim().toLowerCase(),
     fallbackContentType: "video/webm",
+    accessToken,
   });
 }

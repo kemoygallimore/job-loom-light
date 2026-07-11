@@ -432,7 +432,8 @@ export default function CandidateProfile() {
                       throw new Error("Resume not found");
                     }
 
-                    const viewUrl = await getSignedR2Url(bucket, key);
+                    const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
+                    const viewUrl = await getSignedR2Url(bucket, key, accessToken);
                     window.open(viewUrl, "_blank", "noopener,noreferrer");
                   } catch (err: unknown) {
                     console.error(err);

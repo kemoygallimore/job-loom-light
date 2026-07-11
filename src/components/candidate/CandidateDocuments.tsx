@@ -79,12 +79,14 @@ export default function CandidateDocuments({ candidateId, companyId, readOnly = 
 
     setUploading(true);
     try {
+      const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
       const result = await uploadToStorage({
         file,
         companyId,
         jobId: "general",
         candidateId,
         category: "document",
+        accessToken,
       });
 
       const { error } = await supabase.from("candidate_files").insert({
@@ -114,7 +116,8 @@ export default function CandidateDocuments({ candidateId, companyId, readOnly = 
   const handleView = async (file: CandidateDocument) => {
     setBusyId(file.id);
     try {
-      const viewUrl = await getSignedR2Url(file.bucket, file.file_key);
+      const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
+      const viewUrl = await getSignedR2Url(file.bucket, file.file_key, accessToken);
       window.open(viewUrl, "_blank", "noopener,noreferrer");
     } catch (err: unknown) {
       console.error(err);

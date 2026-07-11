@@ -3,6 +3,7 @@ import { R2_BUCKET_VIDEOS, getSignedR2Url } from "@/lib/r2Worker";
 export async function getSignedVideoViewUrl(
   bucket: string | null | undefined,
   key: string | null | undefined,
+  accessToken?: string,
 ): Promise<string> {
   const resolvedKey = key ?? "";
   const resolvedBucket = bucket ?? R2_BUCKET_VIDEOS;
@@ -11,5 +12,5 @@ export async function getSignedVideoViewUrl(
     throw new Error("No video key available");
   }
 
-  return getSignedR2Url(resolvedBucket, resolvedKey);
+  return getSignedR2Url(resolvedBucket, resolvedKey, accessToken);
 }

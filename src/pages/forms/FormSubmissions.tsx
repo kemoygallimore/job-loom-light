@@ -361,7 +361,8 @@ export default function FormSubmissions() {
 
   const openUpload = async (upload: LeadFormUpload) => {
     try {
-      const url = await resolveFileUrl(upload.object_key, upload.bucket);
+      const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
+      const url = await resolveFileUrl(upload.object_key, upload.bucket, accessToken);
       if (url) window.open(url, "_blank", "noopener,noreferrer");
     } catch (error: unknown) {
       toast.error(messageFromError(error, "Could not open file"));

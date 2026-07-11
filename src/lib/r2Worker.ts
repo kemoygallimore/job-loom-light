@@ -14,6 +14,7 @@ export interface UploadR2FileParams {
   jobId?: string;
   fieldId?: string;
   fallbackContentType?: string;
+  accessToken?: string;
 }
 
 export interface UploadR2FileResult {
@@ -41,6 +42,13 @@ function uploadHost(uploadUrl: string) {
   }
 }
 
+function workerHeaders(accessToken?: string) {
+  return {
+    "Content-Type": "application/json",
+    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+  };
+}
+
 export async function uploadFileToR2({
   file,
   folder,
@@ -49,6 +57,7 @@ export async function uploadFileToR2({
   jobId,
   fieldId,
   fallbackContentType = "application/octet-stream",
+  accessToken,
 }: UploadR2FileParams): Promise<UploadR2FileResult> {
   const workerUrl = getR2WorkerUrl();
   const contentType = file.type || fallbackContentType;
@@ -57,7 +66,7 @@ export async function uploadFileToR2({
   try {
     presignRes = await fetch(`${workerUrl}/presign-upload`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: workerHeaders(accessToken),
       body: JSON.stringify({
         filename: file.name,
         contentType,
@@ -117,11 +126,11 @@ export async function uploadFileToR2({
   };
 }
 
-export async function getSignedR2Url(bucket: string, key: string): Promise<string> {
+export async function getSignedR2Url(bucket: string, key: string, accessToken?: string): Promise<string> {
   const workerUrl = getR2WorkerUrl();
   const res = await fetch(`${workerUrl}/sign-view`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: workerHeaders(accessToken),
     body: JSON.stringify({ bucket, key }),
   });
 
@@ -139,11 +148,11 @@ export async function getSignedR2Url(bucket: string, key: string): Promise<strin
   return viewUrl;
 }
 
-export async function deleteR2Objects(bucket: string, keys: string[]) {
+export async function deleteR2Objects(bucket: string, keys: string[], accessToken?: string) {
   const workerUrl = getR2WorkerUrl();
   const res = await fetch(`${workerUrl}/delete-object`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: workerHeaders(accessToken),
     body: JSON.stringify({ bucket, keys }),
   });
 

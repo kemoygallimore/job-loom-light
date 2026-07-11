@@ -13,6 +13,8 @@ export interface Env {
   R2_BUCKET_ADDITIONAL_DOCUMENTS: string;
   RESEND_API_KEY: string;
   ALLOWED_ORIGINS?: string;
+  SUPABASE_URL: string;
+  SUPABASE_ANON_KEY: string;
 
   INVOICE_BUCKET: R2Bucket;
   R2_WORKER_SECRET: string;
@@ -29,6 +31,15 @@ const DEFAULT_ALLOWED_ORIGINS = [
 
 type UploadFolder = "resumes" | "videos" | "documents";
 
+type SupabaseUser = {
+  id: string;
+};
+
+type AuthResult =
+  | { ok: true; kind: "worker" }
+  | { ok: true; kind: "user"; userId: string; companyId: string }
+  | { ok: false; status: 401 | 403; error: string };
+
 function allowedOrigins(env: Env) {
   return (env.ALLOWED_ORIGINS || DEFAULT_ALLOWED_ORIGINS.join(","))
     .split(",")
@@ -38,8 +49,7 @@ function allowedOrigins(env: Env) {
 
 function corsOrigin(request: Request, env: Env) {
   const origin = request.headers.get("Origin");
-  if (!origin) return "*";
-  return allowedOrigins(env).includes(origin) ? origin : allowedOrigins(env)[0] ?? DEFAULT_ALLOWED_ORIGINS[0];
+  return origin && allowedOrigins(env).includes(origin) ? origin : "null";
 }
 
 function corsHeaders(request: Request, env: Env) {
@@ -83,9 +93,176 @@ function normalizePath(pathname: string) {
   return pathname.replace(/\/+$/, "") || "/";
 }
 
-function isAuthorized(request: Request, env: Env) {
-  const authHeader = request.headers.get("Authorization");
-  return Boolean(env.R2_WORKER_SECRET && authHeader === `Bearer ${env.R2_WORKER_SECRET}`);
+function bearerToken(request: Request) {
+  const authHeader = request.headers.get("Authorization")?.trim() ?? "";
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() || null;
+}
+
+function isWorkerSecretToken(token: string | null, env: Env) {
+  return Boolean(env.R2_WORKER_SECRET && token === env.R2_WORKER_SECRET);
+}
+
+function supabaseUrl(env: Env, pathname: string, params?: Record<string, string>) {
+  const url = new URL(pathname, env.SUPABASE_URL.replace(/\/+$/, "") + "/");
+  if (params) {
+    for (const [key, value] of Object.entries(params)) {
+      url.searchParams.set(key, value);
+    }
+  }
+  return url.toString();
+}
+
+async function fetchSupabaseJson<T>(
+  env: Env,
+  url: string,
+  authorizationToken: string,
+): Promise<{ ok: true; data: T } | { ok: false; status: number }> {
+  const response = await fetch(url, {
+    headers: {
+      apikey: env.SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${authorizationToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    return { ok: false, status: response.status };
+  }
+
+  return { ok: true, data: await response.json<T>() };
+}
+
+async function getProfileCompanyId(env: Env, userId: string, token: string) {
+  const profileUrl = supabaseUrl(env, "/rest/v1/profiles", {
+    user_id: `eq.${userId}`,
+    select: "company_id",
+  });
+  const profileResult = await fetchSupabaseJson<Array<{ company_id: string | null }>>(env, profileUrl, token);
+
+  if (!profileResult.ok) return null;
+
+  return profileResult.data[0]?.company_id ?? null;
+}
+
+async function authenticateRequest(request: Request, env: Env): Promise<AuthResult> {
+  const token = bearerToken(request);
+
+  if (isWorkerSecretToken(token, env)) {
+    return { ok: true, kind: "worker" };
+  }
+
+  if (!token) {
+    return { ok: false, status: 401, error: "Unauthorized" };
+  }
+
+  const userResult = await fetchSupabaseJson<SupabaseUser>(
+    env,
+    supabaseUrl(env, "/auth/v1/user"),
+    token,
+  );
+
+  if (!userResult.ok || !userResult.data?.id) {
+    return { ok: false, status: 401, error: "Unauthorized" };
+  }
+
+  const companyId = await getProfileCompanyId(env, userResult.data.id, token);
+  if (!companyId) {
+    return { ok: false, status: 403, error: "Forbidden" };
+  }
+
+  return { ok: true, kind: "user", userId: userResult.data.id, companyId };
+}
+
+function keyBelongsToCompany(key: string, companyId: string) {
+  const [folder, keyCompanyId] = key.split("/");
+  return Boolean(folder && keyCompanyId && key.startsWith(`${folder}/${companyId}/`));
+}
+
+function contentTypeAllowed(folder: UploadFolder, contentType: string) {
+  const normalized = contentType.split(";")[0].trim().toLowerCase();
+  const documentTypes = new Set([
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "image/png",
+    "image/jpeg",
+  ]);
+
+  if (folder === "videos") return normalized.startsWith("video/");
+  if (folder === "documents") return documentTypes.has(normalized);
+
+  return new Set([
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "text/plain",
+  ]).has(normalized);
+}
+
+async function hasOpenJob(env: Env, companyId: string, jobId: string) {
+  const jobsUrl = supabaseUrl(env, "/rest/v1/jobs", {
+    id: `eq.${jobId}`,
+    company_id: `eq.${companyId}`,
+    status: "eq.open",
+    select: "id",
+  });
+  const result = await fetchSupabaseJson<Array<{ id: string }>>(env, jobsUrl, env.SUPABASE_ANON_KEY);
+  return result.ok && result.data.length > 0;
+}
+
+async function hasActiveLeadForm(env: Env, companyId: string, formId: string) {
+  const formUrl = supabaseUrl(env, "/rest/v1/lead_forms", {
+    id: `eq.${formId}`,
+    company_id: `eq.${companyId}`,
+    status: "eq.active",
+    deleted_at: "is.null",
+    select: "id",
+  });
+  const result = await fetchSupabaseJson<Array<{ id: string }>>(env, formUrl, env.SUPABASE_ANON_KEY);
+  return result.ok && result.data.length > 0;
+}
+
+async function canPresignUpload(
+  request: Request,
+  env: Env,
+  folder: UploadFolder,
+  companyId: string,
+  jobId: string,
+): Promise<AuthResult> {
+  const token = bearerToken(request);
+
+  if (token) {
+    const auth = await authenticateRequest(request, env);
+    if (!auth.ok) return auth;
+    if (auth.kind === "worker") return auth;
+    if (auth.companyId !== companyId) {
+      return { ok: false, status: 403, error: "Forbidden" };
+    }
+    return auth;
+  }
+
+  if (jobId && await hasOpenJob(env, companyId, jobId)) {
+    return { ok: true, kind: "worker" };
+  }
+
+  if (folder === "documents" && jobId && await hasActiveLeadForm(env, companyId, jobId)) {
+    return { ok: true, kind: "worker" };
+  }
+
+  return { ok: false, status: 403, error: "Forbidden" };
+}
+
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (char) => {
+    switch (char) {
+      case "&": return "&amp;";
+      case "<": return "&lt;";
+      case ">": return "&gt;";
+      case "\"": return "&quot;";
+      case "'": return "&#39;";
+      default: return char;
+    }
+  });
 }
 
 export default {
@@ -102,7 +279,7 @@ export default {
     }
 
     const url = new URL(request.url);
-    
+
     if (request.method === "POST" && url.pathname === "/invoices/generate-pdf") {
       return handleGenerateInvoicePdf(request, env);
     }
@@ -113,7 +290,6 @@ export default {
       const invoiceId = invoiceDownloadMatch[1];
       return handleGetInvoiceDownloadUrl(request, env, invoiceId);
     }
-
 
     const path = normalizePath(url.pathname);
 
@@ -144,6 +320,16 @@ export default {
         const bucket = getUploadBucket(env, folder);
         if (!bucket) {
           return json(request, env, { error: "Invalid upload folder" }, 400);
+        }
+
+        const uploadFolder = folder as UploadFolder;
+        if (!contentTypeAllowed(uploadFolder, contentType)) {
+          return json(request, env, { error: "Invalid content type" }, 400);
+        }
+
+        const auth = await canPresignUpload(request, env, uploadFolder, companyId, jobId);
+        if (!auth.ok) {
+          return json(request, env, { error: auth.error }, auth.status);
         }
 
         const objectKey = `${folder}/${companyId}/${jobId}/${Date.now()}-${filename}`;
@@ -183,6 +369,15 @@ export default {
           return json(request, env, { error: "Missing object key" }, 400);
         }
 
+        const auth = await authenticateRequest(request, env);
+        if (!auth.ok) {
+          return json(request, env, { error: auth.error }, auth.status);
+        }
+
+        if (auth.kind === "user" && !keyBelongsToCompany(body.key, auth.companyId)) {
+          return json(request, env, { error: "Forbidden" }, 403);
+        }
+
         const endpoint = `${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
         const objectUrl = `https://${endpoint}/${bucket}/${body.key}`;
 
@@ -210,13 +405,18 @@ export default {
           return json(request, env, { error: "Invalid bucket" }, 400);
         }
 
-        if (request.headers.get("Authorization") && !isAuthorized(request, env)) {
-          return json(request, env, { error: "Unauthorized" }, 401);
-        }
-
         const keys = Array.from(new Set([...(body.keys ?? []), body.key].filter(Boolean) as string[]));
         if (keys.length === 0) {
           return json(request, env, { error: "Missing object key" }, 400);
+        }
+
+        const auth = await authenticateRequest(request, env);
+        if (!auth.ok) {
+          return json(request, env, { error: auth.error }, auth.status);
+        }
+
+        if (auth.kind === "user" && keys.some((key) => !keyBelongsToCompany(key, auth.companyId))) {
+          return json(request, env, { error: "Forbidden" }, 403);
         }
 
         const endpoint = `${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
@@ -241,66 +441,81 @@ export default {
         return json(request, env, { success: true, deleted });
       }
 
-	  if (path === "/send-lead-email" && request.method === "POST") {
-		const body = await request.json<{
-			name: string;
-			email: string;
-			company?: string;
-			phone?: string;
-			message: string;
-		}>();
+      if (path === "/send-lead-email" && request.method === "POST") {
+        const origin = request.headers.get("Origin");
+        if (origin && !allowedOrigins(env).includes(origin)) {
+          return json(request, env, { error: "Forbidden" }, 403);
+        }
 
-		const name = body.name?.trim();
-		const email = body.email?.trim();
-		const company = body.company?.trim() || "Not provided";
-		const phone = body.phone?.trim() || "Not provided";
-		const message = body.message?.trim();
+        const body = await request.json<{
+          name: string;
+          email: string;
+          company?: string;
+          phone?: string;
+          message: string;
+        }>();
 
-		if (!name || !email || !message) {
-			return json(request, env, { error: "Missing required fields" }, 400);
-		}
+        const name = body.name?.trim();
+        const email = body.email?.trim();
+        const company = body.company?.trim() || "Not provided";
+        const phone = body.phone?.trim() || "Not provided";
+        const message = body.message?.trim();
 
-		const resendResponse = await fetch("https://api.resend.com/emails", {
-			method: "POST",
-			headers: {
-			Authorization: `Bearer ${env.RESEND_API_KEY}`,
-			"Content-Type": "application/json"
-			},
-			body: JSON.stringify({
-			from: "Leads <info@rizonhire.com>",
-			to: ["info@rizonhire.com"],
-			subject: `New Landing Page Lead from ${name}`,
-			reply_to: email,
-			html: `
-				<h2>New Lead Submission</h2>
-				<p><strong>Name:</strong> ${name}</p>
-				<p><strong>Email:</strong> ${email}</p>
-				<p><strong>Company:</strong> ${company}</p>
-				<p><strong>Phone:</strong> ${phone}</p>
-				<p><strong>Message:</strong><br>${message}</p>
-			`
-			})
-		});
+        if (!name || !email || !message) {
+          return json(request, env, { error: "Missing required fields" }, 400);
+        }
 
-		const resendData: unknown = await resendResponse.json();
+        if (message.length > 5000) {
+          return json(request, env, { error: "Message too long" }, 400);
+        }
 
-		if (!resendResponse.ok) {
-			return json(
-      request,
-      env,
-			{
-				error: "Failed to send email through Resend",
-				details: resendData
-			},
-			500
-			);
-		}
+        const escapedName = escapeHtml(name);
+        const escapedEmail = escapeHtml(email);
+        const escapedCompany = escapeHtml(company);
+        const escapedPhone = escapeHtml(phone);
+        const escapedMessage = escapeHtml(message);
 
-		return json(request, env, {
-			success: true,
-			resend: resendData
-		});
-		}
+        const resendResponse = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${env.RESEND_API_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            from: "Leads <info@rizonhire.com>",
+            to: ["info@rizonhire.com"],
+            subject: `New Landing Page Lead from ${name}`,
+            reply_to: email,
+            html: `
+              <h2>New Lead Submission</h2>
+              <p><strong>Name:</strong> ${escapedName}</p>
+              <p><strong>Email:</strong> ${escapedEmail}</p>
+              <p><strong>Company:</strong> ${escapedCompany}</p>
+              <p><strong>Phone:</strong> ${escapedPhone}</p>
+              <p><strong>Message:</strong><br>${escapedMessage}</p>
+            `
+          })
+        });
+
+        const resendData: unknown = await resendResponse.json();
+
+        if (!resendResponse.ok) {
+          return json(
+            request,
+            env,
+            {
+              error: "Failed to send email through Resend",
+              details: resendData
+            },
+            500
+          );
+        }
+
+        return json(request, env, {
+          success: true,
+          resend: resendData
+        });
+      }
 
       return json(
         request,

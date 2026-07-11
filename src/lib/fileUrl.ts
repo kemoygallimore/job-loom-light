@@ -7,7 +7,8 @@ function isFullUrl(value: string) {
 
 export async function resolveFileUrl(
   fileUrlOrKey: string | null | undefined,
-  bucket?: string | null
+  bucket?: string | null,
+  accessToken?: string,
 ): Promise<string | null> {
   if (!fileUrlOrKey) return null;
 
@@ -17,5 +18,5 @@ export async function resolveFileUrl(
 
   // Use R2 Worker signed URL
   const resolvedBucket = bucket || R2_BUCKET_RESUMES;
-  return getSignedVideoViewUrl(resolvedBucket, fileUrlOrKey);
+  return getSignedVideoViewUrl(resolvedBucket, fileUrlOrKey, accessToken);
 }

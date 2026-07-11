@@ -53,12 +53,14 @@ export default function CandidateFileUpload({
       setSuccessMessage("");
       setUploadState("uploading");
 
+      const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
       const result = await uploadToStorage({
         file: selectedFile,
         companyId,
         jobId,
         candidateId,
         category,
+        accessToken,
       });
 
       setUploadState("saving");

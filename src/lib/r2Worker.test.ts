@@ -99,4 +99,24 @@ describe("R2 app upload routing", () => {
     expect(presignPayloads[0].folder).toBe("documents");
     expect(result.bucket).toBe("silverweb-additional-documents");
   });
+
+  it("sends an Authorization header when an access token is provided", async () => {
+    const { fetchMock } = installUploadFetchMock();
+
+    await uploadResumeToR2({
+      file: new File(["resume"], "resume.pdf", { type: "application/pdf" }),
+      companyId: "company",
+      candidateId: "candidate",
+      accessToken: "session-token",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/presign-upload"),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer session-token",
+        }),
+      }),
+    );
+  });
 });

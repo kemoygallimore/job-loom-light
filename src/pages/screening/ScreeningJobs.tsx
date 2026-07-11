@@ -190,11 +190,13 @@ export default function ScreeningJobs() {
       // 2. Best-effort R2 cleanup
       let r2Warning: string | null = null;
       try {
+        const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
         await deleteScreeningVideosFromR2(
           (subs ?? []).map((s: any) => ({
             bucket: s.video_bucket,
             key: s.video_object_key ?? s.video_url ?? "",
           })),
+          accessToken,
         );
       } catch (err: any) {
         r2Warning = err?.message || "Failed to delete some video files from storage";

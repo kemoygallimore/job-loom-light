@@ -6,6 +6,7 @@ export interface UploadLeadFormFileParams {
   formId: string;
   submissionId: string;
   fieldId: string;
+  accessToken?: string;
 }
 
 export interface UploadLeadFormFileResult {
@@ -22,6 +23,7 @@ export async function uploadLeadFormFileToR2({
   formId,
   submissionId,
   fieldId,
+  accessToken,
 }: UploadLeadFormFileParams): Promise<UploadLeadFormFileResult> {
   return uploadFileToR2({
     file,
@@ -30,5 +32,6 @@ export async function uploadLeadFormFileToR2({
     candidateId: `lead-form-${submissionId}`,
     jobId: formId,
     fieldId,
+    accessToken,
   });
 }

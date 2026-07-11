@@ -4,6 +4,8 @@ export interface UploadResumeToR2Params {
   file: File;
   companyId: string;
   candidateId: string;
+  jobId?: string;
+  accessToken?: string;
 }
 
 export interface UploadResumeToR2Result {
@@ -18,12 +20,15 @@ export async function uploadResumeToR2({
   file,
   companyId,
   candidateId,
+  jobId = "candidate-upload",
+  accessToken,
 }: UploadResumeToR2Params): Promise<UploadResumeToR2Result> {
   return uploadFileToR2({
     file,
     folder: "resumes",
     companyId,
-    jobId: "candidate-upload",
+    jobId,
     candidateId,
+    accessToken,
   });
 }

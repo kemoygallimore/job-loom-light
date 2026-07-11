@@ -3,3 +3,5 @@ R2_SECRET_ACCESS_KEY=replace-with-rotated-r2-secret-access-key
 R2_ACCOUNT_ID=replace-with-cloudflare-account-id
 RESEND_API_KEY=replace-with-rotated-resend-key
 R2_WORKER_SECRET=replace-with-rotated-worker-secret
+SUPABASE_URL=replace-with-supabase-project-url
+SUPABASE_ANON_KEY=replace-with-supabase-anon-key

@@ -12,6 +12,7 @@ import { isAfter } from "date-fns";
 
 interface ScreeningJob {
   id: string;
+  job_id: string | null;
   company_id: string;
   title: string;
   question: string;
@@ -54,7 +55,7 @@ export default function PublicScreening() {
 
       const { data, error } = await supabase
         .from("screening_jobs")
-        .select("id, company_id, title, question, expires_at")
+        .select("id, job_id, company_id, title, question, expires_at")
         .eq("unique_link_id", linkId)
         .maybeSingle();
 
@@ -257,7 +258,7 @@ export default function PublicScreening() {
       const uploadResult = await uploadScreeningVideoToR2({
         file: videoFile,
         companyId: job.company_id,
-        jobId: job.id,
+        jobId: job.job_id ?? job.id,
         candidateEmail: normalizedEmail,
       });
 

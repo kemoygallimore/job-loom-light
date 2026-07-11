@@ -345,6 +345,7 @@ export default function PublicJobApplication() {
           file: resumeFile!,
           companyId: company.id,
           candidateId,
+          jobId: job.id,
         });
 
         const { error: updateError } = await supabase
@@ -403,6 +404,7 @@ export default function PublicJobApplication() {
           file: resumeFile!,
           companyId: company.id,
           candidateId,
+          jobId: job.id,
         });
 
         const { error: resumeUpdateError } = await supabase
