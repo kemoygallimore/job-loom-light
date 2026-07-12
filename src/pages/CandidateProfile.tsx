@@ -1,156 +1,27 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useParams, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
+import { toast } from "sonner";
+import { ApplicationHistoryPanel } from "@/features/candidate-profile/components/ApplicationHistoryPanel";
+import { CandidateProfileComposers } from "@/features/candidate-profile/components/CandidateProfileComposers";
+import { CandidateProfileHeader } from "@/features/candidate-profile/components/CandidateProfileHeader";
+import { CandidateProfileLoading } from "@/features/candidate-profile/components/CandidateProfileLoading";
+import { CandidateProfileTabs } from "@/features/candidate-profile/components/CandidateProfileTabs";
+import {
+  errorMessage,
+  fetchCandidateProfile,
+  getResumeViewUrl,
+  updateApplicationStage,
+} from "@/features/candidate-profile/api";
+import { buildCandidateTimeline } from "@/features/candidate-profile/timeline";
+import type { ApplicationWithJob, CandidateProfileData } from "@/features/candidate-profile/types";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { toast } from "sonner";
-import { ArrowLeft, Mail, Phone, FileText, Briefcase, Calendar, Clock, User, RotateCcw, MapPin, GraduationCap, Linkedin } from "lucide-react";
-import CandidateNotes, { type NoteWithAuthor } from "@/components/candidate/CandidateNotes";
-import ActivityTimeline, { type TimelineEvent } from "@/components/candidate/ActivityTimeline";
-import InterviewFeedback from "@/components/candidate/InterviewFeedback";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import ResumeHistory from "@/components/candidate/ResumeHistory";
-import CandidateTagsBar from "@/components/candidate/CandidateTagsBar";
-import CandidateDocuments from "@/components/candidate/CandidateDocuments";
-import { R2_BUCKET_RESUMES, getSignedViewUrl } from "@/lib/storage";
-import { CandidateEmailComposer } from "@/components/email/CandidateEmailComposer";
-import CandidateForms from "@/components/candidate/CandidateForms";
-import ScreeningReview from "@/components/candidate/ScreeningReview";
 import { keys } from "@/lib/queryKeys";
-import { PIPELINE_STAGES, STAGE_LABELS } from "@/lib/stages";
 import type { PipelineStage } from "@/lib/pipeline";
-import StageBadge from "@/components/shared/StageBadge";
 
 type Stage = PipelineStage;
-
-interface Candidate {
-  id: string;
-  name: string;
-  email: string | null;
-  phone: string | null;
-  resume_url: string | null;
-  resume_bucket: string | null;
-  resume_object_key: string | null;
-  created_at: string;
-  company_id: string;
-  country: string | null;
-  street_address: string | null;
-  parish_state: string | null;
-  education_level: string | null;
-  linkedin_url?: string | null;
-}
-
-interface ApplicationWithJob {
-  id: string;
-  stage: string;
-  updated_at: string;
-  created_at: string;
-  job_id: string;
-  job_title: string;
-  hiring_manager: string | null;
-}
-
-interface EmailLog {
-  id: string;
-  template_key: string;
-  recipient_email: string;
-  status: string;
-  context: Record<string, unknown> | null;
-  created_at: string;
-}
-
-interface NoteRow {
-  id: string;
-  content: string;
-  created_at: string;
-  user_id: string;
-}
-
-interface ProfileNameRow {
-  user_id: string;
-  name: string | null;
-}
-
-interface ApplicationQueryRow {
-  id: string;
-  stage: string;
-  updated_at: string;
-  created_at: string;
-  job_id: string;
-  jobs: { title: string | null; hiring_manager: string | null } | null;
-}
-
-interface CandidateProfileData {
-  applications: ApplicationWithJob[];
-  candidate: Candidate;
-  emailLogs: EmailLog[];
-  notes: NoteWithAuthor[];
-}
-
-function errorMessage(error: unknown, fallback: string) {
-  if (error && typeof error === "object" && "message" in error && typeof error.message === "string") {
-    return error.message;
-  }
-  return fallback;
-}
-
-async function fetchCandidateProfile(candidateId: string): Promise<CandidateProfileData> {
-  const [cRes, aRes, nRes, eRes] = await Promise.all([
-    supabase.from("candidates").select("*").eq("id", candidateId).single(),
-    supabase
-      .from("applications")
-      .select("id, stage, updated_at, created_at, job_id, jobs(title, hiring_manager)")
-      .eq("candidate_id", candidateId)
-      .order("updated_at", { ascending: false }),
-    supabase.from("notes").select("*").eq("candidate_id", candidateId).order("created_at", { ascending: false }),
-    supabase
-      .from("email_send_log")
-      .select("id, template_key, recipient_email, status, context, created_at")
-      .eq("candidate_id", candidateId)
-      .eq("status", "sent")
-      .order("created_at", { ascending: false }),
-  ]);
-
-  if (cRes.error || !cRes.data) {
-    throw new Error("Candidate not found");
-  }
-
-  const rawNotes = (nRes.data ?? []) as NoteRow[];
-  const authorIds = [...new Set(rawNotes.map((note) => note.user_id))];
-  const authorMap: Record<string, string> = {};
-
-  if (authorIds.length > 0) {
-    const { data: profiles } = await supabase.from("profiles").select("user_id, name").in("user_id", authorIds);
-    ((profiles ?? []) as ProfileNameRow[]).forEach((profileRow) => {
-      authorMap[profileRow.user_id] = profileRow.name ?? "Unknown";
-    });
-  }
-
-  return {
-    candidate: cRes.data as unknown as Candidate,
-    applications: ((aRes.data ?? []) as unknown as ApplicationQueryRow[]).map((a) => ({
-      id: a.id,
-      stage: a.stage,
-      updated_at: a.updated_at,
-      created_at: a.created_at,
-      job_id: a.job_id,
-      job_title: a.jobs?.title ?? "Unknown",
-      hiring_manager: a.jobs?.hiring_manager ?? null,
-    })),
-    notes: rawNotes.map((n) => ({
-      id: n.id,
-      content: n.content,
-      created_at: n.created_at,
-      user_id: n.user_id,
-      author_name: authorMap[n.user_id] ?? "Unknown",
-    })),
-    emailLogs: (eRes.data ?? []) as unknown as EmailLog[],
-  };
-}
 
 export default function CandidateProfile() {
   const { id } = useParams<{ id: string }>();
@@ -174,9 +45,9 @@ export default function CandidateProfile() {
   }, [candidateQuery.error, navigate]);
 
   const candidate = candidateQuery.data?.candidate ?? null;
-  const applications = candidateQuery.data?.applications ?? [];
-  const notes = candidateQuery.data?.notes ?? [];
-  const emailLogs = candidateQuery.data?.emailLogs ?? [];
+  const applications = useMemo(() => candidateQuery.data?.applications ?? [], [candidateQuery.data?.applications]);
+  const notes = useMemo(() => candidateQuery.data?.notes ?? [], [candidateQuery.data?.notes]);
+  const emailLogs = useMemo(() => candidateQuery.data?.emailLogs ?? [], [candidateQuery.data?.emailLogs]);
   const loading = Boolean(id && profile && candidateQuery.isLoading);
 
   const updateCandidateDetail = (updater: (current: CandidateProfileData) => CandidateProfileData) => {
@@ -185,11 +56,7 @@ export default function CandidateProfile() {
   };
 
   const stageChangeMutation = useMutation({
-    mutationFn: async ({ appId, newStage }: { appId: string; newStage: Stage }) => {
-      const { error } = await supabase.from("applications").update({ stage: newStage }).eq("id", appId);
-      if (error) throw error;
-      return { appId, newStage };
-    },
+    mutationFn: ({ appId, newStage }: { appId: string; newStage: Stage }) => updateApplicationStage(appId, newStage),
     onError: (error) => {
       toast.error(errorMessage(error, "Failed to update stage"));
     },
@@ -239,96 +106,33 @@ export default function CandidateProfile() {
     queryClient.invalidateQueries({ queryKey: [...keys.all, "pipeline"] });
   };
 
-  // Build activity timeline events
-  const buildTimeline = (): TimelineEvent[] => {
-    if (!candidate) return [];
-    const events: TimelineEvent[] = [];
+  const handleViewResume = async () => {
+    if (!candidate) return;
 
-    // Candidate created
-    events.push({
-      id: "created-" + candidate.id,
-      type: "created",
-      title: "Candidate profile created",
-      timestamp: candidate.created_at,
-    });
-
-    // Resume uploaded
-    if (candidate.resume_url) {
-      events.push({
-        id: "resume-" + candidate.id,
-        type: "resume",
-        title: "Resume uploaded",
-        timestamp: candidate.created_at,
-      });
+    try {
+      const viewUrl = await getResumeViewUrl(candidate);
+      window.open(viewUrl, "_blank", "noopener,noreferrer");
+    } catch (err: unknown) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : "Failed to load resume");
     }
-
-    // Applications
-    applications.forEach((app) => {
-      events.push({
-        id: "app-" + app.id,
-        type: "applied",
-        title: `Applied for ${app.job_title}`,
-        description: `Current stage: ${app.stage}`,
-        timestamp: app.created_at,
-      });
-    });
-
-    // Notes
-    notes.forEach((n) => {
-      events.push({
-        id: "note-" + n.id,
-        type: "note",
-        title: "Note added",
-        description: n.content.length > 120 ? n.content.slice(0, 120) + "…" : n.content,
-        timestamp: n.created_at,
-        meta: n.author_name,
-      });
-    });
-
-    emailLogs.forEach((email) => {
-      const context = email.context ?? {};
-      const subject = typeof context.subject === "string" ? context.subject : "Candidate email";
-      const templateName = typeof context.template_name === "string" ? context.template_name : email.template_key;
-      events.push({
-        id: "email-" + email.id,
-        type: "email",
-        title: "Email sent",
-        description: subject,
-        timestamp: email.created_at,
-        meta: templateName,
-      });
-    });
-
-    // Sort newest first
-    events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    return events;
   };
 
   const latestApp = applications[0] ?? null;
   const isRepeatApplicant = applications.length > 1;
+  const timelineEvents = useMemo(
+    () => buildCandidateTimeline(candidate, applications, notes, emailLogs),
+    [applications, candidate, emailLogs, notes],
+  );
 
   if (loading) {
-    return (
-      <div className="space-y-6 max-w-3xl">
-        <Skeleton className="h-8 w-48" />
-        <div className="bg-card border rounded-xl p-6 space-y-4">
-          <Skeleton className="h-6 w-64" />
-          <Skeleton className="h-4 w-48" />
-          <Skeleton className="h-4 w-40" />
-        </div>
-        <div className="bg-card border rounded-xl p-6 space-y-3">
-          <Skeleton className="h-5 w-32" />
-          <Skeleton className="h-20 w-full" />
-        </div>
-      </div>
-    );
+    return <CandidateProfileLoading />;
   }
 
-  if (!candidate) return null;
+  if (!candidate || !profile) return null;
 
   return (
     <div className="space-y-6 max-w-3xl animate-fade-in">
-      {/* Back */}
       <Button
         variant="ghost"
         size="sm"
@@ -339,307 +143,37 @@ export default function CandidateProfile() {
         Back to Candidates
       </Button>
 
-      {/* Header card */}
-      <div className="bg-card border rounded-xl overflow-hidden" style={{ boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.04)" }}>
-        <div className="p-6 space-y-5">
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                <User className="w-5 h-5 text-muted-foreground" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-xl font-bold leading-tight">{candidate.name}</h1>
-                  {isRepeatApplicant && (
-                    <Badge
-                      variant="outline"
-                      className="gap-1 text-xs font-medium border-amber-300 text-amber-700 dark:border-amber-600 dark:text-amber-400"
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                      Repeat Applicant
-                    </Badge>
-                  )}
-                </div>
-                {latestApp && <p className="text-sm text-muted-foreground mt-0.5">{latestApp.job_title}</p>}
-              </div>
-            </div>
-            {latestApp && (
-              <StageBadge stage={latestApp.stage} />
-            )}
-          </div>
-
-          <CandidateTagsBar candidateId={candidate.id} />
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {candidate.email && (
-              <div className="flex items-center gap-2.5 text-sm">
-                <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                <a href={`mailto:${candidate.email}`} className="text-primary hover:underline truncate">
-                  {candidate.email}
-                </a>
-              </div>
-            )}
-            {candidate.phone && (
-              <div className="flex items-center gap-2.5 text-sm">
-                <Phone className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                <span className="text-foreground">{candidate.phone}</span>
-              </div>
-            )}
-            {(candidate.street_address || candidate.parish_state || candidate.country) && (
-              <div className="flex items-center gap-2.5 text-sm sm:col-span-2">
-                <MapPin className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                <span className="text-foreground">
-                  {[candidate.street_address, candidate.parish_state, candidate.country].filter(Boolean).join(", ")}
-                </span>
-              </div>
-            )}
-            {candidate.education_level && (
-              <div className="flex items-center gap-2.5 text-sm">
-                <GraduationCap className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                <span className="text-foreground">{candidate.education_level}</span>
-              </div>
-            )}
-            {candidate.linkedin_url && (
-              <div className="flex items-center gap-2.5 text-sm">
-                <Linkedin className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                <a
-                  href={candidate.linkedin_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline truncate"
-                >
-                  LinkedIn Profile
-                </a>
-              </div>
-            )}
-            <div className="flex items-center gap-2.5 text-sm">
-              <Calendar className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-              <span className="text-muted-foreground">Added {new Date(candidate.created_at).toLocaleDateString()}</span>
-            </div>
-            {!candidate.email && !candidate.phone && (
-              <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
-                <Mail className="w-4 h-4 flex-shrink-0" />
-                <span>No contact info</span>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            {candidate.email && (
-              <Button variant="outline" size="sm" className="gap-2" onClick={() => setEmailComposerOpen(true)}>
-                <Mail className="w-4 h-4" />
-                Email Candidate
-              </Button>
-            )}
-            {candidate.resume_url && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={async () => {
-                  try {
-                    const bucket = candidate.resume_bucket ?? R2_BUCKET_RESUMES;
-                    const key = candidate.resume_object_key ?? candidate.resume_url;
-
-                    if (!key) {
-                      throw new Error("Resume not found");
-                    }
-
-                    const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
-                    const viewUrl = await getSignedViewUrl(bucket, key, accessToken);
-                    window.open(viewUrl, "_blank", "noopener,noreferrer");
-                  } catch (err: unknown) {
-                    console.error(err);
-                    toast.error(err instanceof Error ? err.message : "Failed to load resume");
-                  }
-                }}
-              >
-                <FileText className="w-4 h-4" />
-                View Resume
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Application History */}
-      {applications.length > 0 && (
-        <div className="bg-card border rounded-xl p-6 space-y-4" style={{ boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.04)" }}>
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Application History
-            </h2>
-            <span className="text-xs text-muted-foreground tabular-nums">
-              {applications.length} application{applications.length !== 1 ? "s" : ""}
-            </span>
-          </div>
-
-          <div className="relative">
-            {applications.length > 1 && <div className="absolute left-[15px] top-6 bottom-6 w-px bg-border" />}
-            <div className="space-y-0">
-              {applications.map((app, index) => {
-                const isLatest = index === 0;
-                return (
-                  <div key={app.id} className="relative flex gap-4 py-3">
-                    <div className="relative z-10 flex-shrink-0 mt-0.5">
-                      <div
-                        className={`w-[30px] h-[30px] rounded-full flex items-center justify-center ${isLatest ? "bg-primary/10 ring-2 ring-primary/20" : "bg-muted"}`}
-                      >
-                        <Briefcase className={`w-3.5 h-3.5 ${isLatest ? "text-primary" : "text-muted-foreground"}`} />
-                      </div>
-                    </div>
-                    <div
-                      className={`flex-1 rounded-lg p-3 ${isLatest ? "bg-primary/5 border border-primary/10" : "bg-muted/50"}`}
-                    >
-                      <div className="flex items-center justify-between gap-3 flex-wrap">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span
-                              className={`text-sm font-medium truncate ${isLatest ? "text-foreground" : "text-foreground/80"}`}
-                            >
-                              {app.job_title}
-                            </span>
-                            {isLatest && (
-                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                                Latest
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              Applied {new Date(app.created_at).toLocaleDateString()}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              Updated {new Date(app.updated_at).toLocaleDateString()}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <StageBadge stage={app.stage} />
-                          <Select value={app.stage} onValueChange={(v) => handleStageChange(app.id, v as Stage)}>
-                            <SelectTrigger className="w-[120px] h-7 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {PIPELINE_STAGES.map((s) => (
-                                <SelectItem key={s} value={s} className="text-xs">
-                                  {STAGE_LABELS[s] ?? s}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tabs: Notes / Interview Feedback / Resume History */}
-      <Tabs defaultValue="notes" className="w-full">
-        <TabsList className="flex w-full h-auto overflow-x-auto justify-start sm:grid sm:grid-cols-6">
-          <TabsTrigger value="notes" className="whitespace-nowrap flex-shrink-0 sm:flex-1">Notes</TabsTrigger>
-          <TabsTrigger value="feedback" className="whitespace-nowrap flex-shrink-0 sm:flex-1">Interview Feedback</TabsTrigger>
-          <TabsTrigger value="resumes" className="whitespace-nowrap flex-shrink-0 sm:flex-1">Resume History</TabsTrigger>
-          <TabsTrigger value="documents" className="whitespace-nowrap flex-shrink-0 sm:flex-1">Documents</TabsTrigger>
-          <TabsTrigger value="forms" className="whitespace-nowrap flex-shrink-0 sm:flex-1">Forms</TabsTrigger>
-          <TabsTrigger value="screening" className="whitespace-nowrap flex-shrink-0 sm:flex-1">Screening</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="notes" className="mt-4">
-          <CandidateNotes
-            candidateId={candidate.id}
-            companyId={candidate.company_id}
-            userId={profile!.user_id}
-            notes={notes}
-            onNotesChange={(nextNotes) => {
-              updateCandidateDetail((current) => ({ ...current, notes: nextNotes }));
-              if (id) queryClient.invalidateQueries({ queryKey: keys.candidate(id) });
-            }}
-          />
-        </TabsContent>
-
-        <TabsContent value="feedback" className="mt-4">
-          <InterviewFeedback
-            candidateId={candidate.id}
-            companyId={candidate.company_id}
-            userId={profile!.user_id}
-            jobs={applications.map((a) => ({
-              id: a.job_id,
-              title: a.job_title,
-              hiring_manager: a.hiring_manager,
-            }))}
-            defaultJobId={latestApp?.job_id}
-            currentUserName={profile?.name}
-          />
-        </TabsContent>
-
-        <TabsContent value="resumes" className="mt-4">
-          <div className="bg-card border rounded-xl p-6" style={{ boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.04)" }}>
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">
-              Resume History
-            </h2>
-            <ResumeHistory candidateId={candidate.id} />
-          </div>
-        </TabsContent>
-
-        <TabsContent value="documents" className="mt-4">
-          <div className="bg-card border rounded-xl p-6" style={{ boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.04)" }}>
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">
-              Documents
-            </h2>
-            <CandidateDocuments candidateId={candidate.id} companyId={candidate.company_id} />
-          </div>
-        </TabsContent>
-        <TabsContent value="forms" className="mt-4">
-          <CandidateForms candidateId={candidate.id} companyId={candidate.company_id} userId={profile!.user_id} candidateEmail={candidate.email} />
-        </TabsContent>
-        <TabsContent value="screening" className="mt-4">{latestApp && <ScreeningReview applicationId={latestApp.id} />}</TabsContent>
-      </Tabs>
-
-      {/* Standalone Activity Timeline */}
-      <ActivityTimeline events={buildTimeline()} />
-
-      <CandidateEmailComposer
-        open={emailComposerOpen}
-        onOpenChange={setEmailComposerOpen}
-        recipients={[
-          {
-            candidateId: candidate.id,
-            applicationId: latestApp?.id ?? null,
-            candidateName: candidate.name,
-            candidateEmail: candidate.email,
-            jobId: latestApp?.job_id ?? null,
-            jobTitle: latestApp?.job_title ?? null,
-          },
-        ]}
+      <CandidateProfileHeader
+        candidate={candidate}
+        latestApp={latestApp}
+        isRepeatApplicant={isRepeatApplicant}
+        onEmailCandidate={() => setEmailComposerOpen(true)}
+        onViewResume={handleViewResume}
       />
 
-      <CandidateEmailComposer
-        open={Boolean(rejectionApplication)}
-        mode="rejection"
-        onOpenChange={handleRejectionComposerOpenChange}
-        onSent={handleRejectionSent}
-        recipients={
-          rejectionApplication
-            ? [
-                {
-                  candidateId: candidate.id,
-                  applicationId: rejectionApplication.id,
-                  candidateName: candidate.name,
-                  candidateEmail: candidate.email,
-                  jobId: rejectionApplication.job_id,
-                  jobTitle: rejectionApplication.job_title,
-                },
-              ]
-            : []
-        }
+      <ApplicationHistoryPanel applications={applications} onStageChange={handleStageChange} />
+
+      <CandidateProfileTabs
+        applications={applications}
+        candidate={candidate}
+        latestApp={latestApp}
+        notes={notes}
+        profile={profile}
+        timelineEvents={timelineEvents}
+        onNotesChange={(nextNotes) => {
+          updateCandidateDetail((current) => ({ ...current, notes: nextNotes }));
+          if (id) queryClient.invalidateQueries({ queryKey: keys.candidate(id) });
+        }}
+      />
+
+      <CandidateProfileComposers
+        candidate={candidate}
+        emailComposerOpen={emailComposerOpen}
+        latestApp={latestApp}
+        rejectionApplication={rejectionApplication}
+        onEmailComposerOpenChange={setEmailComposerOpen}
+        onRejectionComposerOpenChange={handleRejectionComposerOpenChange}
+        onRejectionSent={handleRejectionSent}
       />
     </div>
   );

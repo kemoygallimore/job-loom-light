@@ -548,6 +548,7 @@ export type Database = {
           company_id: string
           created_at: string
           description: string | null
+          expires_at: string
           hiring_manager: string | null
           id: string
           status: Database["public"]["Enums"]["job_status"]
@@ -557,6 +558,7 @@ export type Database = {
           company_id: string
           created_at?: string
           description?: string | null
+          expires_at?: string
           hiring_manager?: string | null
           id?: string
           status?: Database["public"]["Enums"]["job_status"]
@@ -566,6 +568,7 @@ export type Database = {
           company_id?: string
           created_at?: string
           description?: string | null
+          expires_at?: string
           hiring_manager?: string | null
           id?: string
           status?: Database["public"]["Enums"]["job_status"]

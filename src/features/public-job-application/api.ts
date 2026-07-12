@@ -45,6 +45,7 @@ export async function loadPublicApplicationContext(jobId: string): Promise<Publi
     .select("id, title, description, company_id")
     .eq("id", jobId)
     .eq("status", "open")
+    .gt("expires_at", new Date().toISOString())
     .maybeSingle();
 
   if (!jobData) return null;

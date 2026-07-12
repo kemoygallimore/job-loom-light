@@ -33,6 +33,7 @@ interface ScreeningJob {
   id: string;
   company_id: string;
   created_by: string;
+  job_id: string | null;
   title: string;
   question: string;
   expires_at: string;
@@ -102,6 +103,7 @@ export default function ScreeningJobs() {
     const { data: newJob, error: jobError } = await supabase.from("jobs").insert({
       company_id: profile.company_id,
       title,
+      expires_at: expiresAt.toISOString(),
       status: "open" as any,
     }).select().single();
 
@@ -159,6 +161,22 @@ export default function ScreeningJobs() {
       return;
     }
     setSavingEdit(true);
+    if (editJob.job_id) {
+      const { error: jobUpdateError } = await supabase
+        .from("jobs")
+        .update({
+          title: editTitle,
+          expires_at: editExpiresAt.toISOString(),
+        })
+        .eq("id", editJob.job_id);
+
+      if (jobUpdateError) {
+        setSavingEdit(false);
+        toast.error(jobUpdateError.message);
+        return;
+      }
+    }
+
     const { error } = await supabase
       .from("screening_jobs")
       .update({
