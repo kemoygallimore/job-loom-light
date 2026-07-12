@@ -8,8 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { CheckCircle2, FileText, Loader2, AlertCircle, Upload, X, Building2, Linkedin } from "lucide-react";
-import { uploadResumeToR2 } from "@/lib/uploadResumeToR2";
-import { uploadToStorage } from "@/lib/uploadToStorage";
+import { uploadToStorage } from "@/lib/storage";
 import { sanitizeRichHtml } from "@/lib/sanitizeHtml";
 import { Textarea } from "@/components/ui/textarea";
 import { calculateScreeningScore, objectiveCredit, type ScreeningQuestion } from "@/lib/jobScreening";
@@ -355,8 +354,9 @@ export default function PublicJobApplication() {
         }
 
         // Upload new resume and update candidate
-        const resumeResult = await uploadResumeToR2({
+        const resumeResult = await uploadToStorage({
           file: resumeFile!,
+          category: "resume",
           companyId: company.id,
           candidateId,
           jobId: job.id,
@@ -413,8 +413,9 @@ export default function PublicJobApplication() {
 
         if (candidateError) throw candidateError;
 
-        const resumeResult = await uploadResumeToR2({
+        const resumeResult = await uploadToStorage({
           file: resumeFile!,
+          category: "resume",
           companyId: company.id,
           candidateId,
           jobId: job.id,
@@ -492,9 +493,9 @@ export default function PublicJobApplication() {
             category: "document",
             bucket: docResult.bucket,
             file_key: docResult.key,
-            file_name: docResult.fileName,
-            file_type: docResult.fileType,
-            file_size: docResult.fileSize,
+            file_name: docResult.filename,
+            file_type: docResult.contentType,
+            file_size: docResult.size,
           });
           if (docInsertError) console.error("Additional document insert failed:", docInsertError);
         } catch (docErr) {

@@ -81,9 +81,9 @@ vi.mock("@/components/candidate/CandidateDocuments", () => ({
   default: () => <div>Documents mock</div>,
 }));
 
-vi.mock("@/lib/r2Worker", () => ({
+vi.mock("@/lib/storage", () => ({
   R2_BUCKET_RESUMES: "silverweb-ats-resumes",
-  getSignedR2Url: vi.fn(),
+  getSignedViewUrl: vi.fn(),
 }));
 
 vi.mock("@/components/ui/select", () => ({

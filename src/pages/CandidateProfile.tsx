@@ -16,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ResumeHistory from "@/components/candidate/ResumeHistory";
 import CandidateTagsBar from "@/components/candidate/CandidateTagsBar";
 import CandidateDocuments from "@/components/candidate/CandidateDocuments";
-import { R2_BUCKET_RESUMES, getSignedR2Url } from "@/lib/r2Worker";
+import { R2_BUCKET_RESUMES, getSignedViewUrl } from "@/lib/storage";
 import { CandidateEmailComposer } from "@/components/email/CandidateEmailComposer";
 import CandidateForms from "@/components/candidate/CandidateForms";
 import ScreeningReview from "@/components/candidate/ScreeningReview";
@@ -446,7 +446,7 @@ export default function CandidateProfile() {
                     }
 
                     const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
-                    const viewUrl = await getSignedR2Url(bucket, key, accessToken);
+                    const viewUrl = await getSignedViewUrl(bucket, key, accessToken);
                     window.open(viewUrl, "_blank", "noopener,noreferrer");
                   } catch (err: unknown) {
                     console.error(err);

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { getInvoiceDownloadUrl } from "@/lib/invoiceUrl";
+import { getInvoiceDownloadUrl } from "@/lib/storage";
 import { logInvoiceEvent } from "@/lib/invoices";
 import { Download, ExternalLink } from "lucide-react";
 import BillingProfileForm from "@/components/billing/BillingProfileForm";

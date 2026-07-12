@@ -12,7 +12,7 @@ import {
   normalizeSchema,
   validateLeadFormFieldValue,
 } from "@/lib/leadForms";
-import { uploadLeadFormFileToR2 } from "@/lib/uploadLeadFormFileToR2";
+import { uploadToStorage } from "@/lib/storage";
 
 type PublicFormState = "loading" | "ready" | "unavailable" | "submitted";
 
@@ -137,11 +137,12 @@ export default function PublicLeadForm() {
         const value = values[field.id];
 
         if (field.type === "file" && value instanceof File) {
-          const upload = await uploadLeadFormFileToR2({
+          const upload = await uploadToStorage({
             file: value,
+            category: "document",
             companyId: form.company_id,
-            formId: form.id,
-            submissionId,
+            candidateId: `lead-form-${submissionId}`,
+            jobId: form.id,
             fieldId: field.id,
           });
           answers[field.id] = {

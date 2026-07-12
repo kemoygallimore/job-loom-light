@@ -6,8 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { ArrowRightLeft, MessageSquarePlus, FileText, History } from "lucide-react";
-import { getSignedVideoViewUrl } from "@/lib/getSignedVideoViewUrl";
-import { R2_BUCKET_RESUMES } from "@/lib/r2Worker";
+import { getSignedVideoViewUrl, R2_BUCKET_RESUMES } from "@/lib/storage";
 import { useNavigate } from "react-router-dom";
 import { PIPELINE_STAGES, STAGE_LABELS } from "@/lib/stages";
 

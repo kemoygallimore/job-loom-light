@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { uploadScreeningVideoToR2 } from "@/lib/uploadScreeningVideoToR2";
+import { uploadToStorage } from "@/lib/storage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -255,11 +255,12 @@ export default function PublicScreening() {
         }
       );
 
-      const uploadResult = await uploadScreeningVideoToR2({
+      const uploadResult = await uploadToStorage({
         file: videoFile,
+        category: "video",
         companyId: job.company_id,
         jobId: job.job_id ?? job.id,
-        candidateEmail: normalizedEmail,
+        candidateId: normalizedEmail,
       });
 
       const { error: submissionError } = await supabase

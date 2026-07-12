@@ -68,7 +68,7 @@ import {
   paginateSubmissions,
   submissionValueText,
 } from "@/lib/leadFormSubmissionsTable";
-import { resolveFileUrl } from "@/lib/fileUrl";
+import { resolveFileUrl } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];

@@ -27,7 +27,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { deleteScreeningVideosFromR2 } from "@/lib/deleteScreeningVideoFromR2";
+import { deleteScreeningVideosFromR2 } from "@/lib/storage";
 
 interface ScreeningJob {
   id: string;

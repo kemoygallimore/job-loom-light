@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { getInvoiceDownloadUrl } from "@/lib/invoiceUrl";
+import { getInvoiceDownloadUrl } from "@/lib/storage";
 import { logInvoiceEvent } from "@/lib/invoices";
 import { ArrowLeft, Download } from "lucide-react";
 

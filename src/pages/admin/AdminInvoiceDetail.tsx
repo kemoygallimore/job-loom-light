@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { getInvoiceDownloadUrl, requestInvoicePdf } from "@/lib/invoiceUrl";
+import { getInvoiceDownloadUrl, requestInvoicePdf } from "@/lib/storage";
 import { logInvoiceEvent } from "@/lib/invoices";
 import InvoiceEventsTimeline from "@/components/billing/InvoiceEventsTimeline";
 import { ArrowLeft, Download, FileText, RefreshCw, Send, CheckCircle2, AlertTriangle, Ban, Mail } from "lucide-react";
