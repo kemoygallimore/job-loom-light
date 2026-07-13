@@ -484,9 +484,9 @@ export default function JobEditorDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="left-0 top-0 h-screen max-h-screen w-screen max-w-none translate-x-0 translate-y-0 gap-0 rounded-none border-0 p-0 sm:rounded-none">
-        <div className="flex h-full flex-col bg-background">
-          <DialogHeader className="border-b px-6 py-4 text-left">
+      <DialogContent className="left-0 top-0 flex h-[100dvh] max-h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:rounded-none">
+        <div className="flex h-full w-full flex-col bg-background">
+          <DialogHeader className="shrink-0 border-b px-6 py-4 text-left">
             <div className="flex items-start justify-between gap-4 pr-8">
               <div className="flex min-w-0 flex-col gap-2">
                 <div className="flex flex-wrap items-center gap-2">
@@ -507,8 +507,8 @@ export default function JobEditorDialog({
             </div>
           </DialogHeader>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-0 flex-1 flex-col">
-            <div className="border-b px-6 py-3">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="shrink-0 border-b px-6 py-3">
               <TabsList>
                 <TabsTrigger value="details">Job details</TabsTrigger>
                 <TabsTrigger value="screening">Screening</TabsTrigger>
@@ -516,7 +516,7 @@ export default function JobEditorDialog({
             </div>
 
             {loading ? (
-              <div className="flex flex-1 items-center justify-center">
+              <div className="flex min-h-0 flex-1 items-center justify-center">
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
                   <Loader2 className="size-4 animate-spin" />
                   Loading job settings...
@@ -525,8 +525,8 @@ export default function JobEditorDialog({
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto">
                 {activeTab === "details" ? (
-                  <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-6 py-6">
-                    <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_320px]">
+                  <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-6 pb-24 pt-6">
+                    <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,2fr)_320px]">
                       <div className="flex flex-col gap-6">
                         <div className="flex flex-col gap-2">
                           <Label>Job title</Label>
@@ -628,9 +628,9 @@ export default function JobEditorDialog({
                 ) : null}
 
                 {activeTab === "screening" ? (
-                  <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-6">
-                    <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_320px]">
-                      <div className="flex flex-col gap-6">
+                  <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 pb-24 pt-6">
+                    <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,2fr)_320px] [@media_(max-height:760px)]:lg:grid-cols-1">
+                      <div className="flex min-w-0 flex-col gap-6">
                         <div className="rounded-lg border bg-muted/20 p-5">
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex min-w-0 flex-col gap-2">
@@ -697,7 +697,7 @@ export default function JobEditorDialog({
                         />
                       </div>
 
-                      <div className="flex flex-col gap-4 rounded-lg border bg-muted/20 p-5">
+                      <div className="flex min-w-0 flex-col gap-4 rounded-lg border bg-muted/20 p-5">
                         <div className="flex items-center gap-2">
                           <Video className="size-4 text-muted-foreground" />
                           <p className="font-medium">Video screening</p>
@@ -723,7 +723,7 @@ export default function JobEditorDialog({
             )}
           </Tabs>
 
-          <div className="border-t px-6 py-4">
+          <div className="shrink-0 border-t px-6 py-4">
             <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3">
               <p className="text-sm text-muted-foreground">
                 Public candidates can only apply while the job is open and before the expiration date.
