@@ -256,6 +256,20 @@ function isEmptyValue(value: unknown) {
   return value === null || value === undefined || String(value).trim() === "";
 }
 
+function consentPayload(body: Record<string, unknown>, key: string) {
+  const consents = body.consents && typeof body.consents === "object" && !Array.isArray(body.consents)
+    ? body.consents as Record<string, unknown>
+    : {};
+  const item = consents[key] && typeof consents[key] === "object" && !Array.isArray(consents[key])
+    ? consents[key] as Record<string, unknown>
+    : {};
+  return {
+    accepted: item.accepted === true,
+    consentText: normalizeText(item.consent_text, 2000),
+    pagePath: normalizeText(item.page_path, 500),
+  };
+}
+
 function validateAnswers(schema: unknown, answers: Record<string, unknown>) {
   for (const field of schemaFields(schema)) {
     const id = typeof field.id === "string" ? field.id : "";
@@ -339,6 +353,10 @@ async function handleSubmit(body: Record<string, unknown>) {
   if (!token) return unavailable();
   const result = await assertUsableInvitation(token);
   if (!result.ok) return result.response;
+  const consent = consentPayload(body, "data_protection");
+  if (!consent.accepted || !consent.consentText) {
+    return respond(400, { error: "You must agree to the data protection policies to continue" });
+  }
 
   const answers = body.answers && typeof body.answers === "object" && !Array.isArray(body.answers)
     ? body.answers as Record<string, unknown>
@@ -377,6 +395,22 @@ async function handleSubmit(body: Record<string, unknown>) {
     })));
     if (uploadError) return respond(400, { error: uploadError.message });
   }
+
+  const { error: consentError } = await admin.rpc("record_consent", {
+    _company_id: result.assignment.company_id,
+    _consent_key: "data_protection",
+    _source_flow: "candidate_assigned_form",
+    _consent_text: consent.consentText,
+    _candidate_id: result.assignment.candidate_id,
+    _application_id: null,
+    _submission_id: submissionId,
+    _screening_submission_id: null,
+    _assignment_id: result.assignment.id,
+    _interview_feedback_id: null,
+    _page_path: consent.pagePath,
+    _metadata: { form_id: result.assignment.form_id },
+  });
+  if (consentError) return respond(500, { error: "Unable to record consent" });
 
   await admin
     .from("candidate_form_assignments")

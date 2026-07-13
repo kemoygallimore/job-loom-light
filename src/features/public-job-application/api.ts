@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { deleteObjects, uploadToStorage } from "@/lib/storage";
 import type { Json, Database } from "@/integrations/supabase/types";
 import type { ScreeningQuestion } from "@/lib/jobScreening";
+import type { ConsentPayload } from "@/lib/consentPolicies";
 import type {
   ApplicationIdRow,
   CandidateIdRow,
@@ -53,7 +54,7 @@ export async function loadPublicApplicationContext(jobId: string): Promise<Publi
 
   const { data: companyData, error: companyError } = await supabase
     .from("companies")
-    .select("id, name")
+    .select("id, name, slug")
     .eq("id", jobData.company_id)
     .maybeSingle();
 
@@ -115,6 +116,7 @@ export async function submitPublicJobApplication(params: {
   additionalDocuments: ResumeMetadata[];
   screeningVersionId: string | null;
   screeningAnswers: Record<string, Json>;
+  consents: ConsentPayload;
 }) {
   const { data, error } = await supabase
     .rpc("submit_public_job_application", {
@@ -134,6 +136,7 @@ export async function submitPublicJobApplication(params: {
       _additional_documents: params.additionalDocuments,
       _screening_version_id: params.screeningVersionId,
       _screening_answers: params.screeningAnswers,
+      _consents: params.consents,
     })
     .single();
 

@@ -2,6 +2,15 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadToStorage } from "@/lib/storage";
+import { PolicyConsentBlock } from "@/components/legal/PolicyConsentBlock";
+import {
+  DATA_PROTECTION_CONSENT_TEXT,
+  VIDEO_RECORDING_CONSENT_TEXT,
+  buildConsentPayload,
+  loadConsentPolicyContext,
+  mergeConsentPayload,
+  type ConsentPolicyContext,
+} from "@/lib/consentPolicies";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,7 +37,9 @@ export default function PublicScreening() {
   const [step, setStep] = useState<Step>("info");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [consent, setConsent] = useState(false);
+  const [privacyConsent, setPrivacyConsent] = useState(false);
+  const [recordingConsent, setRecordingConsent] = useState(false);
+  const [policyContext, setPolicyContext] = useState<ConsentPolicyContext | null>(null);
   const [countdown, setCountdown] = useState(15);
   const [recording, setRecording] = useState(false);
   const [recordTime, setRecordTime] = useState(0);
@@ -72,6 +83,7 @@ export default function PublicScreening() {
       }
 
       setJob(data as ScreeningJob);
+      setPolicyContext(await loadConsentPolicyContext(data.company_id));
       setLoading(false);
     };
 
@@ -123,7 +135,7 @@ export default function PublicScreening() {
   }, []);
 
   const goToInstructions = () => {
-    if (!name.trim() || !email.trim() || !consent) {
+    if (!name.trim() || !email.trim() || !privacyConsent || !recordingConsent) {
       toast.error("Please fill all fields and accept privacy consent");
       return;
     }
@@ -263,23 +275,17 @@ export default function PublicScreening() {
         candidateId: normalizedEmail,
       });
 
-      const { error: submissionError } = await supabase
-        .from("screening_submissions")
-        .insert({
-          screening_job_id: job.id,
-          company_id: job.company_id,
-          candidate_name: normalizedName,
-          candidate_email: normalizedEmail,
-          video_url: uploadResult.key,
-          video_bucket: uploadResult.bucket,
-          video_object_key: uploadResult.key,
-          video_filename: uploadResult.filename,
-          video_content_type: uploadResult.contentType,
-          video_size_bytes: uploadResult.size,
-          privacy_consent: true,
-          attempt_number: attempt,
-          upload_status: "uploaded",
-        });
+      const { error: submissionError } = await (supabase as any).rpc("submit_public_screening_response", {
+        _link_id: linkId ?? "",
+        _candidate_name: normalizedName,
+        _candidate_email: normalizedEmail,
+        _video: uploadResult,
+        _attempt_number: attempt,
+        _consents: mergeConsentPayload(
+          buildConsentPayload("data_protection", privacyConsent, DATA_PROTECTION_CONSENT_TEXT),
+          buildConsentPayload("video_recording", recordingConsent, VIDEO_RECORDING_CONSENT_TEXT),
+        ),
+      });
 
       if (submissionError) {
         throw new Error(`Video uploaded, but the submission could not be saved: ${submissionError.message}`);
@@ -380,15 +386,22 @@ export default function PublicScreening() {
                 />
               </div>
 
-              <div className="flex items-start gap-2">
-                <Checkbox checked={consent} onCheckedChange={(v) => setConsent(v === true)} id="consent" />
-                <label htmlFor="consent" className="text-sm text-muted-foreground leading-tight cursor-pointer">
-                  I consent to my video being recorded and reviewed by the hiring team for the purpose of this job
-                  application.
-                </label>
+              <PolicyConsentBlock
+                id="screening-privacy-consent"
+                context={policyContext}
+                checked={privacyConsent}
+                consentText={DATA_PROTECTION_CONSENT_TEXT}
+                onCheckedChange={setPrivacyConsent}
+              />
+
+              <div className="flex items-start gap-2 rounded-lg border bg-muted/30 p-3">
+                <Checkbox checked={recordingConsent} onCheckedChange={(v) => setRecordingConsent(v === true)} id="recording-consent" />
+                <Label htmlFor="recording-consent" className="cursor-pointer text-sm font-normal leading-relaxed text-muted-foreground">
+                  {VIDEO_RECORDING_CONSENT_TEXT}
+                </Label>
               </div>
 
-              <Button onClick={goToInstructions} className="w-full gap-2">
+              <Button onClick={goToInstructions} disabled={!privacyConsent || !recordingConsent} className="w-full gap-2">
                 Continue <ChevronRight className="w-4 h-4" />
               </Button>
             </div>

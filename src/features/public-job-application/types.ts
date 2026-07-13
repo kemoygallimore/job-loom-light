@@ -3,12 +3,13 @@ import type { ScreeningQuestion } from "@/lib/jobScreening";
 
 export type JobSummary = Pick<Database["public"]["Tables"]["jobs"]["Row"], "id" | "title" | "description" | "company_id">;
 export type CompanySummary = Pick<Database["public"]["Tables"]["companies"]["Row"], "id" | "name">;
+export type CompanyWithSlug = CompanySummary & { slug?: string | null };
 export type CandidateIdRow = Pick<Database["public"]["Tables"]["candidates"]["Row"], "id">;
 export type ApplicationIdRow = Pick<Database["public"]["Tables"]["applications"]["Row"], "id">;
 
 export interface PublicApplicationContext {
   job: JobSummary;
-  company: CompanySummary | null;
+  company: CompanyWithSlug | null;
   screeningVersionId: string | null;
   screeningQuestions: ScreeningQuestion[];
 }

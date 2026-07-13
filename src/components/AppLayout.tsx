@@ -258,6 +258,13 @@ export default function AppLayout() {
                   </Link>
                 </DropdownMenuItem>
               )}
+              {!isSuperAdmin && role === "admin" && (
+                <DropdownMenuItem asChild>
+                  <Link to="/settings/data-protection">
+                    <FileText className="w-4 h-4 mr-2" /> Data Protection Settings
+                  </Link>
+                </DropdownMenuItem>
+              )}
               {!isSuperAdmin && (
                 <DropdownMenuItem asChild>
                   <Link to="/billing">

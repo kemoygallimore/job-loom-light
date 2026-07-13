@@ -3,6 +3,12 @@ import { useParams } from "react-router-dom";
 import { toast } from "sonner";
 import type { ScreeningQuestion } from "@/lib/jobScreening";
 import {
+  DATA_PROTECTION_CONSENT_TEXT,
+  buildConsentPayload,
+  loadConsentPolicyContext,
+  type ConsentPolicyContext,
+} from "@/lib/consentPolicies";
+import {
   cleanupUploadedApplicationFiles,
   loadPublicApplicationContext,
   uploadAdditionalDocument,
@@ -17,7 +23,7 @@ import { JobHeader } from "@/features/public-job-application/components/JobHeade
 import { PersonalFields } from "@/features/public-job-application/components/PersonalFields";
 import { ScreeningQuestionsSection } from "@/features/public-job-application/components/ScreeningQuestionsSection";
 import { ApplicationLoadingScreen, ApplicationSuccessScreen, JobNotFoundScreen } from "@/features/public-job-application/components/StatusScreens";
-import type { ApplicationFormState, CompanySummary, FormErrors, JobSummary } from "@/features/public-job-application/types";
+import type { ApplicationFormState, CompanyWithSlug, FormErrors, JobSummary } from "@/features/public-job-application/types";
 
 const initialFormState: ApplicationFormState = {
   name: "",
@@ -64,7 +70,8 @@ function submitErrorMessage(error: unknown) {
 export default function PublicJobApplication() {
   const { jobId } = useParams<{ jobId: string }>();
   const [job, setJob] = useState<JobSummary | null>(null);
-  const [company, setCompany] = useState<CompanySummary | null>(null);
+  const [company, setCompany] = useState<CompanyWithSlug | null>(null);
+  const [policyContext, setPolicyContext] = useState<ConsentPolicyContext | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -95,6 +102,9 @@ export default function PublicJobApplication() {
         setCompany(context.company);
         setScreeningVersionId(context.screeningVersionId);
         setScreeningQuestions(context.screeningQuestions);
+        if (context.company?.id) {
+          setPolicyContext(await loadConsentPolicyContext(context.company.id));
+        }
       } catch (error) {
         console.error("Public application load failed:", error);
         toast.error("Could not load this application. Please try again.");
@@ -198,6 +208,7 @@ export default function PublicJobApplication() {
           additionalDocuments: additionalDocumentResults,
           screeningVersionId,
           screeningAnswers: form.screeningAnswers,
+          consents: buildConsentPayload("data_protection", form.agreedToTerms, DATA_PROTECTION_CONSENT_TEXT),
         });
       } catch (error) {
         await cleanupUploadedApplicationFiles(uploadedFiles);
@@ -263,6 +274,7 @@ export default function PublicJobApplication() {
             agreedToTerms={form.agreedToTerms}
             submitting={submitting}
             errors={errors}
+            policyContext={policyContext}
             setAgreedToTerms={(value) => updateForm("agreedToTerms", value)}
             clearError={clearError}
           />

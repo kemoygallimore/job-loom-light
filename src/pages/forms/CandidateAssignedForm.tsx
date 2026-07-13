@@ -4,7 +4,14 @@ import { AlertTriangle, CheckCircle2, FileText, Loader2, Send } from "lucide-rea
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { PolicyConsentBlock } from "@/components/legal/PolicyConsentBlock";
 import LeadFormRenderer from "@/components/forms/LeadFormRenderer";
+import {
+  DATA_PROTECTION_CONSENT_TEXT,
+  buildConsentPayload,
+  loadConsentPolicyContext,
+  type ConsentPolicyContext,
+} from "@/lib/consentPolicies";
 import {
   LeadFormField,
   LeadFormSchema,
@@ -41,6 +48,8 @@ export default function CandidateAssignedForm() {
   const [confirmationValues, setConfirmationValues] = useState<Record<string, LeadFormValue>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [consent, setConsent] = useState(false);
+  const [policyContext, setPolicyContext] = useState<ConsentPolicyContext | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -65,6 +74,7 @@ export default function CandidateAssignedForm() {
         company_id: data.company_id,
         candidate_id: data.candidate_id,
       });
+      setPolicyContext(await loadConsentPolicyContext(data.company_id));
       setState("ready");
     };
 
@@ -113,6 +123,10 @@ export default function CandidateAssignedForm() {
       toast.error("Please fix the highlighted fields");
       return;
     }
+    if (!consent) {
+      toast.error("Please agree to the data protection policies");
+      return;
+    }
 
     setSubmitting(true);
     const answers: Record<string, unknown> = {};
@@ -151,7 +165,13 @@ export default function CandidateAssignedForm() {
       }
 
       const { data, error } = await supabase.functions.invoke("candidate-form-verification", {
-        body: { action: "submit", token, answers, upload_rows: uploadRows },
+        body: {
+          action: "submit",
+          token,
+          answers,
+          upload_rows: uploadRows,
+          consents: buildConsentPayload("data_protection", consent, DATA_PROTECTION_CONSENT_TEXT),
+        },
       });
       if (error || data?.error) throw new Error(error?.message ?? data?.error ?? "Unable to submit form");
       setState("submitted");
@@ -219,7 +239,15 @@ export default function CandidateAssignedForm() {
             onChange={updateValue}
             onConfirmationChange={updateConfirmationValue}
           />
-          <Button type="submit" disabled={submitting} className="w-full">
+          <PolicyConsentBlock
+            id="candidate-form-consent"
+            context={policyContext}
+            checked={consent}
+            consentText={DATA_PROTECTION_CONSENT_TEXT}
+            disabled={submitting}
+            onCheckedChange={setConsent}
+          />
+          <Button type="submit" disabled={submitting || !consent} className="w-full">
             {submitting ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
             {submitting ? "Submitting..." : "Submit"}
           </Button>

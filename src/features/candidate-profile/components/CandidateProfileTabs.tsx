@@ -2,6 +2,7 @@ import ActivityTimeline, { type TimelineEvent } from "@/components/candidate/Act
 import CandidateDocuments from "@/components/candidate/CandidateDocuments";
 import CandidateForms from "@/components/candidate/CandidateForms";
 import CandidateNotes, { type NoteWithAuthor } from "@/components/candidate/CandidateNotes";
+import ConsentHistory from "@/components/candidate/ConsentHistory";
 import InterviewFeedback from "@/components/candidate/InterviewFeedback";
 import ResumeHistory from "@/components/candidate/ResumeHistory";
 import ScreeningReview from "@/components/candidate/ScreeningReview";
@@ -35,13 +36,14 @@ export function CandidateProfileTabs({
   return (
     <>
       <Tabs defaultValue="notes" className="w-full">
-        <TabsList className="flex w-full h-auto overflow-x-auto justify-start sm:grid sm:grid-cols-6">
+        <TabsList className="flex w-full h-auto overflow-x-auto justify-start sm:grid sm:grid-cols-7">
           <TabsTrigger value="notes" className="whitespace-nowrap flex-shrink-0 sm:flex-1">Notes</TabsTrigger>
           <TabsTrigger value="feedback" className="whitespace-nowrap flex-shrink-0 sm:flex-1">Interview Feedback</TabsTrigger>
           <TabsTrigger value="resumes" className="whitespace-nowrap flex-shrink-0 sm:flex-1">Resume History</TabsTrigger>
           <TabsTrigger value="documents" className="whitespace-nowrap flex-shrink-0 sm:flex-1">Documents</TabsTrigger>
           <TabsTrigger value="forms" className="whitespace-nowrap flex-shrink-0 sm:flex-1">Forms</TabsTrigger>
           <TabsTrigger value="screening" className="whitespace-nowrap flex-shrink-0 sm:flex-1">Screening</TabsTrigger>
+          <TabsTrigger value="consent" className="whitespace-nowrap flex-shrink-0 sm:flex-1">Consent</TabsTrigger>
         </TabsList>
 
         <TabsContent value="notes" className="mt-4">
@@ -90,6 +92,7 @@ export function CandidateProfileTabs({
           <CandidateForms candidateId={candidate.id} companyId={candidate.company_id} userId={profile.user_id} candidateEmail={candidate.email} />
         </TabsContent>
         <TabsContent value="screening" className="mt-4">{latestApp && <ScreeningReview applicationId={latestApp.id} />}</TabsContent>
+        <TabsContent value="consent" className="mt-4"><ConsentHistory candidateId={candidate.id} /></TabsContent>
       </Tabs>
 
       <ActivityTimeline events={timelineEvents} />

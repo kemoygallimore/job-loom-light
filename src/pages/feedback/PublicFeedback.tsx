@@ -2,12 +2,19 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { PolicyConsentBlock } from "@/components/legal/PolicyConsentBlock";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import StarRating from "@/components/feedback/StarRating";
 import { CheckCircle2, AlertTriangle } from "lucide-react";
+import {
+  GUEST_FEEDBACK_CONSENT_TEXT,
+  buildConsentPayload,
+  loadConsentPolicyContext,
+  type ConsentPolicyContext,
+} from "@/lib/consentPolicies";
 
 interface LinkContext {
   id: string;
@@ -33,6 +40,8 @@ export default function PublicFeedback() {
   const [ratings, setRatings] = useState<Record<string, number>>({});
   const [summary, setSummary] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [consent, setConsent] = useState(false);
+  const [policyContext, setPolicyContext] = useState<ConsentPolicyContext | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -66,6 +75,7 @@ export default function PublicFeedback() {
         job_title: j?.title ?? "Position",
         hiring_manager: j?.hiring_manager ?? null,
       });
+      setPolicyContext(await loadConsentPolicyContext(link.company_id));
       const { data: version } = await supabase.from("interview_scorecard_versions").select("id").eq("company_id", link.company_id).eq("status", "published").order("version", { ascending: false }).limit(1).maybeSingle();
       if (version) { const { data: areaRows } = await supabase.from("interview_scorecard_areas").select("id, label, description").eq("version_id", version.id).order("position"); setScorecardVersionId(version.id); setAreas(areaRows ?? []); }
       setLoading(false);
@@ -76,24 +86,23 @@ export default function PublicFeedback() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!ctx) return;
-    if (!feedbackBy.trim() || !summary.trim() || areas.length < 2 || areas.some((area) => !ratings[area.id])) {
-      toast.error("Please enter your name, rate every area, and add a summary");
+    if (!feedbackBy.trim() || !summary.trim() || areas.length < 2 || areas.some((area) => !ratings[area.id]) || !consent) {
+      toast.error("Please enter your name, rate every area, add a summary, and accept consent");
       return;
     }
     setSubmitting(true);
     const average = Number((areas.reduce((sum, area) => sum + ratings[area.id], 0) / areas.length).toFixed(2));
     const snapshot = { areas, scale: ["Poor", "Below expectations", "Meets expectations", "Exceeds expectations", "Exceptional"] };
 
-    const { error: insertErr } = await supabase.from("interview_feedback").insert({
-      candidate_id: ctx.candidate_id,
-      job_id: ctx.job_id,
-      company_id: ctx.company_id,
-      feedback_text: summary.trim(),
-      feedback_by: feedbackBy.trim(),
-      feedback_date: new Date().toISOString().slice(0, 10),
-      hiring_manager: ctx.hiring_manager,
-      summary: summary.trim(), scorecard_version_id: scorecardVersionId, scorecard_snapshot: snapshot,
-      ratings, panelist_average: average, rating: Math.round(average), source: "guest",
+    const { error: insertErr } = await (supabase as any).rpc("submit_public_feedback", {
+      _token: token ?? "",
+      _feedback_by: feedbackBy.trim(),
+      _summary: summary.trim(),
+      _ratings: ratings,
+      _scorecard_version_id: scorecardVersionId,
+      _scorecard_snapshot: snapshot,
+      _panelist_average: average,
+      _consents: buildConsentPayload("guest_feedback", consent, GUEST_FEEDBACK_CONSENT_TEXT),
     });
     setSubmitting(false);
     if (insertErr) {
@@ -163,8 +172,16 @@ export default function PublicFeedback() {
 
           {areas.map((area) => <div key={area.id} className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"><div><Label>{area.label} *</Label>{area.description && <p className="text-xs text-muted-foreground">{area.description}</p>}</div><StarRating value={ratings[area.id] ?? 0} onChange={(value) => setRatings((current) => ({ ...current, [area.id]: value }))} size={26} /></div>)}
           <div className="space-y-1.5"><Label>Written summary *</Label><Textarea value={summary} onChange={(event) => setSummary(event.target.value)} rows={4} required /></div>
+          <PolicyConsentBlock
+            id="feedback-consent"
+            context={policyContext}
+            checked={consent}
+            consentText={GUEST_FEEDBACK_CONSENT_TEXT}
+            disabled={submitting}
+            onCheckedChange={setConsent}
+          />
 
-          <Button type="submit" disabled={submitting} className="w-full">
+          <Button type="submit" disabled={submitting || !consent} className="w-full">
             {submitting ? "Submitting…" : "Submit Feedback"}
           </Button>
         </form>

@@ -30,6 +30,7 @@ const Billing = lazy(() => import("./pages/Billing"));
 const Team = lazy(() => import("./pages/Team"));
 const Forms = lazy(() => import("./pages/Forms"));
 const CompanyEmailTemplates = lazy(() => import("./pages/settings/CompanyEmailTemplates"));
+const CompanyDataProtection = lazy(() => import("./pages/settings/CompanyDataProtection"));
 const InvoiceDetail = lazy(() => import("./pages/InvoiceDetail"));
 const CareersPage = lazy(() => import("./pages/careers/CareersPage"));
 const JobDetailsPage = lazy(() => import("./pages/careers/JobDetailsPage"));
@@ -42,6 +43,7 @@ const FormBuilder = lazy(() => import("./pages/forms/FormBuilder"));
 const FormSubmissions = lazy(() => import("./pages/forms/FormSubmissions"));
 const CandidateAssignedForm = lazy(() => import("./pages/forms/CandidateAssignedForm"));
 const DataProtection = lazy(() => import("./pages/legal/DataProtection"));
+const CompanyPolicy = lazy(() => import("./pages/legal/CompanyPolicy"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 
@@ -103,6 +105,7 @@ const App = () => (
                 <Route path="/careers/:companySlug/:jobId" element={<LegacyJobRedirect />} />
                 <Route path="/:companySlug/careers" element={<CareersPage />} />
                 <Route path="/:companySlug/careers/:jobId" element={<JobDetailsPage />} />
+                <Route path="/:companySlug/legal/candidate-privacy" element={<CompanyPolicy />} />
                 <Route path="/screen/:linkId" element={<PublicScreening />} />
                 <Route path="/apply/:jobId" element={<PublicJobApplication />} />
                 <Route path="/feedback/:token" element={<PublicFeedback />} />
@@ -126,6 +129,7 @@ const App = () => (
                   <Route path="/forms/:formId/edit" element={<FormBuilder />} />
                   <Route path="/forms/:formId/submissions" element={<FormSubmissions />} />
                   <Route path="/settings/email-templates" element={<CompanyEmailTemplates />} />
+                  <Route path="/settings/data-protection" element={<CompanyDataProtection />} />
                   <Route path="/admin" element={<AdminDashboard />}>
                     <Route index element={<AdminOverview />} />
                     <Route path="companies" element={<AdminCompanies />} />

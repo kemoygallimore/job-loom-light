@@ -4,7 +4,14 @@ import { AlertTriangle, CheckCircle2, FileText, Loader2, Send } from "lucide-rea
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { PolicyConsentBlock } from "@/components/legal/PolicyConsentBlock";
 import LeadFormRenderer from "@/components/forms/LeadFormRenderer";
+import {
+  DATA_PROTECTION_CONSENT_TEXT,
+  buildConsentPayload,
+  loadConsentPolicyContext,
+  type ConsentPolicyContext,
+} from "@/lib/consentPolicies";
 import {
   LeadFormField,
   LeadFormSchema,
@@ -53,6 +60,8 @@ export default function PublicLeadForm() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [honeypot, setHoneypot] = useState("");
+  const [consent, setConsent] = useState(false);
+  const [policyContext, setPolicyContext] = useState<ConsentPolicyContext | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -72,6 +81,7 @@ export default function PublicLeadForm() {
       }
 
       setForm({ ...row, schema: normalizeSchema(row.schema) });
+      setPolicyContext(await loadConsentPolicyContext(row.company_id));
       setState("ready");
     };
 
@@ -125,6 +135,10 @@ export default function PublicLeadForm() {
       toast.error("Please fix the highlighted fields");
       return;
     }
+    if (!consent) {
+      toast.error("Please agree to the data protection policies");
+      return;
+    }
 
     setSubmitting(true);
     const submissionId = crypto.randomUUID();
@@ -174,6 +188,7 @@ export default function PublicLeadForm() {
         _answers: answers,
         _confirmation_answers: confirmationValues,
         _upload_rows: uploadRows,
+        _consents: buildConsentPayload("data_protection", consent, DATA_PROTECTION_CONSENT_TEXT),
       });
 
       if (submissionError) throw new Error(submissionError.message);
@@ -251,7 +266,15 @@ export default function PublicLeadForm() {
             onChange={updateValue}
             onConfirmationChange={updateConfirmationValue}
           />
-          <Button type="submit" disabled={submitting} className="w-full">
+          <PolicyConsentBlock
+            id="lead-form-consent"
+            context={policyContext}
+            checked={consent}
+            consentText={DATA_PROTECTION_CONSENT_TEXT}
+            disabled={submitting}
+            onCheckedChange={setConsent}
+          />
+          <Button type="submit" disabled={submitting || !consent} className="w-full">
             {submitting ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
             {submitting ? "Submitting..." : "Submit"}
           </Button>
