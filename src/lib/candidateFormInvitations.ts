@@ -14,7 +14,14 @@ async function invokeCandidateForm(action: string, extra: Record<string, unknown
   const { data, error } = await supabase.functions.invoke<CandidateFormInviteResult>("candidate-form-verification", {
     body: { action, ...extra },
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    const response = (error as { context?: Response }).context;
+    const payload = response ? await response.json().catch(() => null) : null;
+    const message = payload && typeof payload === "object" && "error" in payload
+      ? String(payload.error)
+      : error.message;
+    throw new Error(message);
+  }
   if (data?.error) throw new Error(data.error);
   return data ?? {};
 }
