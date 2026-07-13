@@ -287,6 +287,14 @@ export default function JobEditorDialog({
     return true;
   };
 
+  const handleScreeningQuestionsChange = (nextQuestions: DraftQuestion[]) => {
+    setScreeningQuestions(nextQuestions);
+
+    if (!screeningVersionId && screeningQuestions.length === 0 && nextQuestions.length > 0) {
+      setScreeningStatus("published");
+    }
+  };
+
   const persistScreeningConfig = async (jobId: string) => {
     if (screeningQuestions.length === 0) return;
 
@@ -693,7 +701,7 @@ export default function JobEditorDialog({
                           questions={screeningQuestions}
                           status={screeningStatus}
                           version={screeningVersion}
-                          onQuestionsChange={setScreeningQuestions}
+                          onQuestionsChange={handleScreeningQuestionsChange}
                         />
                       </div>
 

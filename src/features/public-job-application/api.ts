@@ -40,7 +40,7 @@ function toCandidateBase(input: CandidateProfileInput) {
 }
 
 export async function loadPublicApplicationContext(jobId: string): Promise<PublicApplicationContext | null> {
-  const { data: jobData } = await supabase
+  const { data: jobData, error: jobError } = await supabase
     .from("jobs")
     .select("id, title, description, company_id")
     .eq("id", jobId)
@@ -48,15 +48,18 @@ export async function loadPublicApplicationContext(jobId: string): Promise<Publi
     .gt("expires_at", new Date().toISOString())
     .maybeSingle();
 
+  if (jobError) throw jobError;
   if (!jobData) return null;
 
-  const { data: companyData } = await supabase
+  const { data: companyData, error: companyError } = await supabase
     .from("companies")
     .select("id, name")
     .eq("id", jobData.company_id)
     .maybeSingle();
 
-  const { data: screeningVersion } = await supabase
+  if (companyError) throw companyError;
+
+  const { data: screeningVersion, error: screeningVersionError } = await supabase
     .from("job_screening_versions")
     .select("id")
     .eq("job_id", jobData.id)
@@ -64,6 +67,8 @@ export async function loadPublicApplicationContext(jobId: string): Promise<Publi
     .order("version", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  if (screeningVersionError) throw screeningVersionError;
 
   if (!screeningVersion) {
     return {
@@ -74,15 +79,20 @@ export async function loadPublicApplicationContext(jobId: string): Promise<Publi
     };
   }
 
-  const { data: questionRows } = await supabase
+  const { data: questionRows, error: questionsError } = await supabase
     .from("job_screening_questions")
     .select("*")
     .eq("version_id", screeningVersion.id)
     .order("position");
+
+  if (questionsError) throw questionsError;
+
   const questionIds = (questionRows ?? []).map((question) => question.id);
-  const { data: choiceRows } = questionIds.length
+  const { data: choiceRows, error: choicesError } = questionIds.length
     ? await supabase.from("job_screening_choices").select("*").in("question_id", questionIds).order("position")
-    : { data: [] };
+    : { data: [], error: null };
+
+  if (choicesError) throw choicesError;
 
   return {
     job: jobData,

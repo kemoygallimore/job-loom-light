@@ -63,19 +63,26 @@ export default function PublicJobApplication() {
     if (!jobId) return;
 
     const load = async () => {
-      const context = await loadPublicApplicationContext(jobId);
+      try {
+        const context = await loadPublicApplicationContext(jobId);
 
-      if (!context) {
+        if (!context) {
+          setNotFound(true);
+          setLoading(false);
+          return;
+        }
+
+        setJob(context.job);
+        setCompany(context.company);
+        setScreeningVersionId(context.screeningVersionId);
+        setScreeningQuestions(context.screeningQuestions);
+      } catch (error) {
+        console.error("Public application load failed:", error);
+        toast.error("Could not load this application. Please try again.");
         setNotFound(true);
+      } finally {
         setLoading(false);
-        return;
       }
-
-      setJob(context.job);
-      setCompany(context.company);
-      setScreeningVersionId(context.screeningVersionId);
-      setScreeningQuestions(context.screeningQuestions);
-      setLoading(false);
     };
 
     load();
