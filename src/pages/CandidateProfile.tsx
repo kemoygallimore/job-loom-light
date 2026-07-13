@@ -132,7 +132,7 @@ export default function CandidateProfile() {
   if (!candidate || !profile) return null;
 
   return (
-    <div className="space-y-6 max-w-3xl animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       <Button
         variant="ghost"
         size="sm"
