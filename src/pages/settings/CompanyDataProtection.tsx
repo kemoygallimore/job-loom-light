@@ -38,10 +38,6 @@ function emptyDraft() {
   };
 }
 
-function errorMessage(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback;
-}
-
 export default function CompanyDataProtection() {
   const { profile, role, user } = useAuth();
   const [policy, setPolicy] = useState<CompanyPolicyDraft | null>(null);
@@ -63,15 +59,17 @@ export default function CompanyDataProtection() {
     if (!profile?.company_id) return;
     setLoading(true);
     const [policyRes, versionsRes] = await Promise.all([
-      (supabase as any)
-        .from("company_policies")
+      supabase
+        .from("policies")
         .select("id, draft_title, draft_content_html, published_version_id, updated_at")
+        .eq("owner_type", "company")
         .eq("company_id", profile.company_id)
         .eq("key", POLICY_KEY)
         .maybeSingle(),
-      (supabase as any)
-        .from("company_policy_versions")
+      supabase
+        .from("policy_versions")
         .select("id, version_number, title, content_html, published_at")
+        .eq("owner_type", "company")
         .eq("company_id", profile.company_id)
         .eq("key", POLICY_KEY)
         .order("version_number", { ascending: false }),
@@ -106,8 +104,9 @@ export default function CompanyDataProtection() {
       return;
     }
     setSaving(true);
-    const { error } = await (supabase as any).from("company_policies").upsert(
+    const { error } = await supabase.from("policies").upsert(
       {
+        owner_type: "company",
         company_id: profile.company_id,
         key: POLICY_KEY,
         draft_title: title.trim(),
@@ -115,7 +114,7 @@ export default function CompanyDataProtection() {
         created_by: user.id,
         updated_by: user.id,
       },
-      { onConflict: "company_id,key" },
+      { onConflict: "owner_type,company_id,key" },
     );
     setSaving(false);
     if (error) {
@@ -132,7 +131,7 @@ export default function CompanyDataProtection() {
       return;
     }
     setPublishing(true);
-    const { error } = await (supabase as any).rpc("publish_company_policy", {
+    const { error } = await supabase.rpc("publish_company_policy", {
       _policy_key: POLICY_KEY,
       _title: title.trim(),
       _content_html: html,

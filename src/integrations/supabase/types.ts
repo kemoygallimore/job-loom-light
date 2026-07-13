@@ -698,56 +698,119 @@ export type Database = {
           },
         ]
       }
-      platform_policies: {
+      policies: {
         Row: {
-          content_html: string | null
-          key: string
-          title: string
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          content_html?: string | null
-          key: string
-          title: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          content_html?: string | null
-          key?: string
-          title?: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Relationships: []
-      }
-      platform_policy_versions: {
-        Row: {
-          content_html: string | null
+          company_id: string | null
+          created_at: string
+          created_by: string | null
+          draft_content_html: string
+          draft_title: string
           id: string
           key: string
-          title: string
+          owner_type: string
+          published_version_id: string | null
           updated_at: string
           updated_by: string | null
         }
         Insert: {
-          content_html?: string | null
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          draft_content_html?: string
+          draft_title: string
           id?: string
           key: string
-          title: string
+          owner_type: string
+          published_version_id?: string | null
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
-          content_html?: string | null
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          draft_content_html?: string
+          draft_title?: string
           id?: string
           key?: string
-          title?: string
+          owner_type?: string
+          published_version_id?: string | null
           updated_at?: string
           updated_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "policies_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policies_published_version_fk"
+            columns: ["published_version_id"]
+            isOneToOne: false
+            referencedRelation: "policy_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      policy_versions: {
+        Row: {
+          company_id: string | null
+          content_html: string
+          created_at: string
+          id: string
+          key: string
+          owner_type: string
+          policy_id: string
+          published_at: string
+          published_by: string | null
+          title: string
+          version_number: number
+        }
+        Insert: {
+          company_id?: string | null
+          content_html?: string
+          created_at?: string
+          id?: string
+          key: string
+          owner_type: string
+          policy_id: string
+          published_at?: string
+          published_by?: string | null
+          title: string
+          version_number: number
+        }
+        Update: {
+          company_id?: string | null
+          content_html?: string
+          created_at?: string
+          id?: string
+          key?: string
+          owner_type?: string
+          policy_id?: string
+          published_at?: string
+          published_by?: string | null
+          title?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "policy_versions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policy_versions_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "policies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -1124,6 +1187,14 @@ export type Database = {
         Returns: boolean
       }
       is_feature_enabled: { Args: { _company_id: string; _feature: string }; Returns: boolean }
+      publish_company_policy: {
+        Args: {
+          _content_html: string
+          _policy_key: string
+          _title: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "admin" | "recruiter" | "super_admin"
