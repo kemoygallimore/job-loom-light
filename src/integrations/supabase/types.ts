@@ -1059,6 +1059,7 @@ export type Database = {
           _additional_documents?: Json
           _candidate: Json
           _candidate_id: string
+          _consents?: Json
           _job_id: string
           _resume: Json
           _screening_answers?: Json

@@ -58,7 +58,6 @@ interface RenderedEmailArgs {
   recipient: string;
   subject: string;
   html: string;
-  text?: string;
   variables: Record<string, string>;
   company: CompanyEmailSettings | null;
   companyId?: string | null;
@@ -187,6 +186,22 @@ function escapeHtml(value: string) {
     "\"": "&quot;",
     "'": "&#39;",
   }[char]!));
+}
+
+function htmlToPlainText(html: string) {
+  return html
+    .replace(/<\s*br\s*\/?>/gi, "\n")
+    .replace(/<\/\s*(p|div|li|tr|h[1-6])\s*>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, "\"")
+    .replace(/&#39;/g, "'")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n\s*\n+/g, "\n\n")
+    .trim();
 }
 
 function render(template: string, vars: Record<string, string>, escapeValues = false) {
@@ -369,7 +384,7 @@ async function sendEmail(
   const { fromAddress, replyTo } = resolveSender(args.company);
   const subject = normalizeSubject(render(tpl.subject, args.variables));
   const html = render(tpl.html_body, args.variables, true);
-  const text = tpl.text_body ? render(tpl.text_body, args.variables) : undefined;
+  const text = htmlToPlainText(html);
 
   const resendRes = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -441,7 +456,7 @@ async function sendRenderedEmail(admin: SupabaseAdmin, args: RenderedEmailArgs) 
       to: [args.recipient],
       subject: args.subject,
       html: args.html,
-      text: args.text,
+      text: htmlToPlainText(args.html),
       reply_to: replyTo,
     }),
   });
@@ -557,7 +572,6 @@ async function sendCandidateEmail(req: Request, admin: SupabaseAdmin, body: Reco
   const recipients = normalizeCandidateEmailRecipients(body?.recipients);
   const subjectTemplate = normalizeSubject(String(body?.subject ?? ""));
   const htmlTemplate = normalizeBody(body?.html_body);
-  const textTemplate = body?.text_body == null ? null : normalizeBody(body?.text_body);
   const rejectApplications = body?.reject_applications === true;
 
   if (recipients.length === 0) return json(req, 400, { error: "recipients are required" });
@@ -722,7 +736,6 @@ async function sendCandidateEmail(req: Request, admin: SupabaseAdmin, body: Reco
       recipient,
       subject,
       html: render(htmlTemplate, variables, true),
-      text: textTemplate ? render(textTemplate, variables) : undefined,
       variables,
       company: companyResult.data as CompanyEmailSettings,
       companyId: auth.profile.companyId,
@@ -754,7 +767,6 @@ async function sendCandidateRejected(req: Request, admin: SupabaseAdmin, body: R
   const applicationIds = normalizeApplicationIds(body?.application_ids);
   const subjectTemplate = normalizeSubject(String(body?.subject ?? ""));
   const htmlTemplate = normalizeBody(body?.html_body);
-  const textTemplate = body?.text_body == null ? null : normalizeBody(body?.text_body);
 
   if (applicationIds.length === 0) return json(req, 400, { error: "application_ids is required" });
   if (!subjectTemplate) return json(req, 400, { error: "subject is required" });
@@ -817,7 +829,6 @@ async function sendCandidateRejected(req: Request, admin: SupabaseAdmin, body: R
       recipient,
       subject: normalizeSubject(render(subjectTemplate, variables)),
       html: render(htmlTemplate, variables, true),
-      text: textTemplate ? render(textTemplate, variables) : undefined,
       variables,
       company: company as CompanyEmailSettings,
       companyId: auth.profile.companyId,

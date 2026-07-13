@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { VariableChips } from "@/components/email/VariableChips";
+import { htmlToPlainText } from "@/lib/htmlToPlainText";
 import { sanitizeRichHtml } from "@/lib/sanitizeHtml";
 import {
   CANDIDATE_EMAIL_PURPOSE_LABELS,
@@ -194,7 +195,7 @@ export default function CompanyEmailTemplates() {
       is_default_for_purpose: shouldBecomeDefault && previousDefaultIds.length === 0,
       subject: draft.subject,
       html_body: draft.html_body,
-      text_body: draft.text_body,
+      text_body: htmlToPlainText(draft.html_body),
       variables: variablesForCandidateEmailPurpose(draft.purpose),
       is_active: draft.is_active,
       archived_at: null,

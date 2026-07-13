@@ -27,6 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { VariableChips } from "@/components/email/VariableChips";
+import { htmlToPlainText } from "@/lib/htmlToPlainText";
 import { sanitizeRichHtml } from "@/lib/sanitizeHtml";
 import {
   CANDIDATE_EMAIL_PURPOSE_LABELS,
@@ -355,7 +356,7 @@ export function CandidateEmailComposer({
         })),
         subject,
         html_body: htmlBody,
-        text_body: selectedTemplate.text_body,
+        text_body: htmlToPlainText(htmlBody),
         reject_applications: activePurpose === "rejection",
       },
     });
