@@ -541,6 +541,9 @@ async function sendCandidateEmail(req: Request, admin: SupabaseAdmin, body: Reco
   if (requiredToken && !containsVariableToken(subjectTemplate, htmlTemplate, requiredToken)) {
     return json(req, 400, { error: `${requiredToken} is required for this email purpose` });
   }
+  if (purpose === "form_link") {
+    return json(req, 400, { error: "Shared form links are retired. Use candidate form invitations instead." });
+  }
   if (purpose === "form_link" && !formId) {
     return json(req, 400, { error: "form_id is required for form link emails" });
   }

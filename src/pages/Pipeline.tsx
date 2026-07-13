@@ -24,6 +24,7 @@ import KanbanCard from "@/components/pipeline/KanbanCard";
 import CandidatePanel from "@/components/pipeline/CandidatePanel";
 import { CandidateEmailComposer, type CandidateEmailRecipient } from "@/components/email/CandidateEmailComposer";
 import type { CandidateEmailTemplatePurpose } from "@/lib/candidateEmailTemplates";
+import { CandidateFormSendDialog, type CandidateFormRecipient } from "@/components/candidate/CandidateFormSendDialog";
 import {
   reconcilePipelineSelection,
   type PipelineApplication,
@@ -114,7 +115,8 @@ export default function Pipeline() {
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [actionDialogOpen, setActionDialogOpen] = useState(false);
-  const [actionPurpose, setActionPurpose] = useState<CandidateEmailTemplatePurpose>("general");
+  const [actionPurpose, setActionPurpose] = useState<Exclude<CandidateEmailTemplatePurpose, "form_link">>("general");
+  const [formDialogOpen, setFormDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectDialogIds, setRejectDialogIds] = useState<string[]>([]);
   
@@ -153,7 +155,7 @@ export default function Pipeline() {
     if (jobsQuery.error || candidateOptionsQuery.error) toast.error("Failed to load options");
   }, [candidateOptionsQuery.error, jobsQuery.error]);
 
-  const applications = pipelineQuery.data ?? [];
+  const applications = useMemo(() => pipelineQuery.data ?? [], [pipelineQuery.data]);
   const jobs = jobsQuery.data ?? [];
   const candidates = candidateOptionsQuery.data ?? [];
 
@@ -266,10 +268,15 @@ export default function Pipeline() {
     });
   };
 
-  const openActionDialog = (purpose: CandidateEmailTemplatePurpose) => {
+  const openActionDialog = (purpose: Exclude<CandidateEmailTemplatePurpose, "form_link">) => {
     if (selectedIds.length === 0) return;
     setActionPurpose(purpose);
     setActionDialogOpen(true);
+  };
+
+  const openFormDialog = () => {
+    if (selectedIds.length === 0) return;
+    setFormDialogOpen(true);
   };
 
   const openRejectDialog = (ids: string[]) => {
@@ -310,6 +317,13 @@ export default function Pipeline() {
       candidateEmail: app.candidate?.email ?? null,
       jobTitle: app.job?.title ?? null,
       jobId: app.job_id,
+    }));
+
+  const toFormRecipients = (apps: Application[]): CandidateFormRecipient[] =>
+    apps.map((app) => ({
+      candidateId: app.candidate_id,
+      candidateName: app.candidate?.name ?? "Candidate",
+      candidateEmail: app.candidate?.email ?? null,
     }));
 
   const kanbanRef = useRef<HTMLDivElement>(null);
@@ -400,9 +414,9 @@ export default function Pipeline() {
                     <Mail className="mr-2 h-4 w-4" />
                     Email Selected
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => openActionDialog("form_link")}>
+                  <DropdownMenuItem onClick={openFormDialog}>
                     <FileText className="mr-2 h-4 w-4" />
-                    Send Form Link
+                    Send Form
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => openActionDialog("video_screening")}>
                     <Video className="mr-2 h-4 w-4" />
@@ -518,6 +532,13 @@ export default function Pipeline() {
         purpose={actionPurpose}
         recipients={toEmailRecipients(selectedApps)}
         onOpenChange={setActionDialogOpen}
+        onSent={() => setSelectedIds([])}
+      />
+
+      <CandidateFormSendDialog
+        open={formDialogOpen}
+        recipients={toFormRecipients(selectedApps)}
+        onOpenChange={setFormDialogOpen}
         onSent={() => setSelectedIds([])}
       />
 

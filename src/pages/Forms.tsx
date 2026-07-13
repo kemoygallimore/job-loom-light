@@ -18,6 +18,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -28,7 +38,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import LeadFormRenderer from "@/components/forms/LeadFormRenderer";
 import { LeadForm, LeadFormSubmission, normalizeSchema } from "@/lib/leadForms";
 import PageHeader from "@/components/shared/PageHeader";
-import ConfirmDialog from "@/components/shared/ConfirmDialog";
+import { deleteCandidateForm } from "@/lib/candidateFormInvitations";
+import { deleteObjects } from "@/lib/storage";
 
 const FORM_LIMIT = 5;
 
@@ -43,6 +54,15 @@ type LeadFormsQuery = PromiseLike<QueryResult> & {
 type LeadFormsDb = {
   from: (table: string) => LeadFormsQuery;
 };
+type DeleteCounts = {
+  submissions: number;
+  assignments: number;
+  uploads: number;
+};
+type UploadRow = {
+  bucket: string;
+  object_key: string;
+};
 
 const leadFormsDb = supabase as unknown as LeadFormsDb;
 
@@ -56,6 +76,10 @@ export default function Forms() {
   const [forms, setForms] = useState<LeadForm[]>([]);
   const [loading, setLoading] = useState(true);
   const [previewForm, setPreviewForm] = useState<LeadForm | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<LeadForm | null>(null);
+  const [deleteCounts, setDeleteCounts] = useState<DeleteCounts | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     if (!profile?.company_id) {
@@ -126,19 +150,59 @@ export default function Forms() {
     load();
   };
 
-  const softDelete = async (form: LeadForm) => {
+  const prepareDelete = async (form: LeadForm) => {
     if (!profile?.company_id) return;
-    const { error } = await leadFormsDb
-      .from("lead_forms")
-      .update({ deleted_at: new Date().toISOString(), status: "disabled" })
-      .eq("id", form.id)
-      .eq("company_id", profile.company_id);
-    if (error) {
-      toast.error(error.message);
-      return;
+    setDeleteTarget(form);
+    setDeleteCounts(null);
+    setDeleteLoading(true);
+    const [{ data: submissions }, { data: assignments }, { data: uploads }] = await Promise.all([
+      supabase.from("lead_form_submissions").select("id").eq("form_id", form.id).eq("company_id", profile.company_id),
+      supabase.from("candidate_form_assignments").select("id").eq("form_id", form.id).eq("company_id", profile.company_id),
+      supabase.from("lead_form_uploads").select("id").eq("form_id", form.id).eq("company_id", profile.company_id),
+    ]);
+    setDeleteCounts({
+      submissions: submissions?.length ?? 0,
+      assignments: assignments?.length ?? 0,
+      uploads: uploads?.length ?? 0,
+    });
+    setDeleteLoading(false);
+  };
+
+  const hardDelete = async () => {
+    if (!deleteTarget || !profile?.company_id || deleting) return;
+    setDeleting(true);
+    try {
+      const { data: uploads, error: uploadsError } = await supabase
+        .from("lead_form_uploads")
+        .select("bucket, object_key")
+        .eq("form_id", deleteTarget.id)
+        .eq("company_id", profile.company_id);
+      if (uploadsError) throw new Error(uploadsError.message);
+
+      const session = await supabase.auth.getSession();
+      const accessToken = session.data.session?.access_token;
+      const byBucket = new Map<string, string[]>();
+      ((uploads ?? []) as UploadRow[]).forEach((upload) => {
+        if (!upload.object_key) return;
+        const keys = byBucket.get(upload.bucket) ?? [];
+        keys.push(upload.object_key);
+        byBucket.set(upload.bucket, keys);
+      });
+
+      for (const [bucket, keys] of byBucket) {
+        await deleteObjects(bucket, keys, accessToken);
+      }
+
+      await deleteCandidateForm(deleteTarget.id);
+      toast.success("Form and related data deleted");
+      setDeleteTarget(null);
+      setDeleteCounts(null);
+      load();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete form");
+    } finally {
+      setDeleting(false);
     }
-    toast.success("Form deleted");
-    load();
   };
 
   return (
@@ -231,19 +295,13 @@ export default function Forms() {
                           {form.status === "active" ? "Disable form" : "Enable form"}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <ConfirmDialog
-                          title="Delete this form?"
-                          description="This hides the form and prevents new candidate assignments. Existing candidate history remains available."
-                          confirmLabel="Delete form"
-                          destructive
-                          onConfirm={() => softDelete(form)}
-                          trigger={
-                            <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={(event) => event.preventDefault()}>
-                              <Trash2 className="mr-2 size-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          }
-                        />
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => prepareDelete(form)}
+                        >
+                          <Trash2 className="mr-2 size-4" />
+                          Delete
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -281,6 +339,42 @@ export default function Forms() {
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && !deleting && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this form and all collected data?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  This permanently removes <span className="font-medium text-foreground">{deleteTarget?.title}</span>, frees one form slot, and cannot be undone.
+                </p>
+                <div className="rounded-md border bg-muted/30 p-3 text-sm">
+                  {deleteLoading || !deleteCounts ? (
+                    <div>Counting related records...</div>
+                  ) : (
+                    <div className="space-y-1">
+                      <div>{deleteCounts.submissions} submission{deleteCounts.submissions === 1 ? "" : "s"} will be deleted</div>
+                      <div>{deleteCounts.assignments} invitation{deleteCounts.assignments === 1 ? "" : "s"} will be deleted</div>
+                      <div>{deleteCounts.uploads} uploaded file record{deleteCounts.uploads === 1 ? "" : "s"} and storage object{deleteCounts.uploads === 1 ? "" : "s"} will be deleted</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={hardDelete}
+              disabled={deleteLoading || deleting}
+            >
+              {deleting ? "Deleting..." : "Delete permanently"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
