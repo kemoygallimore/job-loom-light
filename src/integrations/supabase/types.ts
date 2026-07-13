@@ -200,6 +200,7 @@ export type Database = {
           education_level: string | null
           email: string | null
           id: string
+          linkedin_url: string | null
           name: string
           parish_state: string | null
           phone: string | null
@@ -218,6 +219,7 @@ export type Database = {
           education_level?: string | null
           email?: string | null
           id?: string
+          linkedin_url?: string | null
           name: string
           parish_state?: string | null
           phone?: string | null
@@ -236,6 +238,7 @@ export type Database = {
           education_level?: string | null
           email?: string | null
           id?: string
+          linkedin_url?: string | null
           name?: string
           parish_state?: string | null
           phone?: string | null
@@ -956,6 +959,21 @@ export type Database = {
       get_job_pipeline: {
         Args: { _job_id: string; _search?: string | null; _screening_min?: number | null; _screening_max?: number | null; _screening_status?: string | null; _interview_min?: number | null; _interview_max?: number | null; _sort?: string }
         Returns: { id: string; job_id: string; candidate_id: string; stage: Database["public"]["Enums"]["application_stage"]; company_id: string; candidate_name: string; candidate_email: string | null; job_title: string; hiring_manager: string | null; screening_score: number | null; screening_status: string | null; review_needed_count: number | null; interview_average: number | null }[]
+      }
+      submit_public_job_application: {
+        Args: {
+          _additional_documents?: Json
+          _candidate: Json
+          _candidate_id: string
+          _job_id: string
+          _resume: Json
+          _screening_answers?: Json
+          _screening_version_id?: string | null
+        }
+        Returns: {
+          application_id: string
+          candidate_id: string
+        }[]
       }
       reset_candidate_form_assignment: {
         Args: { _assignment_id: string; _token_hash: string; _expires_at: string }

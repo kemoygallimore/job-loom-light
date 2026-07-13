@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { uploadToStorage } from "@/lib/storage";
+import { deleteObjects, uploadToStorage } from "@/lib/storage";
 import type { Json, Database } from "@/integrations/supabase/types";
 import type { ScreeningQuestion } from "@/lib/jobScreening";
 import type {
@@ -63,7 +63,7 @@ export async function loadPublicApplicationContext(jobId: string): Promise<Publi
     .from("job_screening_versions")
     .select("id")
     .eq("job_id", jobData.id)
-    .eq("status", "published")
+    .in("status", ["published", "locked"])
     .order("version", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -105,6 +105,59 @@ export async function loadPublicApplicationContext(jobId: string): Promise<Publi
       choices: (choiceRows ?? []).filter((choice) => choice.question_id === question.id),
     })) as ScreeningQuestion[],
   };
+}
+
+export async function submitPublicJobApplication(params: {
+  jobId: string;
+  candidateId: string;
+  candidate: CandidateProfileInput;
+  resume: ResumeMetadata;
+  additionalDocuments: ResumeMetadata[];
+  screeningVersionId: string | null;
+  screeningAnswers: Record<string, Json>;
+}) {
+  const { data, error } = await supabase
+    .rpc("submit_public_job_application", {
+      _job_id: params.jobId,
+      _candidate_id: params.candidateId,
+      _candidate: {
+        name: params.candidate.name,
+        email: params.candidate.email,
+        phone: params.candidate.phone,
+        linkedinUrl: params.candidate.linkedinUrl,
+        country: params.candidate.country,
+        streetAddress: params.candidate.streetAddress,
+        parishState: params.candidate.parishState,
+        educationLevel: params.candidate.educationLevel,
+      },
+      _resume: params.resume,
+      _additional_documents: params.additionalDocuments,
+      _screening_version_id: params.screeningVersionId,
+      _screening_answers: params.screeningAnswers,
+    })
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function cleanupUploadedApplicationFiles(files: ResumeMetadata[]) {
+  const byBucket = new Map<string, string[]>();
+
+  for (const file of files) {
+    if (!file.bucket || !file.key) continue;
+    const bucketKeys = byBucket.get(file.bucket) ?? [];
+    bucketKeys.push(file.key);
+    byBucket.set(file.bucket, bucketKeys);
+  }
+
+  for (const [bucket, keys] of byBucket) {
+    try {
+      await deleteObjects(bucket, keys);
+    } catch (error) {
+      console.error("Application upload cleanup failed:", error);
+    }
+  }
 }
 
 export async function findCandidateByEmail(companyId: string, normalizedEmail: string): Promise<CandidateIdRow | null> {

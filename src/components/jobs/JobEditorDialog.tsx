@@ -297,6 +297,7 @@ export default function JobEditorDialog({
 
   const persistScreeningConfig = async (jobId: string) => {
     if (screeningQuestions.length === 0) return;
+    if (screeningStatus === "locked") return;
 
     let targetVersionId = screeningVersionId;
     const publishNow = screeningStatus === "published";

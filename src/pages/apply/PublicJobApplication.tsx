@@ -1,21 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { calculateScreeningScore, objectiveCredit, type ScreeningQuestion } from "@/lib/jobScreening";
+import type { ScreeningQuestion } from "@/lib/jobScreening";
 import {
-  archiveResumeVersion,
-  createApplication,
-  createScreeningResponse,
-  findCandidateByEmail,
-  findExistingApplication,
-  insertCandidate,
-  insertCandidateFile,
-  insertScreeningAnswers,
+  cleanupUploadedApplicationFiles,
   loadPublicApplicationContext,
-  updateCandidateResume,
-  updateExistingCandidate,
   uploadAdditionalDocument,
   uploadResumeFile,
+  submitPublicJobApplication,
 } from "@/features/public-job-application/api";
 import { MAX_ADDITIONAL_FILE_BYTES, MAX_ADDITIONAL_FILES, PARISHES_BY_COUNTRY } from "@/features/public-job-application/constants";
 import { ApplicationFooter } from "@/features/public-job-application/components/ApplicationFooter";
@@ -142,53 +134,6 @@ export default function PublicJobApplication() {
     educationLevel: form.educationLevel,
   });
 
-  const saveScreeningResponse = async (applicationId: string) => {
-    if (!screeningVersionId || !screeningQuestions.length || !company) return;
-
-    const calculated = calculateScreeningScore(screeningQuestions, form.screeningAnswers);
-    const response = await createScreeningResponse({
-      companyId: company.id,
-      applicationId,
-      screeningVersionId,
-      status: calculated.status,
-      score: calculated.score,
-      reviewNeededCount: calculated.reviewNeededCount,
-    });
-
-    await insertScreeningAnswers(
-      response.id,
-      screeningQuestions.map((question) => ({
-        question_id: question.id,
-        answer: form.screeningAnswers[question.id] ?? null,
-        earned_percent: objectiveCredit(question, form.screeningAnswers[question.id]),
-      })),
-    );
-  };
-
-  const uploadDocuments = async (candidateId: string) => {
-    if (!job || !company) return;
-
-    for (const file of form.additionalFiles) {
-      try {
-        const docResult = await uploadAdditionalDocument(file, company.id, job.id, candidateId);
-        const docInsertError = await insertCandidateFile({
-          company_id: company.id,
-          candidate_id: candidateId,
-          job_id: job.id,
-          category: "document",
-          bucket: docResult.bucket,
-          file_key: docResult.key,
-          file_name: docResult.filename,
-          file_type: docResult.contentType,
-          file_size: docResult.size,
-        });
-        if (docInsertError) console.error("Additional document insert failed:", docInsertError);
-      } catch (docErr) {
-        console.error("Additional document upload failed:", docErr);
-      }
-    }
-  };
-
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
@@ -204,36 +149,34 @@ export default function PublicJobApplication() {
     try {
       const normalizedEmail = form.email.trim().toLowerCase();
       const candidateInput = buildCandidateInput(normalizedEmail);
-      const existingCandidate = await findCandidateByEmail(company.id, normalizedEmail);
-      let candidateId: string;
+      const uploadCandidateId = crypto.randomUUID();
+      const uploadedFiles = [];
 
-      if (existingCandidate) {
-        candidateId = existingCandidate.id;
-        const existingApp = await findExistingApplication(job.id, candidateId);
+      try {
+        const resumeResult = await uploadResumeFile(form.resumeFile, company.id, uploadCandidateId, job.id);
+        uploadedFiles.push(resumeResult);
 
-        if (existingApp) {
-          toast.error("You've already submitted an application for this job.");
-          setSubmitting(false);
-          return;
+        const additionalDocumentResults = [];
+        for (const file of form.additionalFiles) {
+          const documentResult = await uploadAdditionalDocument(file, company.id, job.id, uploadCandidateId);
+          additionalDocumentResults.push(documentResult);
+          uploadedFiles.push(documentResult);
         }
 
-        const resumeResult = await uploadResumeFile(form.resumeFile, company.id, candidateId, job.id);
-        await updateExistingCandidate(candidateId, candidateInput, resumeResult);
-        const archiveError = await archiveResumeVersion(candidateId, company.id, job.id, resumeResult);
-        if (archiveError) console.error("Resume archive failed:", archiveError);
-      } else {
-        candidateId = crypto.randomUUID();
-        await insertCandidate(candidateId, company.id, candidateInput);
-
-        const resumeResult = await uploadResumeFile(form.resumeFile, company.id, candidateId, job.id);
-        await updateCandidateResume(candidateId, resumeResult);
-        const archiveError = await archiveResumeVersion(candidateId, company.id, job.id, resumeResult);
-        if (archiveError) console.error("Resume archive failed:", archiveError);
+        await submitPublicJobApplication({
+          jobId: job.id,
+          candidateId: uploadCandidateId,
+          candidate: candidateInput,
+          resume: resumeResult,
+          additionalDocuments: additionalDocumentResults,
+          screeningVersionId,
+          screeningAnswers: form.screeningAnswers,
+        });
+      } catch (error) {
+        await cleanupUploadedApplicationFiles(uploadedFiles);
+        throw error;
       }
 
-      const application = await createApplication(company.id, job.id, candidateId);
-      await saveScreeningResponse(application.id);
-      await uploadDocuments(candidateId);
       setSubmitted(true);
     } catch (err: unknown) {
       console.error("Submit error:", err);
