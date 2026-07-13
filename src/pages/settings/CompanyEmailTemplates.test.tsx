@@ -76,7 +76,7 @@ vi.mock("@/integrations/supabase/client", () => {
         return Promise.resolve({ data: null, error: null });
       }),
       single: vi.fn(() => {
-        if (table !== "company_email_templates") return Promise.resolve({ data: null, error: null });
+        if (table !== "email_templates") return Promise.resolve({ data: null, error: null });
 
         if (filters.id) {
           state.updatePayloads.push({ payload: mutationPayload, filters: { ...filters } });
@@ -98,7 +98,7 @@ vi.mock("@/integrations/supabase/client", () => {
             data: null,
             error: {
               message:
-                'duplicate key value violates unique constraint "company_email_templates_company_key_unique"',
+                'duplicate key value violates unique constraint "email_templates_company_key_unique_idx"',
             },
           });
         }
@@ -109,7 +109,7 @@ vi.mock("@/integrations/supabase/client", () => {
       }),
       then: (resolve: (value: { data: unknown; error: null }) => void, reject: (reason?: unknown) => void) => {
         const data =
-          table === "company_email_templates"
+          table === "email_templates"
             ? applyCompanyEmailFilters(filters)
             : [];
         return Promise.resolve({ data, error: null }).then(resolve, reject);
@@ -243,5 +243,28 @@ describe("CompanyEmailTemplates", () => {
     expect(state.insertPayloads).toHaveLength(0);
     expect(state.updatePayloads[0].filters.id).toBe("inactive-template");
     expect(state.updatePayloads[0].payload.name).toBe("Renamed Follow Up");
+  });
+
+  it("derives plain text from the current html body when saving", async () => {
+    state.templateRows = [
+      template({
+        id: "stale-text-template",
+        name: "Stale Text Template",
+        html_body: "<p>Old HTML body</p>",
+        text_body: "Old plain text body",
+      }),
+    ];
+
+    render(<CompanyEmailTemplates />);
+
+    fireEvent.click(await screen.findByText("Stale Text Template"));
+    fireEvent.change(screen.getByLabelText("Email body editor"), {
+      target: { value: "<p>Hi {{candidate_name}},</p><p>New HTML body</p>" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(state.updatePayloads).toHaveLength(1));
+    expect(state.updatePayloads[0].payload.html_body).toBe("<p>Hi {{candidate_name}},</p><p>New HTML body</p>");
+    expect(state.updatePayloads[0].payload.text_body).toBe("Hi {{candidate_name}},New HTML body");
   });
 });

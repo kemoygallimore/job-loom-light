@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Copy, Check, Video, Eye, ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { Plus, Copy, Check, Video, Eye, Pencil, Trash2 } from "lucide-react";
 import { format, addDays, isAfter } from "date-fns";
 import { Link } from "react-router-dom";
 import { Calendar } from "@/components/ui/calendar";
@@ -27,12 +27,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { deleteScreeningVideosFromR2 } from "@/lib/deleteScreeningVideoFromR2";
+import { deleteScreeningVideosFromR2 } from "@/lib/storage";
 
 interface ScreeningJob {
   id: string;
   company_id: string;
   created_by: string;
+  job_id: string | null;
   title: string;
   question: string;
   expires_at: string;
@@ -102,6 +103,7 @@ export default function ScreeningJobs() {
     const { data: newJob, error: jobError } = await supabase.from("jobs").insert({
       company_id: profile.company_id,
       title,
+      expires_at: expiresAt.toISOString(),
       status: "open" as any,
     }).select().single();
 
@@ -159,6 +161,22 @@ export default function ScreeningJobs() {
       return;
     }
     setSavingEdit(true);
+    if (editJob.job_id) {
+      const { error: jobUpdateError } = await supabase
+        .from("jobs")
+        .update({
+          title: editTitle,
+          expires_at: editExpiresAt.toISOString(),
+        })
+        .eq("id", editJob.job_id);
+
+      if (jobUpdateError) {
+        setSavingEdit(false);
+        toast.error(jobUpdateError.message);
+        return;
+      }
+    }
+
     const { error } = await supabase
       .from("screening_jobs")
       .update({
@@ -190,11 +208,13 @@ export default function ScreeningJobs() {
       // 2. Best-effort R2 cleanup
       let r2Warning: string | null = null;
       try {
+        const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
         await deleteScreeningVideosFromR2(
           (subs ?? []).map((s: any) => ({
             bucket: s.video_bucket,
             key: s.video_object_key ?? s.video_url ?? "",
           })),
+          accessToken,
         );
       } catch (err: any) {
         r2Warning = err?.message || "Failed to delete some video files from storage";

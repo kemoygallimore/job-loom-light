@@ -30,16 +30,6 @@ export const env = {
   demoEmailPrefix: process.env.E2E_DEMO_EMAIL_PREFIX ?? "candidate",
 };
 
-function required(name: string): string {
-  const v = process.env[name];
-  if (!v) {
-    throw new Error(
-      `Missing env var ${name}. Copy .env.e2e.example to .env.e2e and fill it in.`,
-    );
-  }
-  return v;
-}
-
 /* ------------------------------------------------------------------ *
  * Cross-spec handoff
  * The HR journey can create a job + screening link and write them here so the

@@ -5,12 +5,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { toast } from "@/hooks/use-toast";
-import { getInvoiceDownloadUrl } from "@/lib/invoiceUrl";
+import { toast } from "sonner";
+import { getInvoiceDownloadUrl } from "@/lib/storage";
 import { logInvoiceEvent } from "@/lib/invoices";
 import { Download, ExternalLink } from "lucide-react";
 import BillingProfileForm from "@/components/billing/BillingProfileForm";
 import BillingCycleCard from "@/components/billing/BillingCycleCard";
+import PageHeader from "@/components/shared/PageHeader";
 
 type Invoice = {
   id: string;
@@ -37,7 +38,7 @@ export default function Billing() {
         .eq("company_id", profile.company_id)
         .neq("status", "draft")
         .order("issued_at", { ascending: false });
-      if (error) toast({ title: "Failed to load invoices", description: error.message, variant: "destructive" });
+      if (error) toast.error("Failed to load invoices", { description: error.message });
       setInvoices((data as Invoice[]) ?? []);
       setLoading(false);
     })();
@@ -49,13 +50,13 @@ export default function Billing() {
       await logInvoiceEvent(invoiceId, "pdf_downloaded", { actor_user_id: user?.id ?? null });
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (e: any) {
-      toast({ title: "Download failed", description: e.message, variant: "destructive" });
+      toast.error("Download failed", { description: e.message });
     }
   }
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">Billing</h1>
+      <PageHeader title="Billing" />
       {profile?.company_id && (
         <Card>
           <CardContent className="pt-6">

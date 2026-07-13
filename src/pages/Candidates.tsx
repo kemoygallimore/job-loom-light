@@ -1,20 +1,10 @@
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -23,7 +13,11 @@ import { useNavigate } from "react-router-dom";
 import CandidateFilters from "@/components/candidate/CandidateFilters";
 import CandidateQuickActions from "@/components/candidate/CandidateQuickActions";
 import { fetchTagsForCandidates, getTagColorClasses, type CandidateTag } from "@/lib/candidateTags";
+import { keys, type CandidateFilters as CandidateQueryFilters } from "@/lib/queryKeys";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import StageBadge from "@/components/shared/StageBadge";
+import PageHeader from "@/components/shared/PageHeader";
+import ConfirmDialog from "@/components/shared/ConfirmDialog";
 
 interface CandidateWithContext {
   id: string;
@@ -54,21 +48,76 @@ interface Job {
   title: string;
 }
 
-const STAGE_COLORS: Record<string, string> = {
-  applied: "bg-muted text-muted-foreground",
-  shortlisted: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-  screening: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  scheduling: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400",
-  "1st_interview": "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
-  "2nd_interview": "bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-400",
-  interview: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  offer: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
-  hired: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  rejected: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-};
+interface ApplicationRow {
+  id: string;
+  candidate_id: string;
+  stage: string | null;
+  updated_at: string | null;
+  created_at: string;
+  job_id: string | null;
+  jobs: { title: string | null; status: string | null } | null;
+}
+
+interface CandidatesQueryData {
+  candidates: CandidateWithContext[];
+  jobs: Job[];
+  tagsByCandidate: Map<string, CandidateTag[]>;
+}
+
+function errorMessage(error: unknown, fallback: string) {
+  if (error && typeof error === "object" && "message" in error && typeof error.message === "string") {
+    return error.message;
+  }
+  return fallback;
+}
+
+async function fetchCandidatesData(): Promise<CandidatesQueryData> {
+  const [cRes, aRes, jRes] = await Promise.all([
+    supabase.from("candidates").select("*").order("created_at", { ascending: false }),
+    supabase
+      .from("applications")
+      .select("id, candidate_id, stage, updated_at, created_at, job_id, jobs(title, status)")
+      .order("updated_at", { ascending: false }),
+    supabase.from("jobs").select("id, title").order("title"),
+  ]);
+
+  if (cRes.error) throw cRes.error;
+  if (aRes.error) throw aRes.error;
+
+  const appsByCandidateId = new Map<string, ApplicationRow[]>();
+  for (const app of (aRes.data ?? []) as unknown as ApplicationRow[]) {
+    const list = appsByCandidateId.get(app.candidate_id) ?? [];
+    list.push(app);
+    appsByCandidateId.set(app.candidate_id, list);
+  }
+
+  const candidates: CandidateWithContext[] = (cRes.data ?? []).map((c) => {
+    const apps = appsByCandidateId.get(c.id) ?? [];
+    const latest = apps[0];
+    return {
+      ...c,
+      latest_app_id: latest?.id ?? null,
+      latest_job_id: latest?.job_id ?? null,
+      latest_job_title: latest?.jobs?.title ?? null,
+      latest_job_status: latest?.jobs?.status ?? null,
+      latest_stage: latest?.stage ?? null,
+      latest_updated_at: latest?.updated_at ?? null,
+      application_count: apps.length,
+    };
+  });
+
+  const tagsByCandidate = await fetchTagsForCandidates(candidates.map((candidate) => candidate.id));
+
+  return {
+    candidates,
+    jobs: (jRes.data ?? []) as Job[],
+    tagsByCandidate,
+  };
+}
 
 export default function Candidates() {
   const { profile, role, loading: loadingAuth, refreshAuth } = useAuth();
+  const queryClient = useQueryClient();
   const notifiedMissingRoleRef = useRef(false);
 
   useEffect(() => {
@@ -83,11 +132,6 @@ export default function Candidates() {
     }
   }, [loadingAuth, profile, role, refreshAuth]);
   const navigate = useNavigate();
-  const [candidates, setCandidates] = useState<CandidateWithContext[]>([]);
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [tagsByCandidate, setTagsByCandidate] = useState<Map<string, CandidateTag[]>>(new Map());
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"active" | "all">("active");
 
@@ -117,58 +161,36 @@ export default function Candidates() {
     setRepeatOnly(false);
   };
 
-  const load = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [cRes, aRes, jRes] = await Promise.all([
-        supabase.from("candidates").select("*").order("created_at", { ascending: false }),
-        supabase.from("applications").select("id, candidate_id, stage, updated_at, created_at, job_id, jobs(title, status)").order("updated_at", { ascending: false }),
-        supabase.from("jobs").select("id, title").order("title"),
-      ]);
+  const candidateListFilters = useMemo<CandidateQueryFilters>(
+    () => ({
+      jobFilter: "all",
+      parishFilter: "all",
+      repeatOnly: false,
+      search: "",
+      stageFilter: "all",
+    }),
+    [],
+  );
 
-      if (cRes.error) throw cRes.error;
-      if (aRes.error) throw aRes.error;
-
-      setJobs((jRes.data ?? []) as Job[]);
-
-      // Group applications per candidate
-      const appsByCandidateId = new Map<string, any[]>();
-      for (const app of aRes.data ?? []) {
-        const list = appsByCandidateId.get(app.candidate_id) ?? [];
-        list.push(app);
-        appsByCandidateId.set(app.candidate_id, list);
-      }
-
-      const enriched: CandidateWithContext[] = (cRes.data ?? []).map((c) => {
-        const apps = appsByCandidateId.get(c.id) ?? [];
-        const latest = apps[0];
-        return {
-          ...c,
-          latest_app_id: latest?.id ?? null,
-          latest_job_id: latest?.job_id ?? null,
-          latest_job_title: (latest as any)?.jobs?.title ?? null,
-          latest_job_status: (latest as any)?.jobs?.status ?? null,
-          latest_stage: latest?.stage ?? null,
-          latest_updated_at: latest?.updated_at ?? null,
-          application_count: apps.length,
-        };
-      });
-
-      setCandidates(enriched);
-      const tagMap = await fetchTagsForCandidates(enriched.map(c => c.id));
-      setTagsByCandidate(tagMap);
-    } catch (err: any) {
-      setError(err.message ?? "Failed to load candidates");
-      toast.error("Failed to load candidates");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const candidatesQuery = useQuery({
+    queryKey: keys.candidates("all", candidateListFilters),
+    queryFn: fetchCandidatesData,
+    enabled: Boolean(profile),
+  });
 
   useEffect(() => {
-    if (profile) load();
-  }, [profile]);
+    if (candidatesQuery.error) toast.error("Failed to load candidates");
+  }, [candidatesQuery.error]);
+
+  const candidates = candidatesQuery.data?.candidates ?? [];
+  const jobs = candidatesQuery.data?.jobs ?? [];
+  const tagsByCandidate = candidatesQuery.data?.tagsByCandidate ?? new Map<string, CandidateTag[]>();
+  const loading = candidatesQuery.isLoading;
+  const error = candidatesQuery.error ? errorMessage(candidatesQuery.error, "Failed to load candidates") : null;
+
+  const refreshCandidates = () => {
+    queryClient.invalidateQueries({ queryKey: [...keys.all, "candidates"] });
+  };
 
   const filtered = useMemo(() => {
     let result = candidates;
@@ -234,27 +256,46 @@ export default function Candidates() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [candidates]);
 
-  const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("candidates").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Candidate deleted");
-    load();
+  const deleteCandidateMutation = useMutation({
+    mutationFn: async (candidate: CandidateWithContext) => {
+      const { data, error } = await supabase.functions.invoke<{ error?: string }>("delete-candidate-privacy", {
+        body: { candidate_id: candidate.id },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return candidate.id;
+    },
+    onError: (error) => {
+      toast.error(errorMessage(error, "Failed to delete candidate"));
+    },
+    onSuccess: (id) => {
+      toast.success("Candidate permanently deleted");
+      queryClient.invalidateQueries({ queryKey: [...keys.all, "candidates"] });
+      queryClient.invalidateQueries({ queryKey: [...keys.all, "tags"] });
+      queryClient.invalidateQueries({ queryKey: keys.candidate(id) });
+      queryClient.invalidateQueries({ queryKey: [...keys.all, "pipeline"] });
+    },
+  });
+
+  const handleDelete = (candidate: CandidateWithContext) => {
+    deleteCandidateMutation.mutate(candidate);
   };
 
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3 animate-fade-in">
-        <div>
-          <h1 className="text-2xl font-bold">Candidates</h1>
-          {!loading && (
-            <p className="text-sm text-muted-foreground mt-0.5">
+      <PageHeader
+        title="Candidates"
+        description={
+          !loading ? (
+            <p>
               {filtered.length} candidate{filtered.length !== 1 ? "s" : ""}
               {activeFilterCount > 0 ? " (filtered)" : ""}
             </p>
-          )}
-        </div>
-      </div>
+          ) : undefined
+        }
+      />
 
       {/* View toggle */}
       <Tabs value={view} onValueChange={(v) => setView(v as "active" | "all")} className="animate-fade-in">
@@ -299,7 +340,7 @@ export default function Candidates() {
       {error && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive animate-fade-in">
           {error}
-          <Button variant="ghost" size="sm" className="ml-2" onClick={load}>Retry</Button>
+          <Button variant="ghost" size="sm" className="ml-2" onClick={() => candidatesQuery.refetch()}>Retry</Button>
         </div>
       )}
 
@@ -374,9 +415,7 @@ export default function Candidates() {
                   <TableCell className="text-sm hidden lg:table-cell">{c.latest_job_title ?? <span className="text-muted-foreground">—</span>}</TableCell>
                   <TableCell className="hidden sm:table-cell">
                     {c.latest_stage ? (
-                      <Badge variant="secondary" className={`capitalize text-xs font-medium ${STAGE_COLORS[c.latest_stage] ?? ""}`}>
-                        {c.latest_stage.replace(/_/g, " ")}
-                      </Badge>
+                      <StageBadge stage={c.latest_stage} />
                     ) : (
                       <span className="text-muted-foreground text-sm">—</span>
                     )}
@@ -395,36 +434,28 @@ export default function Candidates() {
                         resumeUrl={c.resume_url}
                         resumeBucket={c.resume_bucket}
                         resumeObjectKey={c.resume_object_key}
-                        onStageChanged={load}
-                        onNoteAdded={load}
+                        onStageChanged={refreshCandidates}
+                        onNoteAdded={refreshCandidates}
                         hideStageChange
                       />
                       <div className="flex items-center gap-0.5 border-l border-border ml-1 pl-1" onClick={(e) => e.stopPropagation()}>
                         {loadingAuth ? null : !role ? null : role === "admin" && (
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
+                          <ConfirmDialog
+                            title="Delete this candidate?"
+                            description={
+                              <>
+                                This will permanently remove <span className="font-medium text-foreground">{c.name}</span> along with their applications, consent records, email logs, notes, feedback, tags, screening submissions, and uploaded files. This action cannot be undone.
+                              </>
+                            }
+                            confirmLabel="Permanently delete"
+                            destructive
+                            onConfirm={() => handleDelete(c)}
+                            trigger={
                               <Button variant="ghost" size="icon" className="h-8 w-8">
                                 <Trash2 className="w-3.5 h-3.5 text-destructive" />
                               </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete this candidate?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This will permanently remove <span className="font-medium text-foreground">{c.name}</span> along with their applications, notes, feedback, tags, and uploaded files. This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                  onClick={() => handleDelete(c.id)}
-                                >
-                                  Delete candidate
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                            }
+                          />
                         )}
                       </div>
                     </div>

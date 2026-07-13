@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 import CompanyUsersTab from "@/components/admin/CompanyUsersTab";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import PageHeader from "@/components/shared/PageHeader";
 
 export default function Team() {
   const { profile, role } = useAuth();
@@ -21,12 +22,10 @@ export default function Team() {
 
   return (
     <div className="space-y-6">
-      <div className="animate-fade-in">
-        <h1 className="text-2xl font-bold tracking-tight">Team</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Manage who has access to your workspace. Seat limits come from your subscription plan and add-ons.
-        </p>
-      </div>
+      <PageHeader
+        title="Team"
+        description="Manage who has access to your workspace. Seat limits come from your subscription plan and add-ons."
+      />
       <CompanyUsersTab companyId={profile.company_id} seatLimit={seatLimit} />
     </div>
   );

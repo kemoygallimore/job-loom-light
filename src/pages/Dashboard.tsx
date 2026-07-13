@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Briefcase, Users, FileText, Trophy, Clock, AlertCircle, CalendarCheck } from "lucide-react";
+import { Briefcase, Users, FileText, Trophy, Clock, CalendarCheck } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BentoGrid, BentoTile } from "@/components/dashboard/BentoGrid";
@@ -16,46 +16,9 @@ import {
   deltaPct,
   bucketByDay,
   avgDaysBetween,
-  staleApplications,
   timeToFill,
 } from "@/lib/dashboardMetrics";
-
-const STAGE_COLORS: Record<string, string> = {
-  applied: "hsl(220, 70%, 52%)",
-  shortlisted: "hsl(160, 60%, 42%)",
-  screening: "hsl(38, 92%, 50%)",
-  scheduling: "hsl(190, 70%, 45%)",
-  "1st_interview": "hsl(270, 50%, 52%)",
-  "2nd_interview": "hsl(290, 55%, 50%)",
-  interview: "hsl(270, 50%, 52%)",
-  offer: "hsl(152, 55%, 42%)",
-  hired: "hsl(142, 60%, 42%)",
-  rejected: "hsl(4, 68%, 48%)",
-};
-
-const STAGE_LABELS: Record<string, string> = {
-  applied: "Applied",
-  shortlisted: "Shortlisted",
-  screening: "Screening",
-  scheduling: "Scheduling",
-  "1st_interview": "1st Interview",
-  "2nd_interview": "2nd Interview",
-  offer: "Offer",
-  hired: "Hired",
-  rejected: "Rejected",
-};
-
-const STAGE_ORDER = [
-  "applied",
-  "shortlisted",
-  "screening",
-  "scheduling",
-  "1st_interview",
-  "2nd_interview",
-  "offer",
-  "hired",
-  "rejected",
-];
+import { PIPELINE_STAGES, STAGE_CHART_COLORS, STAGE_LABELS } from "@/lib/stages";
 
 interface AppRow {
   stage: string;
@@ -69,7 +32,6 @@ export default function Dashboard() {
   const { profile, role } = useAuth();
   const [jobs, setJobs] = useState<{ id: string; title: string; status: string; created_at: string }[]>([]);
   const [appRows, setAppRows] = useState<AppRow[]>([]);
-  const [candidates, setCandidates] = useState<{ id: string; name: string }[]>([]);
   const [jobFilter, setJobFilter] = useState<string>("all");
   const [range, setRange] = useState<RangeKey>("30d");
   const [loading, setLoading] = useState(true);
@@ -78,20 +40,16 @@ export default function Dashboard() {
     if (!profile) return;
     const load = async () => {
       setLoading(true);
-      const [jobsRes, candidatesRes, appsRes] = await Promise.all([
+      const [jobsRes, appsRes] = await Promise.all([
         supabase.from("jobs").select("id, title, status, created_at").order("created_at", { ascending: false }),
-        supabase.from("candidates").select("id, name"),
         supabase.from("applications").select("stage, job_id, candidate_id, created_at, updated_at"),
       ]);
       setJobs((jobsRes.data ?? []) as any);
-      setCandidates((candidatesRes.data ?? []) as any);
       setAppRows((appsRes.data ?? []) as any);
       setLoading(false);
     };
     load();
   }, [profile]);
-
-  if (role === "super_admin") return <Navigate to="/admin" replace />;
 
   const scopedAll = useMemo(
     () => (jobFilter === "all" ? appRows : appRows.filter((a) => a.job_id === jobFilter)),
@@ -145,29 +103,15 @@ export default function Dashboard() {
   const applicantsSpark = bucketByDay(scopedAll, "created_at", sparkDays);
   const trendData = bucketByDay(scopedAll, "created_at", sparkDays);
 
-  const stageCounts = STAGE_ORDER.map((s) => ({
+  const stageCounts = PIPELINE_STAGES.map((s) => ({
     stage: s,
     label: STAGE_LABELS[s],
     count: scopedAll.filter((a) => a.stage === s).length,
-    color: STAGE_COLORS[s],
+    color: STAGE_CHART_COLORS[s],
   }));
   const maxStage = Math.max(1, ...stageCounts.map((s) => s.count));
 
-  const stale = useMemo(() => {
-    const list = staleApplications(scopedAll, 14);
-    const candMap = new Map(candidates.map((c) => [c.id, c.name] as const));
-    const jobMap = new Map(jobs.map((j) => [j.id, j.title] as const));
-    return list
-      .sort((a, b) => new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime())
-      .slice(0, 5)
-      .map((a) => ({
-        candidate_id: a.candidate_id,
-        candidate: candMap.get(a.candidate_id) ?? "Unknown candidate",
-        job: jobMap.get(a.job_id) ?? "—",
-        stage: STAGE_LABELS[a.stage] ?? a.stage,
-        days: Math.floor((Date.now() - new Date(a.updated_at).getTime()) / 86400000),
-      }));
-  }, [scopedAll, candidates, jobs]);
+  if (role === "super_admin") return <Navigate to="/admin" replace />;
 
   return (
     <div className="space-y-6">

@@ -4,6 +4,7 @@ import {
   createField,
   getFileAccept,
   normalizeSchema,
+  type LeadFormFileCategory,
   validateLeadFormFieldValue,
   validateUploadFile,
 } from "./leadForms";
@@ -62,7 +63,7 @@ describe("lead form validation helpers", () => {
   it("validates file type and size rules per field", () => {
     const field = {
       ...createField("file"),
-      upload: { maxSizeMb: 1, allowedCategories: ["documents"] },
+      upload: { maxSizeMb: 1, allowedCategories: ["documents"] as LeadFormFileCategory[] },
     };
     const document = new File(["pdf"], "resume.pdf", { type: "application/pdf" });
     const image = new File(["png"], "photo.png", { type: "image/png" });

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { uploadToStorage, type UploadCategory } from "@/lib/uploadToStorage";
+import { uploadToStorage, type UploadCategory } from "@/lib/storage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -53,12 +53,14 @@ export default function CandidateFileUpload({
       setSuccessMessage("");
       setUploadState("uploading");
 
+      const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
       const result = await uploadToStorage({
         file: selectedFile,
         companyId,
         jobId,
         candidateId,
         category,
+        accessToken,
       });
 
       setUploadState("saving");
@@ -70,9 +72,9 @@ export default function CandidateFileUpload({
         category,
         bucket: result.bucket,
         file_key: result.key,
-        file_name: result.fileName,
-        file_type: result.fileType,
-        file_size: result.fileSize,
+        file_name: result.filename,
+        file_type: result.contentType,
+        file_size: result.size,
       });
 
       if (error) throw new Error(error.message);

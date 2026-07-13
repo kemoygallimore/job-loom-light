@@ -103,6 +103,7 @@ export default function LeadFormRenderer({
         const error = errors[field.id];
         const confirmationError = errors[confirmationId(field)];
         const value = values[field.id];
+        const confirmationValue = confirmationValues[field.id];
         const fieldBackground = field.style?.background ?? "default";
         const fieldAccent = field.style?.accent ?? "default";
         const hasConfirmation = Boolean(field.validation?.requireConfirmation && CONFIRMATION_FIELD_TYPES.has(field.type));
@@ -358,7 +359,7 @@ export default function LeadFormRenderer({
                 <Input
                   id={confirmationId(field)}
                   type={field.type === "email" ? "email" : field.type === "phone" ? "tel" : field.type === "url" ? "url" : "text"}
-                  value={typeof confirmationValues[field.id] === "string" ? confirmationValues[field.id] : ""}
+                  value={typeof confirmationValue === "string" ? confirmationValue : ""}
                   placeholder={`Re-enter ${field.label.toLowerCase()}`}
                   disabled={disabled}
                   aria-invalid={Boolean(confirmationError)}

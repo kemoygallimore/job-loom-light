@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { VariableChips } from "@/components/email/VariableChips";
+import { htmlToPlainText } from "@/lib/htmlToPlainText";
 import { sanitizeRichHtml } from "@/lib/sanitizeHtml";
 import {
   CANDIDATE_EMAIL_PURPOSE_LABELS,
@@ -34,7 +35,7 @@ import { cn } from "@/lib/utils";
 type TemplateEditorMode = "new" | "edit";
 
 function candidateTemplateErrorMessage(message: string) {
-  if (/duplicate key|company_email_templates_company_key_unique|unique constraint/i.test(message)) {
+  if (/duplicate key|email_templates_company_key_unique|company_email_templates_company_key_unique|unique constraint/i.test(message)) {
     return `${message}. Start a new template again to generate a fresh template key.`;
   }
   return message;
@@ -73,7 +74,7 @@ export default function CompanyEmailTemplates() {
     setLoading(true);
     const [templateResult, companyResult] = await Promise.all([
       supabase
-        .from("company_email_templates")
+        .from("email_templates")
         .select("*")
         .eq("company_id", profile.company_id)
         .is("archived_at", null)
@@ -194,7 +195,7 @@ export default function CompanyEmailTemplates() {
       is_default_for_purpose: shouldBecomeDefault && previousDefaultIds.length === 0,
       subject: draft.subject,
       html_body: draft.html_body,
-      text_body: draft.text_body,
+      text_body: htmlToPlainText(draft.html_body),
       variables: variablesForCandidateEmailPurpose(draft.purpose),
       is_active: draft.is_active,
       archived_at: null,
@@ -203,15 +204,15 @@ export default function CompanyEmailTemplates() {
 
     const saveTemplate = async (templatePayload: typeof payload) => {
       if (isEditingExistingTemplate && draft.id) {
-        return await supabase.from("company_email_templates").update(templatePayload).eq("id", draft.id).select("*").single();
+        return await supabase.from("email_templates").update(templatePayload).eq("id", draft.id).eq("company_id", profile.company_id).select("*").single();
       }
 
-      return await supabase.from("company_email_templates").insert(templatePayload).select("*").single();
+      return await supabase.from("email_templates").insert(templatePayload).select("*").single();
     };
 
     let { data, error } = await saveTemplate(payload);
 
-    if (error && !isEditingExistingTemplate && /duplicate key|company_email_templates_company_key_unique|unique constraint/i.test(error.message)) {
+    if (error && !isEditingExistingTemplate && /duplicate key|email_templates_company_key_unique|company_email_templates_company_key_unique|unique constraint/i.test(error.message)) {
       ({ data, error } = await saveTemplate({ ...payload, key: makeCandidateEmailTemplateKey() }));
     }
 
@@ -225,7 +226,7 @@ export default function CompanyEmailTemplates() {
 
     if (shouldBecomeDefault && previousDefaultIds.length > 0 && saved.id) {
       const { error: clearDefaultError } = await supabase
-        .from("company_email_templates")
+        .from("email_templates")
         .update({ is_default_for_purpose: false })
         .eq("company_id", profile.company_id)
         .eq("purpose", draft.purpose);
@@ -237,7 +238,7 @@ export default function CompanyEmailTemplates() {
       }
 
       const { data: defaultData, error: setDefaultError } = await supabase
-        .from("company_email_templates")
+        .from("email_templates")
         .update({ is_default_for_purpose: true })
         .eq("id", saved.id)
         .eq("company_id", profile.company_id)
@@ -246,7 +247,7 @@ export default function CompanyEmailTemplates() {
 
       if (setDefaultError) {
         await supabase
-          .from("company_email_templates")
+          .from("email_templates")
           .update({ is_default_for_purpose: true })
           .in("id", previousDefaultIds);
         setSaving(false);
@@ -265,9 +266,10 @@ export default function CompanyEmailTemplates() {
   const archiveTemplate = async () => {
     if (editorMode !== "edit" || !draft?.id) return;
     const { error } = await supabase
-      .from("company_email_templates")
+      .from("email_templates")
       .update({ archived_at: new Date().toISOString(), is_active: false, updated_by: profile?.user_id })
-      .eq("id", draft.id);
+      .eq("id", draft.id)
+      .eq("company_id", profile?.company_id);
 
     if (error) {
       toast.error(candidateTemplateErrorMessage(error.message));

@@ -7,10 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Briefcase,
   Calendar,
   Check,
   Clock,
@@ -35,32 +33,10 @@ import CandidateDocuments from "@/components/candidate/CandidateDocuments";
 import ActivityTimeline from "@/components/candidate/ActivityTimeline";
 import { CandidateEmailComposer } from "@/components/email/CandidateEmailComposer";
 import { buildPipelineCandidateTimeline } from "@/lib/pipeline";
-
-const STAGES = ["applied", "shortlisted", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"] as const;
-
-const STAGE_LABELS: Record<string, string> = {
-  applied: "Applied",
-  shortlisted: "Shortlisted",
-  screening: "Screening",
-  scheduling: "Scheduling",
-  "1st_interview": "1st Interview",
-  "2nd_interview": "2nd Interview",
-  offer: "Offer",
-  hired: "Hired",
-  rejected: "Rejected",
-};
-
-const STAGE_COLORS: Record<string, string> = {
-  applied: "bg-muted text-muted-foreground",
-  shortlisted: "bg-emerald-100 text-emerald-700",
-  screening: "bg-blue-100 text-blue-700",
-  scheduling: "bg-cyan-100 text-cyan-700",
-  "1st_interview": "bg-violet-100 text-violet-700",
-  "2nd_interview": "bg-fuchsia-100 text-fuchsia-700",
-  offer: "bg-purple-100 text-purple-700",
-  hired: "bg-green-100 text-green-700",
-  rejected: "bg-red-100 text-red-700",
-};
+import ScreeningReview from "@/components/candidate/ScreeningReview";
+import CandidateForms from "@/components/candidate/CandidateForms";
+import { PIPELINE_STAGES, STAGE_LABELS } from "@/lib/stages";
+import StageBadge from "@/components/shared/StageBadge";
 
 interface CandidateDetails {
   id: string;
@@ -75,6 +51,14 @@ interface CandidateDetails {
   linkedin_url: string | null;
   created_at: string;
 }
+
+type CandidateLinkedInQuery = {
+  select: (columns: string) => {
+    eq: (column: "id", value: string) => {
+      maybeSingle: () => PromiseLike<{ data: CandidateDetails | null; error: { message: string } | null }>;
+    };
+  };
+};
 
 interface Note {
   id: string;
@@ -156,8 +140,8 @@ export default function CandidatePanel({ app, onClose, onStageChange }: Props) {
   const loadPanelData = async () => {
     setLoading(true);
     const [candidateResult, applicationsResult, notesResult, emailsResult] = await Promise.all([
-      supabase
-        .from("candidates")
+      // TODO: Regenerate Supabase types so candidates.linkedin_url is available without this cast.
+      (supabase.from("candidates") as unknown as CandidateLinkedInQuery)
         .select("id, company_id, name, email, phone, country, street_address, parish_state, education_level, linkedin_url, created_at")
         .eq("id", app.candidate_id)
         .maybeSingle(),
@@ -185,7 +169,7 @@ export default function CandidatePanel({ app, onClose, onStageChange }: Props) {
       return;
     }
 
-    setCandidate(candidateResult.data as CandidateDetails);
+    setCandidate(candidateResult.data);
     setApplications(
       ((applicationsResult.data ?? []) as unknown as ApplicationHistoryRow[]).map((item) => ({
         id: item.id,
@@ -358,9 +342,7 @@ export default function CandidatePanel({ app, onClose, onStageChange }: Props) {
                       <h3 className="text-sm font-semibold">Active application</h3>
                       <p className="text-xs text-muted-foreground">{activeApplication?.job_title ?? app.job?.title}</p>
                     </div>
-                    <Badge className={STAGE_COLORS[app.stage] ?? ""} variant="secondary">
-                      {STAGE_LABELS[app.stage] ?? app.stage}
-                    </Badge>
+                    <StageBadge stage={app.stage} />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Stage</label>
@@ -369,7 +351,7 @@ export default function CandidatePanel({ app, onClose, onStageChange }: Props) {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {STAGES.map((stage) => (
+                        {PIPELINE_STAGES.map((stage) => (
                           <SelectItem key={stage} value={stage}>
                             {STAGE_LABELS[stage] ?? stage}
                           </SelectItem>
@@ -380,13 +362,15 @@ export default function CandidatePanel({ app, onClose, onStageChange }: Props) {
                 </section>
 
                 <Tabs defaultValue="history" className="w-full">
-                  <TabsList className="grid h-auto w-full grid-cols-3 sm:grid-cols-6">
+                  <TabsList className="grid h-auto w-full grid-cols-3 sm:grid-cols-8">
                     <TabsTrigger value="history">History</TabsTrigger>
                     <TabsTrigger value="notes">Notes</TabsTrigger>
                     <TabsTrigger value="feedback">Feedback</TabsTrigger>
                     <TabsTrigger value="resumes">Resumes</TabsTrigger>
                     <TabsTrigger value="documents">Docs</TabsTrigger>
                     <TabsTrigger value="timeline">Timeline</TabsTrigger>
+                    <TabsTrigger value="screening">Screening</TabsTrigger>
+                    <TabsTrigger value="forms">Forms</TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="history" className="mt-4 space-y-2">
@@ -403,9 +387,7 @@ export default function CandidatePanel({ app, onClose, onStageChange }: Props) {
                               <span>{item.job_status === "open" ? "Open job" : "Closed job"}</span>
                             </div>
                           </div>
-                          <Badge className={STAGE_COLORS[item.stage] ?? ""} variant="secondary">
-                            {(STAGE_LABELS[item.stage] ?? item.stage).replace(/_/g, " ")}
-                          </Badge>
+                          <StageBadge stage={item.stage} />
                         </div>
                       </div>
                     ))}
@@ -470,6 +452,8 @@ export default function CandidatePanel({ app, onClose, onStageChange }: Props) {
                   <TabsContent value="timeline" className="mt-4">
                     <ActivityTimeline events={timelineEvents} />
                   </TabsContent>
+                  <TabsContent value="screening" className="mt-4"><ScreeningReview applicationId={app.id} /></TabsContent>
+                  <TabsContent value="forms" className="mt-4">{candidate && profile && <CandidateForms candidateId={candidate.id} companyId={candidate.company_id} userId={profile.user_id} candidateEmail={candidate.email} />}</TabsContent>
                 </Tabs>
               </>
             )}

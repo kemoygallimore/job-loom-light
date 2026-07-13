@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import {
-  Check,
-  Copy,
   Eye,
   FileText,
   Inbox,
-  Link2,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -21,13 +18,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -36,11 +26,20 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import LeadFormRenderer from "@/components/forms/LeadFormRenderer";
 import { LeadForm, LeadFormSubmission, normalizeSchema } from "@/lib/leadForms";
+import PageHeader from "@/components/shared/PageHeader";
+import { deleteCandidateForm } from "@/lib/candidateFormInvitations";
+import { deleteObjects } from "@/lib/storage";
 
 const FORM_LIMIT = 5;
 
@@ -55,6 +54,15 @@ type LeadFormsQuery = PromiseLike<QueryResult> & {
 type LeadFormsDb = {
   from: (table: string) => LeadFormsQuery;
 };
+type DeleteCounts = {
+  submissions: number;
+  assignments: number;
+  uploads: number;
+};
+type UploadRow = {
+  bucket: string;
+  object_key: string;
+};
 
 const leadFormsDb = supabase as unknown as LeadFormsDb;
 
@@ -67,8 +75,11 @@ export default function Forms() {
   const navigate = useNavigate();
   const [forms, setForms] = useState<LeadForm[]>([]);
   const [loading, setLoading] = useState(true);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [previewForm, setPreviewForm] = useState<LeadForm | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<LeadForm | null>(null);
+  const [deleteCounts, setDeleteCounts] = useState<DeleteCounts | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     if (!profile?.company_id) {
@@ -123,14 +134,6 @@ export default function Forms() {
     navigate("/forms/new");
   };
 
-  const copyLink = async (form: LeadForm) => {
-    const url = `${window.location.origin}/forms/${form.public_id}`;
-    await navigator.clipboard.writeText(url);
-    setCopiedId(form.id);
-    toast.success("Form link copied");
-    setTimeout(() => setCopiedId(null), 2000);
-  };
-
   const toggleStatus = async (form: LeadForm) => {
     if (!profile?.company_id) return;
     const nextStatus = form.status === "active" ? "disabled" : "active";
@@ -147,36 +150,78 @@ export default function Forms() {
     load();
   };
 
-  const softDelete = async (form: LeadForm) => {
+  const prepareDelete = async (form: LeadForm) => {
     if (!profile?.company_id) return;
-    const { error } = await leadFormsDb
-      .from("lead_forms")
-      .update({ deleted_at: new Date().toISOString(), status: "disabled" })
-      .eq("id", form.id)
-      .eq("company_id", profile.company_id);
-    if (error) {
-      toast.error(error.message);
-      return;
+    setDeleteTarget(form);
+    setDeleteCounts(null);
+    setDeleteLoading(true);
+    const [{ data: submissions }, { data: assignments }, { data: uploads }] = await Promise.all([
+      supabase.from("lead_form_submissions").select("id").eq("form_id", form.id).eq("company_id", profile.company_id),
+      supabase.from("candidate_form_assignments").select("id").eq("form_id", form.id).eq("company_id", profile.company_id),
+      supabase.from("lead_form_uploads").select("id").eq("form_id", form.id).eq("company_id", profile.company_id),
+    ]);
+    setDeleteCounts({
+      submissions: submissions?.length ?? 0,
+      assignments: assignments?.length ?? 0,
+      uploads: uploads?.length ?? 0,
+    });
+    setDeleteLoading(false);
+  };
+
+  const hardDelete = async () => {
+    if (!deleteTarget || !profile?.company_id || deleting) return;
+    setDeleting(true);
+    try {
+      const { data: uploads, error: uploadsError } = await supabase
+        .from("lead_form_uploads")
+        .select("bucket, object_key")
+        .eq("form_id", deleteTarget.id)
+        .eq("company_id", profile.company_id);
+      if (uploadsError) throw new Error(uploadsError.message);
+
+      const session = await supabase.auth.getSession();
+      const accessToken = session.data.session?.access_token;
+      const byBucket = new Map<string, string[]>();
+      ((uploads ?? []) as UploadRow[]).forEach((upload) => {
+        if (!upload.object_key) return;
+        const keys = byBucket.get(upload.bucket) ?? [];
+        keys.push(upload.object_key);
+        byBucket.set(upload.bucket, keys);
+      });
+
+      for (const [bucket, keys] of byBucket) {
+        await deleteObjects(bucket, keys, accessToken);
+      }
+
+      await deleteCandidateForm(deleteTarget.id);
+      toast.success("Form and related data deleted");
+      setDeleteTarget(null);
+      setDeleteCounts(null);
+      load();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete form");
+    } finally {
+      setDeleting(false);
     }
-    toast.success("Form deleted");
-    load();
   };
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 animate-fade-in">
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold">
+      <PageHeader
+        title={
+          <>
             <FileText className="size-6 text-primary" />
             Forms
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">Create standalone lead forms and review submissions.</p>
-        </div>
-        <Button onClick={openCreate}>
-          <Plus className="size-4" />
-          New Form
-        </Button>
-      </div>
+          </>
+        }
+        description="Build reusable forms, then assign them from a candidate profile."
+        actions={
+          <Button onClick={openCreate}>
+            <Plus className="size-4" />
+            New Form
+          </Button>
+        }
+      />
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3 text-sm shadow-sm">
         <div>
@@ -230,57 +275,35 @@ export default function Forms() {
                       <Inbox className="size-4" />
                       Submissions
                     </Button>
-                    <AlertDialog>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="size-8" aria-label={`More actions for ${form.title}`}>
-                            <MoreHorizontal className="size-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem onClick={() => copyLink(form)}>
-                            {copiedId === form.id ? <Check className="mr-2 size-4" /> : <Copy className="mr-2 size-4" />}
-                            {copiedId === form.id ? "Copied" : "Copy link"}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setPreviewForm(form)}>
-                            <Eye className="mr-2 size-4" />
-                            Preview
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => navigate(`/forms/${form.id}/edit`)}>
-                            <Pencil className="mr-2 size-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => toggleStatus(form)}>
-                            <Power className="mr-2 size-4" />
-                            {form.status === "active" ? "Disable form" : "Enable form"}
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <AlertDialogTrigger asChild>
-                            <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={(event) => event.preventDefault()}>
-                              <Trash2 className="mr-2 size-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </AlertDialogTrigger>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete this form?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This hides the form and disables its public link, but keeps submission history.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            onClick={() => softDelete(form)}
-                          >
-                            Delete form
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="size-8" aria-label={`More actions for ${form.title}`}>
+                          <MoreHorizontal className="size-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem onClick={() => setPreviewForm(form)}>
+                          <Eye className="mr-2 size-4" />
+                          Preview
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => navigate(`/forms/${form.id}/edit`)}>
+                          <Pencil className="mr-2 size-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => toggleStatus(form)}>
+                          <Power className="mr-2 size-4" />
+                          {form.status === "active" ? "Disable form" : "Enable form"}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => prepareDelete(form)}
+                        >
+                          <Trash2 className="mr-2 size-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </TableCell>
               </TableRow>
@@ -290,7 +313,7 @@ export default function Forms() {
                 <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
                   <div className="mx-auto max-w-sm space-y-3">
                     <div className="font-medium text-foreground">No forms yet</div>
-                    <div>Create your first lead form to collect details, uploads, and submissions from a public link.</div>
+                    <div>Create your first reusable form, then assign it securely from a candidate profile.</div>
                     <Button type="button" onClick={openCreate}>
                       <Plus className="size-4" />
                       New Form
@@ -312,19 +335,46 @@ export default function Forms() {
             <div className="flex flex-col gap-5">
               {previewForm.description && <p className="text-sm text-muted-foreground">{previewForm.description}</p>}
               <LeadFormRenderer schema={previewForm.schema} values={{}} disabled onChange={() => {}} />
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/40 p-3 text-sm">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Link2 className="size-4" />
-                  Public link preview
-                </div>
-                <Link className="font-medium text-primary hover:underline" to={`/forms/${previewForm.public_id}`} target="_blank">
-                  Open public form
-                </Link>
-              </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && !deleting && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this form and all collected data?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  This permanently removes <span className="font-medium text-foreground">{deleteTarget?.title}</span>, frees one form slot, and cannot be undone.
+                </p>
+                <div className="rounded-md border bg-muted/30 p-3 text-sm">
+                  {deleteLoading || !deleteCounts ? (
+                    <div>Counting related records...</div>
+                  ) : (
+                    <div className="space-y-1">
+                      <div>{deleteCounts.submissions} submission{deleteCounts.submissions === 1 ? "" : "s"} will be deleted</div>
+                      <div>{deleteCounts.assignments} invitation{deleteCounts.assignments === 1 ? "" : "s"} will be deleted</div>
+                      <div>{deleteCounts.uploads} uploaded file record{deleteCounts.uploads === 1 ? "" : "s"} and storage object{deleteCounts.uploads === 1 ? "" : "s"} will be deleted</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={hardDelete}
+              disabled={deleteLoading || deleting}
+            >
+              {deleting ? "Deleting..." : "Delete permanently"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

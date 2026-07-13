@@ -48,6 +48,7 @@ export function useFeatureFlags() {
     }
 
     (async () => {
+      // TODO: Regenerate Supabase types so company_features is available without this cast.
       const { data } = await (supabase as any)
         .from("company_features")
         .select("*")

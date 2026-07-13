@@ -2,11 +2,14 @@
 logs
 *.log
 .env
+.env.e2e
 .env.*
+.env.*.local
 !.env.example
 !.env.*.example
 !**/.env.example
 !**/.env.*.example
+package-lock.json
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -21,6 +24,7 @@ dist-ssr
 playwright-report/
 test-results/
 tests/e2e/.auth/
+supabase/.temp/
 
 # Editor directories and files
 .vscode/*

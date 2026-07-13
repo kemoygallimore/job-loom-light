@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Download, Briefcase, Calendar } from "lucide-react";
 import { toast } from "sonner";
-import { getSignedR2Url } from "@/lib/r2Worker";
+import { getSignedViewUrl } from "@/lib/storage";
 
 interface ResumeFile {
   id: string;
@@ -67,7 +67,8 @@ export default function ResumeHistory({ candidateId }: { candidateId: string }) 
   const handleDownload = async (file: ResumeFile) => {
     setDownloadingId(file.id);
     try {
-      const viewUrl = await getSignedR2Url(file.bucket, file.file_key);
+      const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
+      const viewUrl = await getSignedViewUrl(file.bucket, file.file_key, accessToken);
       window.open(viewUrl, "_blank", "noopener,noreferrer");
     } catch (err: any) {
       console.error(err);

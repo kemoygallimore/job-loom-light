@@ -55,6 +55,25 @@ export default function KanbanCard({ app, isDragging, selected, onToggle }: Prop
               ))}
             </div>
           )}
+          <div className="mt-2 flex flex-wrap gap-1.5 text-[10px]">
+            {app.screening_score != null && (
+              <>
+                <span
+                  className="rounded-full border px-2 py-0.5 font-medium tabular-nums"
+                  aria-label={`Screening score ${Math.round(app.screening_score)} out of 100`}
+                >
+                  Screening {Math.round(app.screening_score)}/100
+                </span>
+                {app.screening_status ? (
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">
+                    {app.screening_status === "final" ? "Final" : "Provisional"}
+                  </span>
+                ) : null}
+              </>
+            )}
+            {app.review_needed_count > 0 && <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">Review needed</span>}
+            {app.interview_average != null && <span className="rounded-full border px-2 py-0.5 font-medium tabular-nums">Interview {app.interview_average.toFixed(1)}/5</span>}
+          </div>
         </div>
       </div>
     </div>

@@ -51,7 +51,7 @@ export default function CompanyUsersTab({ companyId, seatLimit }: Props) {
       .eq("company_id", companyId)
       .order("name");
     const ids = (profiles ?? []).map((p: any) => p.user_id);
-    let rolesByUser: Record<string, Role | null> = {};
+    const rolesByUser: Record<string, Role | null> = {};
     if (ids.length) {
       const { data: ur } = await (supabase as any)
         .from("user_roles")

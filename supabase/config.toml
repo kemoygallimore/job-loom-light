@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.screening-cleanup]
 verify_jwt = false
+
+[functions.candidate-form-verification]
+verify_jwt = true

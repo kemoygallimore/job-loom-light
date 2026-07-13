@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { uploadToStorage } from "@/lib/uploadToStorage";
+import { getSignedViewUrl, uploadToStorage } from "@/lib/storage";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FileText, Download, Calendar, Upload, Trash2, User } from "lucide-react";
+import { FileText, Download, Calendar, Upload, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
-import { getSignedR2Url } from "@/lib/r2Worker";
 
 interface CandidateDocument {
   id: string;
@@ -79,12 +78,14 @@ export default function CandidateDocuments({ candidateId, companyId, readOnly = 
 
     setUploading(true);
     try {
+      const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
       const result = await uploadToStorage({
         file,
         companyId,
         jobId: "general",
         candidateId,
         category: "document",
+        accessToken,
       });
 
       const { error } = await supabase.from("candidate_files").insert({
@@ -94,9 +95,9 @@ export default function CandidateDocuments({ candidateId, companyId, readOnly = 
         category: "document",
         bucket: result.bucket,
         file_key: result.key,
-        file_name: result.fileName,
-        file_type: result.fileType,
-        file_size: result.fileSize,
+        file_name: result.filename,
+        file_type: result.contentType,
+        file_size: result.size,
       });
       if (error) throw new Error(error.message);
 
@@ -114,7 +115,8 @@ export default function CandidateDocuments({ candidateId, companyId, readOnly = 
   const handleView = async (file: CandidateDocument) => {
     setBusyId(file.id);
     try {
-      const viewUrl = await getSignedR2Url(file.bucket, file.file_key);
+      const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
+      const viewUrl = await getSignedViewUrl(file.bucket, file.file_key, accessToken);
       window.open(viewUrl, "_blank", "noopener,noreferrer");
     } catch (err: unknown) {
       console.error(err);

@@ -36,9 +36,10 @@ export default function AdminEmailTemplates() {
 
   useEffect(() => {
     (async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("email_templates")
         .select("*")
+        .is("company_id", null)
         .order("name");
       if (error) {
         toast.error(error.message);
@@ -70,7 +71,7 @@ export default function AdminEmailTemplates() {
   const save = async () => {
     if (!selected) return;
     setSaving(true);
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from("email_templates")
       .update({
         name: selected.name,
@@ -79,7 +80,8 @@ export default function AdminEmailTemplates() {
         text_body: selected.text_body,
         is_active: selected.is_active,
       })
-      .eq("id", selected.id);
+      .eq("id", selected.id)
+      .is("company_id", null);
     setSaving(false);
     if (error) toast.error(error.message);
     else toast.success("Template saved");

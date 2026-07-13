@@ -33,7 +33,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
-import rizonhireLogoWhite from "@/assets/RIZONHire_logo_White.png";
 import rizonhireLogoBlack from "@/assets/RIZONHire_logo_Black.png";
 import rizonhireLogoBlue from "@/assets/rizonhire blue logo.png";
 
@@ -256,6 +255,13 @@ export default function AppLayout() {
                 <DropdownMenuItem asChild>
                   <Link to="/settings/email-templates">
                     <Mail className="w-4 h-4 mr-2" /> Email Templates
+                  </Link>
+                </DropdownMenuItem>
+              )}
+              {!isSuperAdmin && role === "admin" && (
+                <DropdownMenuItem asChild>
+                  <Link to="/settings/data-protection">
+                    <FileText className="w-4 h-4 mr-2" /> Data Protection Settings
                   </Link>
                 </DropdownMenuItem>
               )}

@@ -200,6 +200,7 @@ export type Database = {
           education_level: string | null
           email: string | null
           id: string
+          linkedin_url: string | null
           name: string
           parish_state: string | null
           phone: string | null
@@ -218,6 +219,7 @@ export type Database = {
           education_level?: string | null
           email?: string | null
           id?: string
+          linkedin_url?: string | null
           name: string
           parish_state?: string | null
           phone?: string | null
@@ -236,6 +238,7 @@ export type Database = {
           education_level?: string | null
           email?: string | null
           id?: string
+          linkedin_url?: string | null
           name?: string
           parish_state?: string | null
           phone?: string | null
@@ -368,6 +371,75 @@ export type Database = {
           },
         ]
       }
+      email_templates: {
+        Row: {
+          archived_at: string | null
+          company_id: string | null
+          created_at: string
+          html_body: string
+          id: string
+          is_active: boolean
+          is_default_for_purpose: boolean
+          key: string
+          name: string
+          purpose: string
+          subject: string
+          text_body: string | null
+          updated_at: string
+          updated_by: string | null
+          variables: Json
+        }
+        Insert: {
+          archived_at?: string | null
+          company_id?: string | null
+          created_at?: string
+          html_body: string
+          id?: string
+          is_active?: boolean
+          is_default_for_purpose?: boolean
+          key: string
+          name: string
+          purpose?: string
+          subject: string
+          text_body?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          variables?: Json
+        }
+        Update: {
+          archived_at?: string | null
+          company_id?: string | null
+          created_at?: string
+          html_body?: string
+          id?: string
+          is_active?: boolean
+          is_default_for_purpose?: boolean
+          key?: string
+          name?: string
+          purpose?: string
+          subject?: string
+          text_body?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          variables?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_templates_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_templates_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       email_send_log: {
         Row: {
           application_id: string | null
@@ -491,6 +563,11 @@ export type Database = {
           submitted_at: string
           submitted_by: string | null
           weaknesses: string | null
+          scorecard_version_id: string | null
+          summary: string | null
+          panelist_average: number | null
+          scorecard_snapshot: Json | null
+          ratings: Json | null
         }
         Insert: {
           candidate_id: string
@@ -508,6 +585,11 @@ export type Database = {
           submitted_at?: string
           submitted_by?: string | null
           weaknesses?: string | null
+          scorecard_version_id?: string | null
+          summary?: string | null
+          panelist_average?: number | null
+          scorecard_snapshot?: Json | null
+          ratings?: Json | null
         }
         Update: {
           candidate_id?: string
@@ -525,6 +607,11 @@ export type Database = {
           submitted_at?: string
           submitted_by?: string | null
           weaknesses?: string | null
+          scorecard_version_id?: string | null
+          summary?: string | null
+          panelist_average?: number | null
+          scorecard_snapshot?: Json | null
+          ratings?: Json | null
         }
         Relationships: []
       }
@@ -533,6 +620,7 @@ export type Database = {
           company_id: string
           created_at: string
           description: string | null
+          expires_at: string
           hiring_manager: string | null
           id: string
           status: Database["public"]["Enums"]["job_status"]
@@ -542,6 +630,7 @@ export type Database = {
           company_id: string
           created_at?: string
           description?: string | null
+          expires_at?: string
           hiring_manager?: string | null
           id?: string
           status?: Database["public"]["Enums"]["job_status"]
@@ -551,6 +640,7 @@ export type Database = {
           company_id?: string
           created_at?: string
           description?: string | null
+          expires_at?: string
           hiring_manager?: string | null
           id?: string
           status?: Database["public"]["Enums"]["job_status"]
@@ -608,56 +698,119 @@ export type Database = {
           },
         ]
       }
-      platform_policies: {
+      policies: {
         Row: {
-          content_html: string | null
-          key: string
-          title: string
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          content_html?: string | null
-          key: string
-          title: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          content_html?: string | null
-          key?: string
-          title?: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Relationships: []
-      }
-      platform_policy_versions: {
-        Row: {
-          content_html: string | null
+          company_id: string | null
+          created_at: string
+          created_by: string | null
+          draft_content_html: string
+          draft_title: string
           id: string
           key: string
-          title: string
+          owner_type: string
+          published_version_id: string | null
           updated_at: string
           updated_by: string | null
         }
         Insert: {
-          content_html?: string | null
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          draft_content_html?: string
+          draft_title: string
           id?: string
           key: string
-          title: string
+          owner_type: string
+          published_version_id?: string | null
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
-          content_html?: string | null
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          draft_content_html?: string
+          draft_title?: string
           id?: string
           key?: string
-          title?: string
+          owner_type?: string
+          published_version_id?: string | null
           updated_at?: string
           updated_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "policies_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policies_published_version_fk"
+            columns: ["published_version_id"]
+            isOneToOne: false
+            referencedRelation: "policy_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      policy_versions: {
+        Row: {
+          company_id: string | null
+          content_html: string
+          created_at: string
+          id: string
+          key: string
+          owner_type: string
+          policy_id: string
+          published_at: string
+          published_by: string | null
+          title: string
+          version_number: number
+        }
+        Insert: {
+          company_id?: string | null
+          content_html?: string
+          created_at?: string
+          id?: string
+          key: string
+          owner_type: string
+          policy_id: string
+          published_at?: string
+          published_by?: string | null
+          title: string
+          version_number: number
+        }
+        Update: {
+          company_id?: string | null
+          content_html?: string
+          created_at?: string
+          id?: string
+          key?: string
+          owner_type?: string
+          policy_id?: string
+          published_at?: string
+          published_by?: string | null
+          title?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "policy_versions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policy_versions_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "policies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -836,6 +989,78 @@ export type Database = {
           },
         ]
       }
+      lead_forms: {
+        Row: { id: string; company_id: string; created_by: string | null; title: string; description: string | null; status: string; public_id: string; schema: Json; created_at: string; updated_at: string; deleted_at: string | null }
+        Insert: { id?: string; company_id: string; created_by?: string | null; title: string; description?: string | null; status?: string; public_id: string; schema?: Json; created_at?: string; updated_at?: string; deleted_at?: string | null }
+        Update: { id?: string; company_id?: string; created_by?: string | null; title?: string; description?: string | null; status?: string; public_id?: string; schema?: Json; created_at?: string; updated_at?: string; deleted_at?: string | null }
+        Relationships: []
+      }
+      lead_form_submissions: {
+        Row: { id: string; form_id: string; company_id: string; answers: Json; schema_snapshot: Json; status: string; created_at: string; assignment_id: string | null; candidate_id: string | null }
+        Insert: { id?: string; form_id: string; company_id: string; answers?: Json; schema_snapshot?: Json; status?: string; created_at?: string; assignment_id?: string | null; candidate_id?: string | null }
+        Update: { id?: string; form_id?: string; company_id?: string; answers?: Json; schema_snapshot?: Json; status?: string; created_at?: string; assignment_id?: string | null; candidate_id?: string | null }
+        Relationships: []
+      }
+      lead_form_uploads: {
+        Row: { id: string; submission_id: string; form_id: string; company_id: string; field_id: string; bucket: string; object_key: string; file_name: string; file_type: string; file_size: number; created_at: string }
+        Insert: { id?: string; submission_id: string; form_id: string; company_id: string; field_id: string; bucket: string; object_key: string; file_name: string; file_type: string; file_size: number; created_at?: string }
+        Update: { id?: string; submission_id?: string; form_id?: string; company_id?: string; field_id?: string; bucket?: string; object_key?: string; file_name?: string; file_type?: string; file_size?: number; created_at?: string }
+        Relationships: []
+      }
+      job_screening_versions: {
+        Row: { id: string; company_id: string; job_id: string; version: number; status: string; created_by: string; created_at: string; published_at: string | null; locked_at: string | null }
+        Insert: { id?: string; company_id: string; job_id: string; version: number; status?: string; created_by: string; created_at?: string; published_at?: string | null; locked_at?: string | null }
+        Update: { id?: string; company_id?: string; job_id?: string; version?: number; status?: string; created_by?: string; created_at?: string; published_at?: string | null; locked_at?: string | null }
+        Relationships: []
+      }
+      job_screening_questions: {
+        Row: { id: string; version_id: string; position: number; type: Database["public"]["Enums"]["screening_question_type"]; prompt: string; required: boolean; settings: Json; rubric: Json | null; created_at: string }
+        Insert: { id?: string; version_id: string; position: number; type: Database["public"]["Enums"]["screening_question_type"]; prompt: string; required?: boolean; settings?: Json; rubric?: Json | null; created_at?: string }
+        Update: { id?: string; version_id?: string; position?: number; type?: Database["public"]["Enums"]["screening_question_type"]; prompt?: string; required?: boolean; settings?: Json; rubric?: Json | null; created_at?: string }
+        Relationships: []
+      }
+      job_screening_choices: {
+        Row: { id: string; question_id: string; position: number; label: string; credit_percent: number }
+        Insert: { id?: string; question_id: string; position: number; label: string; credit_percent?: number }
+        Update: { id?: string; question_id?: string; position?: number; label?: string; credit_percent?: number }
+        Relationships: []
+      }
+      job_screening_responses: {
+        Row: { id: string; company_id: string; application_id: string; version_id: string; status: Database["public"]["Enums"]["screening_response_status"]; score: number; review_needed_count: number; submitted_at: string; finalized_at: string | null }
+        Insert: { id?: string; company_id: string; application_id: string; version_id: string; status: Database["public"]["Enums"]["screening_response_status"]; score?: number; review_needed_count?: number; submitted_at?: string; finalized_at?: string | null }
+        Update: { id?: string; company_id?: string; application_id?: string; version_id?: string; status?: Database["public"]["Enums"]["screening_response_status"]; score?: number; review_needed_count?: number; submitted_at?: string; finalized_at?: string | null }
+        Relationships: []
+      }
+      job_screening_answers: {
+        Row: { id: string; response_id: string; question_id: string; answer: Json; answer_display: Json | null; earned_percent: number | null; rubric_level: number | null; graded_by: string | null; graded_at: string | null }
+        Insert: { id?: string; response_id: string; question_id: string; answer: Json; answer_display?: Json | null; earned_percent?: number | null; rubric_level?: number | null; graded_by?: string | null; graded_at?: string | null }
+        Update: { id?: string; response_id?: string; question_id?: string; answer?: Json; answer_display?: Json | null; earned_percent?: number | null; rubric_level?: number | null; graded_by?: string | null; graded_at?: string | null }
+        Relationships: []
+      }
+      candidate_form_assignments: {
+        Row: { id: string; company_id: string; form_id: string; candidate_id: string; created_by: string; token_hash: string; status: Database["public"]["Enums"]["form_assignment_status"]; schema_snapshot: Json; expires_at: string; verified_at: string | null; access_token_hash: string | null; completed_at: string | null; created_at: string; reset_of: string | null }
+        Insert: { id?: string; company_id: string; form_id: string; candidate_id: string; created_by: string; token_hash: string; status?: Database["public"]["Enums"]["form_assignment_status"]; schema_snapshot: Json; expires_at: string; verified_at?: string | null; access_token_hash?: string | null; completed_at?: string | null; created_at?: string; reset_of?: string | null }
+        Update: { id?: string; company_id?: string; form_id?: string; candidate_id?: string; created_by?: string; token_hash?: string; status?: Database["public"]["Enums"]["form_assignment_status"]; schema_snapshot?: Json; expires_at?: string; verified_at?: string | null; access_token_hash?: string | null; completed_at?: string | null; created_at?: string; reset_of?: string | null }
+        Relationships: []
+      }
+      candidate_form_verifications: {
+        Row: { id: string; assignment_id: string; code_hash: string; expires_at: string; attempt_count: number; consumed_at: string | null; created_at: string }
+        Insert: { id?: string; assignment_id: string; code_hash: string; expires_at: string; attempt_count?: number; consumed_at?: string | null; created_at?: string }
+        Update: { id?: string; assignment_id?: string; code_hash?: string; expires_at?: string; attempt_count?: number; consumed_at?: string | null; created_at?: string }
+        Relationships: []
+      }
+      interview_scorecard_versions: {
+        Row: { id: string; company_id: string; version: number; status: string; created_by: string; created_at: string; published_at: string | null }
+        Insert: { id?: string; company_id: string; version: number; status?: string; created_by: string; created_at?: string; published_at?: string | null }
+        Update: { id?: string; company_id?: string; version?: number; status?: string; created_by?: string; created_at?: string; published_at?: string | null }
+        Relationships: []
+      }
+      interview_scorecard_areas: {
+        Row: { id: string; version_id: string; position: number; label: string; description: string | null }
+        Insert: { id?: string; version_id: string; position: number; label: string; description?: string | null }
+        Update: { id?: string; version_id?: string; position?: number; label?: string; description?: string | null }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -859,6 +1084,63 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      delete_candidate_for_privacy: {
+        Args: { _candidate_id: string }
+        Returns: Json
+      }
+      resolve_email_template: {
+        Args: {
+          _company_id?: string | null
+          _template_id?: string | null
+          _template_key?: string | null
+          _purpose?: string
+          _include_inactive?: boolean
+        }
+        Returns: {
+          archived_at: string | null
+          company_id: string | null
+          html_body: string
+          id: string
+          is_active: boolean
+          is_default_for_purpose: boolean
+          key: string
+          name: string
+          purpose: string
+          source: string
+          subject: string
+          text_body: string | null
+          updated_at: string
+          variables: Json
+        }[]
+      }
+      grade_written_screening_answer: {
+        Args: { _answer_id: string; _rubric_level: number }
+        Returns: Database["public"]["Tables"]["job_screening_answers"]["Row"]
+      }
+      get_job_pipeline: {
+        Args: { _job_id: string; _search?: string | null; _screening_min?: number | null; _screening_max?: number | null; _screening_status?: string | null; _interview_min?: number | null; _interview_max?: number | null; _sort?: string }
+        Returns: { id: string; job_id: string; candidate_id: string; stage: Database["public"]["Enums"]["application_stage"]; company_id: string; candidate_name: string; candidate_email: string | null; job_title: string; hiring_manager: string | null; screening_score: number | null; screening_status: string | null; review_needed_count: number | null; interview_average: number | null }[]
+      }
+      submit_public_job_application: {
+        Args: {
+          _additional_documents?: Json
+          _candidate: Json
+          _candidate_id: string
+          _consents?: Json
+          _job_id: string
+          _resume: Json
+          _screening_answers?: Json
+          _screening_version_id?: string | null
+        }
+        Returns: {
+          application_id: string
+          candidate_id: string
+        }[]
+      }
+      reset_candidate_form_assignment: {
+        Args: { _assignment_id: string; _token_hash: string; _expires_at: string }
+        Returns: string
+      }
       archive_resume_version: {
         Args: {
           _bucket: string
@@ -904,6 +1186,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_feature_enabled: { Args: { _company_id: string; _feature: string }; Returns: boolean }
+      publish_company_policy: {
+        Args: {
+          _content_html: string
+          _policy_key: string
+          _title: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "admin" | "recruiter" | "super_admin"
@@ -919,6 +1210,9 @@ export type Database = {
         | "hired"
         | "rejected"
       job_status: "open" | "closed"
+      screening_question_type: "yes_no" | "single_choice" | "multi_select" | "number" | "short_text" | "long_text"
+      screening_response_status: "provisional" | "final"
+      form_assignment_status: "pending" | "verified" | "completed" | "expired" | "revoked" | "superseded"
     }
     CompositeTypes: {
       [_ in never]: never

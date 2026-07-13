@@ -57,6 +57,7 @@ export default function JobDetailsPage() {
         .eq("id", jobId)
         .eq("company_id", companyData.id)
         .eq("status", "open")
+        .gt("expires_at", new Date().toISOString())
         .maybeSingle();
 
       if (!jobData) { setNotFound(true); setLoading(false); return; }

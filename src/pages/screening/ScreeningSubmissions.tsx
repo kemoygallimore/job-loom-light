@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { getSignedVideoViewUrl } from "@/lib/getSignedVideoViewUrl";
-import { deleteScreeningVideosFromR2 } from "@/lib/deleteScreeningVideoFromR2";
+import { deleteScreeningVideosFromR2, getSignedVideoViewUrl } from "@/lib/storage";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -102,7 +101,8 @@ export default function ScreeningSubmissions() {
       // Use video_object_key if available, fall back to video_url (legacy rows)
       const key = sub.video_object_key ?? sub.video_url;
       const bucket = sub.video_bucket; // helper defaults to "silverweb-ats-videos" if null
-      const url = await getSignedVideoViewUrl(bucket, key);
+      const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
+      const url = await getSignedVideoViewUrl(bucket, key, accessToken);
       setResolvedVideoUrl(url);
     } catch (err: any) {
       toast.error("Failed to load video: " + (err.message || "Unknown error"));
@@ -141,7 +141,8 @@ export default function ScreeningSubmissions() {
     const key = sub.video_object_key ?? sub.video_url ?? "";
     let r2Warning: string | null = null;
     try {
-      await deleteScreeningVideosFromR2([{ bucket: sub.video_bucket, key }]);
+      const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
+      await deleteScreeningVideosFromR2([{ bucket: sub.video_bucket, key }], accessToken);
     } catch (err: any) {
       r2Warning = err?.message || "Failed to delete video file from storage";
     }

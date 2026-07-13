@@ -58,6 +58,7 @@ export default function CareersPage() {
         .select("id, title, description")
         .eq("company_id", companyData.id)
         .eq("status", "open")
+        .gt("expires_at", new Date().toISOString())
         .order("created_at", { ascending: false });
 
       setJobs(jobsData ?? []);

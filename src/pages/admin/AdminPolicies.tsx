@@ -15,6 +15,13 @@ interface PolicyRow {
   updated_at: string;
 }
 
+interface PolicyDbRow {
+  key: string;
+  draft_title: string;
+  draft_content_html: string | null;
+  updated_at: string;
+}
+
 export default function AdminPolicies() {
   const [policies, setPolicies] = useState<PolicyRow[]>([]);
   const [activeKey, setActiveKey] = useState<string | null>(null);
@@ -30,24 +37,31 @@ export default function AdminPolicies() {
 
   const refresh = useCallback(async (preserveKey?: string) => {
     setLoading(true);
-    const { data, error } = await (supabase as any)
-      .from("platform_policies")
-      .select("key, title, content_html, updated_at")
-      .order("title");
+    const { data, error } = await supabase
+      .from("policies")
+      .select("key, draft_title, draft_content_html, updated_at")
+      .eq("owner_type", "platform")
+      .is("company_id", null)
+      .order("draft_title");
     setLoading(false);
     if (error) { toast.error(error.message); return; }
-    const rows = (data ?? []) as PolicyRow[];
+    const rows = ((data ?? []) as PolicyDbRow[]).map((row) => ({
+      key: row.key,
+      title: row.draft_title,
+      content_html: row.draft_content_html,
+      updated_at: row.updated_at,
+    }));
     setPolicies(rows);
-    const next = preserveKey ?? activeKey ?? rows[0]?.key ?? null;
+    const next = preserveKey ?? rows[0]?.key ?? null;
     setActiveKey(next);
     const current = rows.find((r) => r.key === next);
     if (current) {
       setTitle(current.title);
       setHtml(current.content_html ?? "");
     }
-  }, [activeKey]);
+  }, []);
 
-  useEffect(() => { refresh(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  useEffect(() => { refresh(); }, [refresh]);
 
   const selectPolicy = (key: string) => {
     const row = policies.find((p) => p.key === key);
@@ -62,9 +76,11 @@ export default function AdminPolicies() {
     if (!title.trim()) { toast.error("Title is required"); return; }
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
-    const { error } = await (supabase as any)
-      .from("platform_policies")
-      .update({ title: title.trim(), content_html: html, updated_by: user?.id, updated_at: new Date().toISOString() })
+    const { error } = await supabase
+      .from("policies")
+      .update({ draft_title: title.trim(), draft_content_html: html, updated_by: user?.id, updated_at: new Date().toISOString() })
+      .eq("owner_type", "platform")
+      .is("company_id", null)
       .eq("key", activeKey);
     setSaving(false);
     if (error) { toast.error(error.message); return; }
@@ -77,9 +93,16 @@ export default function AdminPolicies() {
     if (!k || !newTitle.trim()) { toast.error("Key and title are required"); return; }
     setCreating(true);
     const { data: { user } } = await supabase.auth.getUser();
-    const { error } = await (supabase as any)
-      .from("platform_policies")
-      .insert({ key: k, title: newTitle.trim(), content_html: "", updated_by: user?.id });
+    const { error } = await supabase
+      .from("policies")
+      .insert({
+        owner_type: "platform",
+        company_id: null,
+        key: k,
+        draft_title: newTitle.trim(),
+        draft_content_html: "",
+        updated_by: user?.id,
+      });
     setCreating(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Policy created");

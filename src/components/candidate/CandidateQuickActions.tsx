@@ -1,41 +1,14 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { ArrowRightLeft, MessageSquarePlus, FileText, History } from "lucide-react";
-import { getSignedVideoViewUrl } from "@/lib/getSignedVideoViewUrl";
-import { R2_BUCKET_RESUMES } from "@/lib/r2Worker";
+import { getSignedVideoViewUrl, R2_BUCKET_RESUMES } from "@/lib/storage";
 import { useNavigate } from "react-router-dom";
-
-const STAGES = ["applied", "shortlisted", "screening", "scheduling", "1st_interview", "2nd_interview", "offer", "hired", "rejected"];
-
-const STAGE_LABELS: Record<string, string> = {
-  applied: "Applied",
-  shortlisted: "Shortlisted",
-  screening: "Screening",
-  scheduling: "Scheduling",
-  "1st_interview": "1st Interview",
-  "2nd_interview": "2nd Interview",
-  offer: "Offer",
-  hired: "Hired",
-  rejected: "Rejected",
-};
-
-const STAGE_COLORS: Record<string, string> = {
-  applied: "bg-muted text-muted-foreground",
-  shortlisted: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-  screening: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  scheduling: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400",
-  "1st_interview": "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
-  "2nd_interview": "bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-400",
-  interview: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  offer: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
-  hired: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  rejected: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-};
+import { PIPELINE_STAGES, STAGE_LABELS } from "@/lib/stages";
 
 interface CandidateQuickActionsProps {
   candidateId: string;
@@ -97,7 +70,7 @@ export default function CandidateQuickActions({
               </Button>
             </SelectTrigger>
             <SelectContent>
-              {STAGES.map((s) => (
+              {PIPELINE_STAGES.map((s) => (
                 <SelectItem key={s} value={s} className="text-xs">{STAGE_LABELS[s] ?? s}</SelectItem>
               ))}
             </SelectContent>
@@ -119,7 +92,8 @@ export default function CandidateQuickActions({
               try {
                 const key = resumeObjectKey || resumeUrl!;
                 const bucket = resumeBucket || R2_BUCKET_RESUMES;
-                const viewUrl = await getSignedVideoViewUrl(bucket, key);
+                const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
+                const viewUrl = await getSignedVideoViewUrl(bucket, key, accessToken);
                 window.open(viewUrl, "_blank");
               } catch {
                 toast.error("Failed to load resume");

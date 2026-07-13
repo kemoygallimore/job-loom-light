@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { ArrowRight, Loader2 } from "lucide-react";
-import rizonhireLogoWhite from "@/assets/RIZONHire_logo_White.png";
 import rizonhireLogoBlack from "@/assets/RIZONHire_logo_Black.png";
 import rizonhireLogoBlue from "@/assets/rizonhire blue logo.png";
 

@@ -27,6 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { VariableChips } from "@/components/email/VariableChips";
+import { htmlToPlainText } from "@/lib/htmlToPlainText";
 import { sanitizeRichHtml } from "@/lib/sanitizeHtml";
 import {
   CANDIDATE_EMAIL_PURPOSE_LABELS,
@@ -113,6 +114,7 @@ export function CandidateEmailComposer({
   const { profile } = useAuth();
   const activePurpose = purpose ?? (mode === "rejection" ? "rejection" : "general");
   const [templates, setTemplates] = useState<CandidateEmailTemplate[]>([]);
+  const [fallbackTemplate, setFallbackTemplate] = useState<CandidateEmailTemplate | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [subject, setSubject] = useState("");
@@ -132,7 +134,7 @@ export function CandidateEmailComposer({
   );
   const skippedInvalidCount = recipients.length - validRecipients.length;
   const firstRecipient = validRecipients[0] ?? recipients[0] ?? null;
-  const selectedTemplate = templates.find((template) => template.id === selectedTemplateId) ?? null;
+  const selectedTemplate = templates.find((template) => template.id === selectedTemplateId) ?? fallbackTemplate;
   const isBulk = recipients.length > 1;
   const availableVariables = variablesForCandidateEmailPurpose(activePurpose);
   const requiredToken = requiredTokenForCandidateEmailPurpose(activePurpose);
@@ -143,7 +145,7 @@ export function CandidateEmailComposer({
 
     const [templateResult, companyResult] = await Promise.all([
       supabase
-        .from("company_email_templates")
+        .from("email_templates")
         .select("*")
         .eq("company_id", profile.company_id)
         .eq("is_active", true)
@@ -159,21 +161,52 @@ export function CandidateEmailComposer({
     if (templateResult.error) {
       toast.error(templateResult.error.message);
       setTemplates([]);
+      setFallbackTemplate(null);
       setLoadingTemplates(false);
       return;
     }
 
     const list = ((templateResult.data ?? []) as CandidateEmailTemplate[]).map(normalizeCandidateEmailTemplate);
     setTemplates(list);
+    setFallbackTemplate(null);
 
     const preferred =
       activePurpose === "rejection"
         ? list.find((template) => template.is_default_for_purpose) ?? list.find((template) => template.key === REJECTION_TEMPLATE_KEY) ?? list[0]
         : list.find((template) => template.is_default_for_purpose) ?? list[0];
 
-    setSelectedTemplateId(preferred?.id ?? "");
-    setSubject(preferred?.subject ?? "");
-    setHtmlBody(preferred?.html_body ?? "");
+    if (preferred) {
+      setSelectedTemplateId(preferred.id ?? "");
+      setSubject(preferred.subject);
+      setHtmlBody(preferred.html_body);
+      setLoadingTemplates(false);
+      return;
+    }
+
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .rpc("resolve_email_template", {
+        _company_id: profile.company_id,
+        _template_id: null,
+        _template_key: null,
+        _purpose: activePurpose,
+        _include_inactive: false,
+      })
+      .maybeSingle();
+
+    if (fallbackError) {
+      toast.error(fallbackError.message);
+      setSelectedTemplateId("");
+      setSubject("");
+      setHtmlBody("");
+      setLoadingTemplates(false);
+      return;
+    }
+
+    const fallback = fallbackData ? normalizeCandidateEmailTemplate(fallbackData as Partial<CandidateEmailTemplate>) : null;
+    setFallbackTemplate(fallback);
+    setSelectedTemplateId(fallback?.id ?? "");
+    setSubject(fallback?.subject ?? "");
+    setHtmlBody(fallback?.html_body ?? "");
     setLoadingTemplates(false);
   }, [activePurpose, open, profile?.company_id]);
 
@@ -299,7 +332,7 @@ export function CandidateEmailComposer({
     !sending &&
     !loadingTemplates &&
     !loadingLinkOptions &&
-    !!selectedTemplateId &&
+    !!selectedTemplate &&
     !!subject.trim() &&
     !!htmlBody.trim() &&
     validRecipients.length > 0 &&
@@ -314,7 +347,7 @@ export function CandidateEmailComposer({
     const { data, error } = await supabase.functions.invoke("send-candidate-email", {
       body: {
         mode: "candidate_email",
-        template_id: selectedTemplate.id,
+        template_id: selectedTemplate.company_id ? selectedTemplate.id : null,
         purpose: activePurpose,
         form_id: activePurpose === "form_link" ? selectedFormId : null,
         recipients: recipients.map((recipient) => ({
@@ -323,7 +356,7 @@ export function CandidateEmailComposer({
         })),
         subject,
         html_body: htmlBody,
-        text_body: selectedTemplate.text_body,
+        text_body: htmlToPlainText(htmlBody),
         reject_applications: activePurpose === "rejection",
       },
     });
@@ -396,7 +429,12 @@ export function CandidateEmailComposer({
                     ))}
                   </SelectContent>
                 </Select>
-                {templates.length === 0 && !loadingTemplates && (
+                {templates.length === 0 && fallbackTemplate && !loadingTemplates && (
+                  <p className="text-xs text-muted-foreground">
+                    Using the platform fallback template for this send.
+                  </p>
+                )}
+                {templates.length === 0 && !fallbackTemplate && !loadingTemplates && (
                   <p className="text-xs text-destructive">
                     Create an active {CANDIDATE_EMAIL_PURPOSE_LABELS[activePurpose].toLowerCase()} template before sending this email.
                   </p>

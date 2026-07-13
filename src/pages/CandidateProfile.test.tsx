@@ -1,8 +1,9 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CandidateProfile from "./CandidateProfile";
+import { renderWithProviders } from "@/test/renderWithProviders";
 
 const state = vi.hoisted(() => ({
   updates: [] as Array<{ table: string; payload: Record<string, unknown>; filters: Record<string, unknown> }>,
@@ -80,9 +81,9 @@ vi.mock("@/components/candidate/CandidateDocuments", () => ({
   default: () => <div>Documents mock</div>,
 }));
 
-vi.mock("@/lib/r2Worker", () => ({
+vi.mock("@/lib/storage", () => ({
   R2_BUCKET_RESUMES: "silverweb-ats-resumes",
-  getSignedR2Url: vi.fn(),
+  getSignedViewUrl: vi.fn(),
 }));
 
 vi.mock("@/components/ui/select", () => ({
@@ -181,7 +182,7 @@ vi.mock("@/integrations/supabase/client", () => {
 });
 
 function renderCandidateProfile() {
-  return render(
+  return renderWithProviders(
     <MemoryRouter initialEntries={["/candidates/candidate-1"]}>
       <Routes>
         <Route path="/candidates/:id" element={<CandidateProfile />} />

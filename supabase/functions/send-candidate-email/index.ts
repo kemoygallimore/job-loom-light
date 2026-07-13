@@ -3,10 +3,16 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 type SupabaseAdmin = ReturnType<typeof createClient>;
 
 interface EmailTemplate {
+  id?: string;
+  company_id?: string | null;
+  key?: string;
+  name?: string;
+  purpose?: string;
   subject: string;
   html_body: string;
   text_body: string | null;
   is_active: boolean;
+  archived_at?: string | null;
 }
 
 interface CompanyEmailSettings {
@@ -52,7 +58,6 @@ interface RenderedEmailArgs {
   recipient: string;
   subject: string;
   html: string;
-  text?: string;
   variables: Record<string, string>;
   company: CompanyEmailSettings | null;
   companyId?: string | null;
@@ -62,6 +67,7 @@ interface RenderedEmailArgs {
 
 interface CompanyEmailTemplate {
   id: string;
+  company_id: string | null;
   key: string;
   name: string;
   purpose: CandidateEmailPurpose;
@@ -180,6 +186,22 @@ function escapeHtml(value: string) {
     "\"": "&quot;",
     "'": "&#39;",
   }[char]!));
+}
+
+function htmlToPlainText(html: string) {
+  return html
+    .replace(/<\s*br\s*\/?>/gi, "\n")
+    .replace(/<\/\s*(p|div|li|tr|h[1-6])\s*>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, "\"")
+    .replace(/&#39;/g, "'")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n\s*\n+/g, "\n\n")
+    .trim();
 }
 
 function render(template: string, vars: Record<string, string>, escapeValues = false) {
@@ -301,18 +323,33 @@ async function requireAuthenticatedProfile(req: Request, admin: SupabaseAdmin): 
   return { ok: true, profile: { userId: user.id, companyId: profile.company_id } as AuthenticatedProfile };
 }
 
-async function getTemplate(req: Request, admin: SupabaseAdmin, templateKey: string, test = false): Promise<TemplateResult> {
+async function resolveEmailTemplate(
+  req: Request,
+  admin: SupabaseAdmin,
+  args: {
+    companyId?: string | null;
+    templateId?: string | null;
+    templateKey?: string | null;
+    purpose?: CandidateEmailPurpose | "general";
+    includeInactive?: boolean;
+  },
+): Promise<TemplateResult> {
   const { data: tpl, error: tplErr } = await admin
-    .from("email_templates")
-    .select("subject, html_body, text_body, is_active")
-    .eq("key", templateKey)
+    .rpc("resolve_email_template", {
+      _company_id: args.companyId ?? null,
+      _template_id: args.templateId ?? null,
+      _template_key: args.templateKey ?? null,
+      _purpose: args.purpose ?? "general",
+      _include_inactive: args.includeInactive ?? false,
+    })
     .maybeSingle();
 
   if (tplErr || !tpl) return { ok: false, response: json(req, 404, { error: "Template not found" }) };
-  if (!tpl.is_active && !test) {
+  const template = tpl as EmailTemplate;
+  if ((!template.is_active || template.archived_at) && !args.includeInactive) {
     return { ok: false, response: json(req, 400, { error: "Template is disabled" }) };
   }
-  return { ok: true, template: tpl as EmailTemplate };
+  return { ok: true, template };
 }
 
 function resolveSender(company: CompanyEmailSettings | null) {
@@ -335,14 +372,19 @@ async function sendEmail(
 ) {
   if (!RESEND_API_KEY) return json(req, 500, { error: "RESEND_API_KEY not configured" });
 
-  const templateResult = await getTemplate(req, admin, args.templateKey, args.test);
+  const templateResult = await resolveEmailTemplate(req, admin, {
+    companyId: args.companyId ?? null,
+    templateKey: args.templateKey,
+    purpose: "general",
+    includeInactive: args.test,
+  });
   if (!templateResult.ok) return templateResult.response;
   const tpl = templateResult.template;
 
   const { fromAddress, replyTo } = resolveSender(args.company);
   const subject = normalizeSubject(render(tpl.subject, args.variables));
   const html = render(tpl.html_body, args.variables, true);
-  const text = tpl.text_body ? render(tpl.text_body, args.variables) : undefined;
+  const text = htmlToPlainText(html);
 
   const resendRes = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -414,7 +456,7 @@ async function sendRenderedEmail(admin: SupabaseAdmin, args: RenderedEmailArgs) 
       to: [args.recipient],
       subject: args.subject,
       html: args.html,
-      text: args.text,
+      text: htmlToPlainText(args.html),
       reply_to: replyTo,
     }),
   });
@@ -530,10 +572,8 @@ async function sendCandidateEmail(req: Request, admin: SupabaseAdmin, body: Reco
   const recipients = normalizeCandidateEmailRecipients(body?.recipients);
   const subjectTemplate = normalizeSubject(String(body?.subject ?? ""));
   const htmlTemplate = normalizeBody(body?.html_body);
-  const textTemplate = body?.text_body == null ? null : normalizeBody(body?.text_body);
   const rejectApplications = body?.reject_applications === true;
 
-  if (!templateId) return json(req, 400, { error: "template_id is required" });
   if (recipients.length === 0) return json(req, 400, { error: "recipients are required" });
   if (!subjectTemplate) return json(req, 400, { error: "subject is required" });
   if (!htmlTemplate) return json(req, 400, { error: "html_body is required" });
@@ -541,23 +581,21 @@ async function sendCandidateEmail(req: Request, admin: SupabaseAdmin, body: Reco
   if (requiredToken && !containsVariableToken(subjectTemplate, htmlTemplate, requiredToken)) {
     return json(req, 400, { error: `${requiredToken} is required for this email purpose` });
   }
+  if (purpose === "form_link") {
+    return json(req, 400, { error: "Shared form links are retired. Use candidate form invitations instead." });
+  }
   if (purpose === "form_link" && !formId) {
     return json(req, 400, { error: "form_id is required for form link emails" });
   }
 
-  const { data: template, error: templateError } = await admin
-    .from("company_email_templates")
-    .select("id, key, name, purpose, subject, html_body, text_body, is_active, archived_at")
-    .eq("id", templateId)
-    .eq("company_id", auth.profile.companyId)
-    .maybeSingle();
+  const templateResult = await resolveEmailTemplate(req, admin, {
+    companyId: auth.profile.companyId,
+    templateId: templateId || null,
+    purpose,
+  });
+  if (!templateResult.ok) return templateResult.response;
 
-  if (templateError || !template) return json(req, 404, { error: "Template not found" });
-
-  const clientTemplate = template as CompanyEmailTemplate;
-  if (!clientTemplate.is_active || clientTemplate.archived_at) {
-    return json(req, 400, { error: "Template is not active" });
-  }
+  const clientTemplate = templateResult.template as CompanyEmailTemplate;
   if (clientTemplate.purpose !== purpose) {
     return json(req, 400, { error: "Template purpose does not match this action" });
   }
@@ -698,7 +736,6 @@ async function sendCandidateEmail(req: Request, admin: SupabaseAdmin, body: Reco
       recipient,
       subject,
       html: render(htmlTemplate, variables, true),
-      text: textTemplate ? render(textTemplate, variables) : undefined,
       variables,
       company: companyResult.data as CompanyEmailSettings,
       companyId: auth.profile.companyId,
@@ -730,7 +767,6 @@ async function sendCandidateRejected(req: Request, admin: SupabaseAdmin, body: R
   const applicationIds = normalizeApplicationIds(body?.application_ids);
   const subjectTemplate = normalizeSubject(String(body?.subject ?? ""));
   const htmlTemplate = normalizeBody(body?.html_body);
-  const textTemplate = body?.text_body == null ? null : normalizeBody(body?.text_body);
 
   if (applicationIds.length === 0) return json(req, 400, { error: "application_ids is required" });
   if (!subjectTemplate) return json(req, 400, { error: "subject is required" });
@@ -793,7 +829,6 @@ async function sendCandidateRejected(req: Request, admin: SupabaseAdmin, body: R
       recipient,
       subject: normalizeSubject(render(subjectTemplate, variables)),
       html: render(htmlTemplate, variables, true),
-      text: textTemplate ? render(textTemplate, variables) : undefined,
       variables,
       company: company as CompanyEmailSettings,
       companyId: auth.profile.companyId,
