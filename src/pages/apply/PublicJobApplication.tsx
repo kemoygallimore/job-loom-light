@@ -34,6 +34,33 @@ const initialFormState: ApplicationFormState = {
   screeningAnswers: {},
 };
 
+const GENERIC_SUBMIT_ERROR = "We could not submit your application. Please try again.";
+
+const technicalSubmitErrorPatterns = [
+  /requires a WHERE clause/i,
+  /pg_temp/i,
+  /Failed to run sql query/i,
+  /syntax error/i,
+  /null value in column/i,
+  /duplicate key value violates/i,
+  /violates row-level security/i,
+];
+
+function submitErrorMessage(error: unknown) {
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "object" && error !== null && "message" in error && typeof error.message === "string"
+        ? error.message
+        : "";
+
+  if (!message || technicalSubmitErrorPatterns.some((pattern) => pattern.test(message))) {
+    return GENERIC_SUBMIT_ERROR;
+  }
+
+  return message;
+}
+
 export default function PublicJobApplication() {
   const { jobId } = useParams<{ jobId: string }>();
   const [job, setJob] = useState<JobSummary | null>(null);
@@ -180,7 +207,7 @@ export default function PublicJobApplication() {
       setSubmitted(true);
     } catch (err: unknown) {
       console.error("Submit error:", err);
-      const msg = err instanceof Error ? err.message : "Something went wrong";
+      const msg = submitErrorMessage(err);
       if (/linkedin/i.test(msg)) {
         setErrors((current) => ({ ...current, linkedinUrl: msg }));
         toast.error(msg);
