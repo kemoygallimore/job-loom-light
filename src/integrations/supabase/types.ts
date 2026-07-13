@@ -900,9 +900,9 @@ export type Database = {
         Relationships: []
       }
       job_screening_answers: {
-        Row: { id: string; response_id: string; question_id: string; answer: Json; earned_percent: number | null; rubric_level: number | null; graded_by: string | null; graded_at: string | null }
-        Insert: { id?: string; response_id: string; question_id: string; answer: Json; earned_percent?: number | null; rubric_level?: number | null; graded_by?: string | null; graded_at?: string | null }
-        Update: { id?: string; response_id?: string; question_id?: string; answer?: Json; earned_percent?: number | null; rubric_level?: number | null; graded_by?: string | null; graded_at?: string | null }
+        Row: { id: string; response_id: string; question_id: string; answer: Json; answer_display: Json | null; earned_percent: number | null; rubric_level: number | null; graded_by: string | null; graded_at: string | null }
+        Insert: { id?: string; response_id: string; question_id: string; answer: Json; answer_display?: Json | null; earned_percent?: number | null; rubric_level?: number | null; graded_by?: string | null; graded_at?: string | null }
+        Update: { id?: string; response_id?: string; question_id?: string; answer?: Json; answer_display?: Json | null; earned_percent?: number | null; rubric_level?: number | null; graded_by?: string | null; graded_at?: string | null }
         Relationships: []
       }
       candidate_form_assignments: {

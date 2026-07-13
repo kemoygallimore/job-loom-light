@@ -24,15 +24,25 @@ interface Answer {
   id: string;
   question_id: string;
   answer: unknown;
+  answer_display: unknown | null;
   rubric_level: number | null;
   graded_at: string | null;
   earned_percent: number | null;
+}
+
+interface Choice {
+  id: string;
+  question_id: string;
+  label: string;
+  position: number;
 }
 
 interface Question {
   id: string;
   prompt: string;
   position: number;
+  type: "yes_no" | "single_choice" | "multi_select" | "number" | "short_text" | "long_text";
+  choices: Choice[];
 }
 
 interface MissingContext {
@@ -40,11 +50,37 @@ interface MissingContext {
   applicationPredatesActiveScreening: boolean;
 }
 
+function unknownChoicePreview(value: unknown) {
+  const text = answerPreview(value);
+  return text === "-" ? text : `Unknown choice (${text})`;
+}
+
+function screeningAnswerPreview(answer: Answer, question?: Question) {
+  if (answer.answer_display != null) return answerPreview(answer.answer_display);
+  if (!question) return answerPreview(answer.answer);
+
+  const choicesById = new Map(question.choices.map((choice) => [choice.id, choice.label]));
+
+  if (question.type === "yes_no" || question.type === "single_choice") {
+    const choiceId = String(answer.answer ?? "");
+    return choicesById.get(choiceId) ?? unknownChoicePreview(answer.answer);
+  }
+
+  if (question.type === "multi_select") {
+    if (!Array.isArray(answer.answer)) return answerPreview(answer.answer);
+    return answerPreview(
+      answer.answer.map((choiceId) => choicesById.get(String(choiceId)) ?? unknownChoicePreview(choiceId)),
+    );
+  }
+
+  return answerPreview(answer.answer);
+}
+
 export default function ScreeningReview({ applicationId }: Props) {
   const [loading, setLoading] = useState(true);
   const [response, setResponse] = useState<ScreeningResponse | null>(null);
   const [answers, setAnswers] = useState<Answer[]>([]);
-  const [prompts, setPrompts] = useState<Record<string, string>>({});
+  const [questionsById, setQuestionsById] = useState<Record<string, Question>>({});
   const [missingContext, setMissingContext] = useState<MissingContext>({
     hasActiveScreening: false,
     applicationPredatesActiveScreening: false,
@@ -107,7 +143,7 @@ export default function ScreeningReview({ applicationId }: Props) {
 
     if (!row) {
       setAnswers([]);
-      setPrompts({});
+      setQuestionsById({});
       await loadMissingContext();
       setLoading(false);
       return;
@@ -117,11 +153,11 @@ export default function ScreeningReview({ applicationId }: Props) {
       await Promise.all([
         supabase
           .from("job_screening_answers")
-          .select("id, question_id, answer, rubric_level, graded_at, earned_percent")
+          .select("id, question_id, answer, answer_display, rubric_level, graded_at, earned_percent")
           .eq("response_id", row.id),
         supabase
           .from("job_screening_questions")
-          .select("id, prompt, position")
+          .select("id, prompt, position, type")
           .eq("version_id", row.version_id)
           .order("position"),
       ]);
@@ -132,14 +168,40 @@ export default function ScreeningReview({ applicationId }: Props) {
       return;
     }
 
-    const orderedQuestions = (questionRows ?? []) as Question[];
+    const orderedQuestionBase = (questionRows ?? []) as Omit<Question, "choices">[];
+    const questionIds = orderedQuestionBase.map((question) => question.id);
+    const { data: choiceRows, error: choicesError } = questionIds.length
+      ? await supabase
+          .from("job_screening_choices")
+          .select("id, question_id, label, position")
+          .in("question_id", questionIds)
+          .order("position")
+      : { data: [], error: null };
+
+    if (choicesError) {
+      toast.error(choicesError.message);
+      setLoading(false);
+      return;
+    }
+
+    const choicesByQuestion = new Map<string, Choice[]>();
+    for (const choice of (choiceRows ?? []) as Choice[]) {
+      const existing = choicesByQuestion.get(choice.question_id) ?? [];
+      existing.push(choice);
+      choicesByQuestion.set(choice.question_id, existing);
+    }
+
+    const orderedQuestions = orderedQuestionBase.map((question) => ({
+      ...question,
+      choices: choicesByQuestion.get(question.id) ?? [],
+    }));
     const questionOrder = new Map(orderedQuestions.map((question, index) => [question.id, index]));
     setAnswers(
       ((answerRows ?? []) as Answer[]).sort(
         (left, right) => (questionOrder.get(left.question_id) ?? 0) - (questionOrder.get(right.question_id) ?? 0),
       ),
     );
-    setPrompts(Object.fromEntries(orderedQuestions.map((question) => [question.id, question.prompt])));
+    setQuestionsById(Object.fromEntries(orderedQuestions.map((question) => [question.id, question])));
     setLoading(false);
   }, [applicationId, loadMissingContext]);
 
@@ -214,9 +276,11 @@ export default function ScreeningReview({ applicationId }: Props) {
       {answers.map((answer, index) => (
         <article key={answer.id} className="space-y-3 rounded-lg border p-4">
           <p className="text-sm font-medium">
-            {index + 1}. {prompts[answer.question_id] ?? "Screening question"}
+            {index + 1}. {questionsById[answer.question_id]?.prompt ?? "Screening question"}
           </p>
-          <p className="whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-sm">{answerPreview(answer.answer)}</p>
+          <p className="whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-sm">
+            {screeningAnswerPreview(answer, questionsById[answer.question_id])}
+          </p>
           {answer.earned_percent == null && !answer.graded_at ? (
             <div>
               <p className="mb-2 text-xs font-medium text-muted-foreground">
