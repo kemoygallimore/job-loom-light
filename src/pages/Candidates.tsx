@@ -18,6 +18,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StageBadge from "@/components/shared/StageBadge";
 import PageHeader from "@/components/shared/PageHeader";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
+import { deleteObjects, R2_BUCKET_RESUMES, R2_BUCKET_VIDEOS } from "@/lib/storage";
 
 interface CandidateWithContext {
   id: string;
@@ -64,11 +65,103 @@ interface CandidatesQueryData {
   tagsByCandidate: Map<string, CandidateTag[]>;
 }
 
+interface StoredObjectTarget {
+  bucket: string;
+  key: string;
+}
+
 function errorMessage(error: unknown, fallback: string) {
   if (error && typeof error === "object" && "message" in error && typeof error.message === "string") {
     return error.message;
   }
   return fallback;
+}
+
+function addStoredObject(
+  targets: Map<string, StoredObjectTarget>,
+  bucket: string | null | undefined,
+  key: string | null | undefined,
+  fallbackBucket: string,
+) {
+  const cleanKey = key?.trim();
+  if (!cleanKey || /^https?:\/\//i.test(cleanKey)) return;
+
+  const cleanBucket = bucket?.trim() || fallbackBucket;
+  targets.set(`${cleanBucket}:${cleanKey}`, { bucket: cleanBucket, key: cleanKey });
+}
+
+async function deleteStoredObjects(targets: Iterable<StoredObjectTarget>, accessToken?: string) {
+  const byBucket = new Map<string, string[]>();
+
+  for (const target of targets) {
+    const keys = byBucket.get(target.bucket) ?? [];
+    keys.push(target.key);
+    byBucket.set(target.bucket, keys);
+  }
+
+  for (const [bucket, keys] of byBucket) {
+    await deleteObjects(bucket, keys, accessToken);
+  }
+}
+
+async function deleteCandidateStorageObjects(candidate: CandidateWithContext) {
+  const targets = new Map<string, StoredObjectTarget>();
+
+  addStoredObject(targets, candidate.resume_bucket, candidate.resume_object_key ?? candidate.resume_url, R2_BUCKET_RESUMES);
+
+  const [{ data: sessionData }, candidateFilesRes, assignmentsRes, directSubmissionsRes, screeningSubmissionsRes] =
+    await Promise.all([
+      supabase.auth.getSession(),
+      supabase.from("candidate_files").select("bucket, file_key").eq("candidate_id", candidate.id),
+      supabase.from("candidate_form_assignments").select("id").eq("candidate_id", candidate.id),
+      supabase.from("lead_form_submissions").select("id").eq("candidate_id", candidate.id),
+      candidate.email
+        ? supabase
+            .from("screening_submissions")
+            .select("video_bucket, video_object_key, video_url")
+            .eq("company_id", candidate.company_id)
+            .ilike("candidate_email", candidate.email.trim())
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+  if (candidateFilesRes.error) throw candidateFilesRes.error;
+  if (assignmentsRes.error) throw assignmentsRes.error;
+  if (directSubmissionsRes.error) throw directSubmissionsRes.error;
+  if (screeningSubmissionsRes.error) throw screeningSubmissionsRes.error;
+
+  for (const file of candidateFilesRes.data ?? []) {
+    addStoredObject(targets, file.bucket, file.file_key, R2_BUCKET_RESUMES);
+  }
+
+  for (const submission of screeningSubmissionsRes.data ?? []) {
+    addStoredObject(targets, submission.video_bucket, submission.video_object_key ?? submission.video_url, R2_BUCKET_VIDEOS);
+  }
+
+  const submissionIds = new Set((directSubmissionsRes.data ?? []).map((submission) => submission.id));
+  const assignmentIds = (assignmentsRes.data ?? []).map((assignment) => assignment.id);
+
+  if (assignmentIds.length > 0) {
+    const { data, error } = await supabase.from("lead_form_submissions").select("id").in("assignment_id", assignmentIds);
+    if (error) throw error;
+    for (const submission of data ?? []) {
+      submissionIds.add(submission.id);
+    }
+  }
+
+  if (submissionIds.size > 0) {
+    const { data, error } = await supabase
+      .from("lead_form_uploads")
+      .select("bucket, object_key")
+      .in("submission_id", Array.from(submissionIds));
+
+    if (error) throw error;
+
+    for (const upload of data ?? []) {
+      addStoredObject(targets, upload.bucket, upload.object_key, R2_BUCKET_RESUMES);
+    }
+  }
+
+  await deleteStoredObjects(targets.values(), sessionData.session?.access_token);
 }
 
 async function fetchCandidatesData(): Promise<CandidatesQueryData> {
@@ -257,16 +350,18 @@ export default function Candidates() {
   }, [candidates]);
 
   const deleteCandidateMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("candidates").delete().eq("id", id);
+    mutationFn: async (candidate: CandidateWithContext) => {
+      await deleteCandidateStorageObjects(candidate);
+
+      const { error } = await supabase.rpc("delete_candidate_for_privacy", { _candidate_id: candidate.id });
       if (error) throw error;
-      return id;
+      return candidate.id;
     },
     onError: (error) => {
       toast.error(errorMessage(error, "Failed to delete candidate"));
     },
     onSuccess: (id) => {
-      toast.success("Candidate deleted");
+      toast.success("Candidate permanently deleted");
       queryClient.invalidateQueries({ queryKey: [...keys.all, "candidates"] });
       queryClient.invalidateQueries({ queryKey: [...keys.all, "tags"] });
       queryClient.invalidateQueries({ queryKey: keys.candidate(id) });
@@ -274,8 +369,8 @@ export default function Candidates() {
     },
   });
 
-  const handleDelete = (id: string) => {
-    deleteCandidateMutation.mutate(id);
+  const handleDelete = (candidate: CandidateWithContext) => {
+    deleteCandidateMutation.mutate(candidate);
   };
 
   return (
@@ -440,12 +535,12 @@ export default function Candidates() {
                             title="Delete this candidate?"
                             description={
                               <>
-                                This will permanently remove <span className="font-medium text-foreground">{c.name}</span> along with their applications, notes, feedback, tags, and uploaded files. This action cannot be undone.
+                                This will permanently remove <span className="font-medium text-foreground">{c.name}</span> along with their applications, consent records, email logs, notes, feedback, tags, screening submissions, and uploaded files. This action cannot be undone.
                               </>
                             }
-                            confirmLabel="Delete candidate"
+                            confirmLabel="Permanently delete"
                             destructive
-                            onConfirm={() => handleDelete(c.id)}
+                            onConfirm={() => handleDelete(c)}
                             trigger={
                               <Button variant="ghost" size="icon" className="h-8 w-8">
                                 <Trash2 className="w-3.5 h-3.5 text-destructive" />

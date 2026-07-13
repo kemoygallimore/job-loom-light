@@ -1021,6 +1021,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      delete_candidate_for_privacy: {
+        Args: { _candidate_id: string }
+        Returns: Json
+      }
       resolve_email_template: {
         Args: {
           _company_id?: string | null
