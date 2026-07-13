@@ -3,10 +3,14 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 type SupabaseAdmin = ReturnType<typeof createClient>;
 
 interface EmailTemplate {
+  id?: string;
+  key?: string;
+  name?: string;
   subject: string;
   html_body: string;
   text_body: string | null;
   is_active: boolean;
+  archived_at?: string | null;
 }
 
 interface CompanyEmailSettings {
@@ -111,14 +115,19 @@ function fail(status: number, error: string, details?: unknown, retryable = true
 
 async function getTemplate(admin: SupabaseAdmin, templateKey: string) {
   const { data: tpl, error: tplErr } = await admin
-    .from("email_templates")
-    .select("subject, html_body, text_body, is_active")
-    .eq("key", templateKey)
+    .rpc("resolve_email_template", {
+      _company_id: null,
+      _template_id: null,
+      _template_key: templateKey,
+      _purpose: "general",
+      _include_inactive: false,
+    })
     .maybeSingle();
 
   if (tplErr || !tpl) return fail(404, "Template not found", tplErr?.message);
-  if (!tpl.is_active) return fail(400, "Template is disabled");
-  return { ok: true as const, template: tpl as EmailTemplate };
+  const template = tpl as EmailTemplate;
+  if (!template.is_active || template.archived_at) return fail(400, "Template is disabled");
+  return { ok: true as const, template };
 }
 
 function resolveSender(company: CompanyEmailSettings | null) {

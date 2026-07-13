@@ -76,7 +76,7 @@ vi.mock("@/integrations/supabase/client", () => {
         return Promise.resolve({ data: null, error: null });
       }),
       single: vi.fn(() => {
-        if (table !== "company_email_templates") return Promise.resolve({ data: null, error: null });
+        if (table !== "email_templates") return Promise.resolve({ data: null, error: null });
 
         if (filters.id) {
           state.updatePayloads.push({ payload: mutationPayload, filters: { ...filters } });
@@ -98,7 +98,7 @@ vi.mock("@/integrations/supabase/client", () => {
             data: null,
             error: {
               message:
-                'duplicate key value violates unique constraint "company_email_templates_company_key_unique"',
+                'duplicate key value violates unique constraint "email_templates_company_key_unique_idx"',
             },
           });
         }
@@ -109,7 +109,7 @@ vi.mock("@/integrations/supabase/client", () => {
       }),
       then: (resolve: (value: { data: unknown; error: null }) => void, reject: (reason?: unknown) => void) => {
         const data =
-          table === "company_email_templates"
+          table === "email_templates"
             ? applyCompanyEmailFilters(filters)
             : [];
         return Promise.resolve({ data, error: null }).then(resolve, reject);

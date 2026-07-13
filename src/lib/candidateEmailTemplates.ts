@@ -25,7 +25,7 @@ export type CandidateEmailVariable = typeof CANDIDATE_EMAIL_VARIABLES[number];
 
 export interface CandidateEmailTemplate {
   id?: string;
-  company_id: string;
+  company_id: string | null;
   key: string;
   name: string;
   purpose: CandidateEmailTemplatePurpose;

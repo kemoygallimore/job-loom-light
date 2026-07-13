@@ -371,6 +371,75 @@ export type Database = {
           },
         ]
       }
+      email_templates: {
+        Row: {
+          archived_at: string | null
+          company_id: string | null
+          created_at: string
+          html_body: string
+          id: string
+          is_active: boolean
+          is_default_for_purpose: boolean
+          key: string
+          name: string
+          purpose: string
+          subject: string
+          text_body: string | null
+          updated_at: string
+          updated_by: string | null
+          variables: Json
+        }
+        Insert: {
+          archived_at?: string | null
+          company_id?: string | null
+          created_at?: string
+          html_body: string
+          id?: string
+          is_active?: boolean
+          is_default_for_purpose?: boolean
+          key: string
+          name: string
+          purpose?: string
+          subject: string
+          text_body?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          variables?: Json
+        }
+        Update: {
+          archived_at?: string | null
+          company_id?: string | null
+          created_at?: string
+          html_body?: string
+          id?: string
+          is_active?: boolean
+          is_default_for_purpose?: boolean
+          key?: string
+          name?: string
+          purpose?: string
+          subject?: string
+          text_body?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          variables?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_templates_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_templates_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       email_send_log: {
         Row: {
           application_id: string | null
@@ -952,6 +1021,31 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      resolve_email_template: {
+        Args: {
+          _company_id?: string | null
+          _template_id?: string | null
+          _template_key?: string | null
+          _purpose?: string
+          _include_inactive?: boolean
+        }
+        Returns: {
+          archived_at: string | null
+          company_id: string | null
+          html_body: string
+          id: string
+          is_active: boolean
+          is_default_for_purpose: boolean
+          key: string
+          name: string
+          purpose: string
+          source: string
+          subject: string
+          text_body: string | null
+          updated_at: string
+          variables: Json
+        }[]
+      }
       grade_written_screening_answer: {
         Args: { _answer_id: string; _rubric_level: number }
         Returns: Database["public"]["Tables"]["job_screening_answers"]["Row"]
