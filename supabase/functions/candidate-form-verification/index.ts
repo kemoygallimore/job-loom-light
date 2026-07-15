@@ -237,7 +237,7 @@ async function assertUsableInvitation(token: string) {
     isExpired(loaded.assignment.expires_at) ||
     loaded.form.status !== "active" ||
     loaded.form.deleted_at ||
-    company?.status === "suspended"
+    company?.status !== "active"
   ) {
     return { ok: false as const, response: unavailable() };
   }
@@ -491,7 +491,7 @@ async function handleSendInvites(req: Request, body: Record<string, unknown>) {
   if (!form || form.status !== "active" || form.deleted_at) return respond(400, { error: "Active form not found" });
 
   const company = await loadCompany(auth.profile.companyId);
-  if (company?.status === "suspended") return respond(403, { error: "Company is suspended" });
+  if (company?.status !== "active") return respond(403, { error: "Company is unavailable" });
 
   const { data: candidatesData, error: candidatesError } = await admin
     .from("candidates")

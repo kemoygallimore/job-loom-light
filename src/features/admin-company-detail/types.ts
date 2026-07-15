@@ -12,6 +12,9 @@ export interface Subscription {
   discount_type: string | null;
   discount_value: number | null;
   discount_note: string | null;
+  subscription_start_date: string | null;
+  renewal_date: string | null;
+  auto_renew: boolean | null;
 }
 
 export interface Addon {
@@ -85,6 +88,9 @@ export function blankSubscription(companyId: string): Subscription {
     discount_type: null,
     discount_value: null,
     discount_note: null,
+    subscription_start_date: null,
+    renewal_date: null,
+    auto_renew: true,
   };
 }
 

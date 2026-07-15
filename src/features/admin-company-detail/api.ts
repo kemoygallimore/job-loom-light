@@ -86,6 +86,9 @@ function toSubscription(value: unknown, companyId: string): Subscription {
     discount_type: nullableString(value.discount_type),
     discount_value: nullableNumber(value.discount_value),
     discount_note: nullableString(value.discount_note),
+    subscription_start_date: nullableString(value.subscription_start_date),
+    renewal_date: nullableString(value.renewal_date),
+    auto_renew: typeof value.auto_renew === "boolean" ? value.auto_renew : null,
   };
 }
 
@@ -156,6 +159,9 @@ export async function upsertSubscription(companyId: string, sub: Subscription) {
     discount_type: sub.discount_type,
     discount_value: sub.discount_value,
     discount_note: sub.discount_note,
+    subscription_start_date: sub.subscription_start_date,
+    renewal_date: sub.renewal_date,
+    auto_renew: sub.auto_renew,
   };
   const { error } = await adminDb.from("company_subscriptions").upsert(payload, { onConflict: "company_id" });
   if (error) throw error;

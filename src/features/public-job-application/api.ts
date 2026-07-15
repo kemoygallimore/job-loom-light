@@ -14,6 +14,15 @@ import type {
 type CandidateInsert = Database["public"]["Tables"]["candidates"]["Insert"] & { linkedin_url?: string | null };
 type CandidateUpdate = Database["public"]["Tables"]["candidates"]["Update"] & { linkedin_url?: string | null };
 type CandidateFileInsert = Database["public"]["Tables"]["candidate_files"]["Insert"];
+type PublicJobCompany = {
+  id: string;
+  name: string;
+  slug: string;
+  status: string | null;
+};
+type PublicJobWithCompany = Database["public"]["Tables"]["jobs"]["Row"] & {
+  companies?: PublicJobCompany | PublicJobCompany[] | null;
+};
 
 type SupabaseMutationResult = { error: { message: string } | null };
 type CandidateLinkedInMutation = {
@@ -43,7 +52,7 @@ function toCandidateBase(input: CandidateProfileInput) {
 export async function loadPublicApplicationContext(jobId: string): Promise<PublicApplicationContext | null> {
   const { data: jobData, error: jobError } = await supabase
     .from("jobs")
-    .select("id, title, description, company_id")
+    .select("id, title, description, company_id, companies!inner(id, name, slug, status)")
     .eq("id", jobId)
     .eq("status", "open")
     .gt("expires_at", new Date().toISOString())
@@ -52,13 +61,11 @@ export async function loadPublicApplicationContext(jobId: string): Promise<Publi
   if (jobError) throw jobError;
   if (!jobData) return null;
 
-  const { data: companyData, error: companyError } = await supabase
-    .from("companies")
-    .select("id, name, slug")
-    .eq("id", jobData.company_id)
-    .maybeSingle();
-
-  if (companyError) throw companyError;
+  const jobWithCompany = jobData as PublicJobWithCompany;
+  const companyData = Array.isArray(jobWithCompany.companies)
+    ? jobWithCompany.companies[0]
+    : jobWithCompany.companies;
+  if (!companyData || companyData.status !== "active") return null;
 
   const { data: screeningVersion, error: screeningVersionError } = await supabase
     .from("job_screening_versions")

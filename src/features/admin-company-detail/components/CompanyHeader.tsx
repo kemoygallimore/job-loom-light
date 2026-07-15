@@ -24,7 +24,10 @@ export function CompanyHeader({ company, jobLimit, seatLimit, onEdit }: Props) {
         <div>
           <h1 className="text-2xl font-bold">{company?.name}</h1>
           <div className="flex items-center gap-3 mt-1">
-            <Badge variant={company?.status === "suspended" ? "destructive" : "secondary"}>
+            <Badge
+              variant={company?.status === "active" ? "secondary" : company?.status === "archived" ? "outline" : "destructive"}
+              className={company?.status === "active" ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100" : undefined}
+            >
               {company?.status ?? "active"}
             </Badge>
             <span className="text-xs text-muted-foreground tabular-nums">
