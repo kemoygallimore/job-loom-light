@@ -1,162 +1,526 @@
-# RizonHire — User Guide
+# RizonHire Client Onboarding Guide
 
-_Last updated: May 12, 2026_
+_Last updated: July 14, 2026_
 
-This guide covers everyday use of RizonHire for three audiences: **Company Users**, **Company Admins**, and **Super Admins**. Candidates do not log in; they apply through public links.
+Welcome to RizonHire. This guide is for company clients who are onboarding their hiring teams and learning how to use the platform day to day.
 
----
+RizonHire is a hiring workspace that helps your team publish jobs, receive candidate applications, review candidate profiles, manage hiring stages, collect forms, run video screening, send candidate emails, maintain data protection settings, and access billing information from one place.
 
-## Getting Started
+Candidates do not need a RizonHire account. They apply, submit screening videos, complete assigned forms, or provide information through secure public links.
 
-### Signing in
-1. Go to your RizonHire URL (e.g. `https://app.rizonhire.com/auth`).
-2. Enter the email and password provided by your administrator.
-3. If you forgot your password, click **Forgot password** and follow the email link.
+For help, contact:
 
-> RizonHire is invite-only. New users must be created by a Super Admin (for company admins) or by your company admin.
-
-### The sidebar
-- **Dashboard** — KPIs at a glance
-- **Jobs** — manage postings
-- **Candidates** — search and review applicants
-- **Pipeline** — Kanban board of in-flight applications
-- **Candidate Tags** — manage tag library (admins)
-- **Video Screening** — async video interviews
-- **Assessment** — reserved for future workflows
-
-The sidebar can be collapsed via the chevron at the top.
+- General support: `support@rizonhire.com`
+- Onboarding help: `onboarding@rizonhire.com`
 
 ---
 
-## For Company Users
+## 1. First-Week Setup Checklist
 
-### Posting a job
-1. Open **Jobs** → **New job**.
-2. Enter title, hiring manager, and description (rich text supported).
-3. Set status to **Open** to make it visible on your public careers page.
-4. Each company has a maximum number of open jobs; close older roles if you hit the limit.
+Use this checklist during onboarding.
 
-Your public careers page is `https://app.rizonhire.com/<your-company-slug>/careers`. Share this with candidates.
+| Step | What to do | Who usually does it |
+| --- | --- | --- |
+| 1 | Sign in at `https://app.rizonhire.com/auth` | All users |
+| 2 | Confirm your company name, careers page, and hiring team access | Company admin |
+| 3 | Add or review team members and roles | Company admin |
+| 4 | Review billing profile and invoice contact details | Company admin |
+| 5 | Publish or review your candidate data protection notice | Company admin |
+| 6 | Create email templates for common candidate messages | Company admin or hiring lead |
+| 7 | Create your first job posting | Hiring lead |
+| 8 | Copy and share your careers page or application link | Hiring team |
+| 9 | Review incoming candidates and move them through the pipeline | Hiring team |
+| 10 | Set up optional forms or video screening if needed | Hiring team |
 
-### Reviewing candidates
+---
+
+## 2. Signing In and Navigation
+
+### Sign in
+
+1. Go to `https://app.rizonhire.com/auth`.
+2. Enter the email and password provided during onboarding.
+3. If you cannot remember your password, select **Forgot password** and follow the reset email.
+
+RizonHire is invite-only. New users must be added by a company admin or by the RizonHire onboarding team.
+
+### Main navigation
+
+Most company users will see these areas:
+
+- **Dashboard** - Hiring activity and key metrics.
+- **Jobs** - Create, edit, close, and share job postings.
+- **Candidates** - Search applicants and open full candidate profiles.
+- **Pipeline** - Move applications through hiring stages.
+- **Forms** - Build reusable forms and review submitted responses.
+- **Candidate Tags** - Manage labels used to organize candidates.
+- **Video Screening** - Create screening questions and review recorded answers.
+
+Your account menu may also include:
+
+- **Team** - Manage users and roles. Admins only.
+- **Email Templates** - Create reusable candidate messages.
+- **Data Protection Settings** - Maintain your company candidate privacy notice. Admins only.
+- **Billing** - View billing profile, renewal information, and invoices.
+- **Data Protection** - View the RizonHire platform data protection policy.
+
+If enabled for your workspace, **Assessment** may also appear as a future or optional workflow area.
+
+On smaller screens, use the menu button to open the sidebar. On desktop, the sidebar can be collapsed to give you more workspace.
+
+---
+
+## 3. Roles and Permissions
+
+Your role controls which actions you can perform.
+
+| Role | Best for | Typical access |
+| --- | --- | --- |
+| Admin | Client owners, HR managers, hiring operations leads | Manage team members, data protection settings, billing profile, tags, jobs, candidates, forms, screening, and deletion actions where available. |
+| Recruiter / standard user | Recruiters, hiring managers, interview coordinators | Work with jobs, candidates, pipeline, forms, screening, candidate emails, and day-to-day hiring activity. |
+
+If a menu item is missing, your role may not include that permission. Ask your company admin or contact `support@rizonhire.com`.
+
+---
+
+## 4. Dashboard
+
+The Dashboard gives your team a quick view of hiring activity, such as open jobs, candidate volume, and applications by stage.
+
+Use the Dashboard to:
+
+- Check whether new applications have arrived.
+- See how active your hiring pipeline is.
+- Jump into Jobs, Candidates, or Pipeline for follow-up.
+- Spot roles or stages that need attention.
+
+The Dashboard is a starting point, not a replacement for reviewing candidates in detail.
+
+---
+
+## 5. Jobs and Public Careers Pages
+
+Jobs are the foundation of your hiring workflow. Open jobs can appear on your public careers page and can receive candidate applications.
+
+### Create a job
+
+1. Open **Jobs**.
+2. Select **Add Job**.
+3. Enter the job title, description, and any required details.
+4. Set the job status to open when it is ready to receive applications.
+5. Save the job.
+
+Your workspace may have an open-job limit based on your subscription. If you reach the limit, close an old job before opening a new one or contact `support@rizonhire.com`.
+
+### Share your careers page
+
+Your company careers page follows this format:
+
+`https://app.rizonhire.com/<company-slug>/careers`
+
+From **Jobs**, use **Copy Careers Link** to share the page with candidates or publish it on your website.
+
+### Share a direct application link
+
+Each job also has a direct application link:
+
+`/apply/<job-id>`
+
+Use the copy action on a job row to share a direct apply link for a specific role.
+
+### Edit, close, or delete jobs
+
+- Edit a job when the title, description, or expiration needs to change.
+- Close a job when you no longer want it visible as an active role.
+- Delete a job only when you are sure it should be permanently removed. Delete access may be admin-only.
+
+---
+
+## 6. Candidate Applications
+
+Candidates enter RizonHire through public application links. Your team does not manually create candidates in the app.
+
+### What candidates submit
+
+The public application form collects details such as:
+
+- Name, email, and phone number.
+- Address, parish/state, country, and education level.
+- Optional LinkedIn profile URL.
+- Resume upload, such as PDF, DOC, or DOCX.
+- Required acknowledgement of the data protection notice.
+
+After submission, the candidate appears in your workspace for review.
+
+### Review candidates
+
 1. Open **Candidates**.
-2. Use the search bar and filters (job, education level, **parish/state**, tags) to narrow the list.
-3. Click a candidate to open their profile:
-   - **Contact** — email, phone, LinkedIn, address
-   - **Resume history** — download any version
-   - **Activity timeline** — applications and stage changes
-   - **Notes** — your private notes (visible to your company)
-   - **Interview feedback** — internal and guest entries
-   - **Tags** — apply / remove labels
+2. Search or filter by job, education level, location, or tags.
+3. Select a candidate to open the profile.
 
-> New candidates can only enter the system through your public application links. There is no manual "Add candidate" button.
+A candidate profile may include:
 
-### Moving candidates through the pipeline
+- Contact information.
+- Resume history and document downloads.
+- Application history.
+- Activity timeline.
+- Notes.
+- Tags.
+- Interview feedback.
+- Screening review.
+- Assigned candidate forms.
+- Consent and privacy history.
+
+Use the profile as the source of truth for the candidate.
+
+---
+
+## 7. Pipeline Workflow
+
+The Pipeline is a kanban-style board for managing applications through hiring stages.
+
+Typical stages include:
+
+- Applied
+- Screening
+- Interview
+- Offer
+- Hired
+- Rejected
+
+### Move a candidate through the process
+
 1. Open **Pipeline**.
-2. Drag a candidate card from one stage to the next (Applied → Screening → Interview → Offer → Hired/Rejected).
-3. Click any card to open the side panel for quick review.
+2. Find the candidate card.
+3. Drag the card to the correct stage.
+4. Open the side panel when you need a quick review before moving someone.
 
-### Sharing a job link
-On a job detail page, copy the URL:
-- Public detail: `/{company-slug}/careers/{job-id}`
-- Direct apply: `/apply/{job-id}`
+Stage changes are saved to the candidate's application record. If another team member is working at the same time, refresh the page if something looks out of date.
 
-### Collecting external feedback
-1. Open the candidate profile → **Interview feedback** → **Generate guest link**.
-2. Send the link to the interviewer. It expires in 30 days.
-3. Submitted feedback appears in the candidate's profile automatically.
+### Rejecting candidates
 
-### Video screening
-1. Open **Video Screening** → **New screening**.
-2. Pick a job, write the question, set the expiry date.
-3. Share the unique link with the candidate.
-4. Review submissions under **Video Screening** → click the job → **Submissions**.
-5. Rate, leave notes, change status.
+If your workspace has rejection email templates configured, your team can send rejection emails through the candidate email workflow. Bulk rejection actions may also be available depending on your workspace configuration.
 
 ---
 
-## For Company Admins
+## 8. Forms
 
-Admins can do everything Users can, plus:
+Forms let your team collect structured information from candidates after they have applied. Examples include availability, references, document collection, or role-specific questionnaires.
 
-### Manage candidate tags
-1. Go to **Candidate Tags**.
-2. Create labels with colors. Apply them from candidate profiles or pipeline cards.
+### Build a reusable form
 
-### Delete records
-- Admins can delete jobs, candidates, candidate files, applications, screening submissions, and feedback for their company.
-- Deletes are permanent.
+1. Open **Forms**.
+2. Select **New Form**.
+3. Add a title and description.
+4. Add fields from the field palette.
+5. Configure field labels, requirements, choices, validation, and file upload settings as needed.
+6. Save the form.
 
-### Open-job limits
-The limit is set by your Super Admin. If you've reached it, close an existing job before opening a new one.
+Each workspace can have up to 5 non-deleted form records in the Forms area. Delete unused forms if you need room for new ones.
 
----
+### Manage forms
 
-## For Super Admins
+From **Forms**, you can:
 
-Super Admins manage the platform across tenants.
+- Preview a form.
+- Edit a form.
+- Enable or disable a form.
+- Review form submissions.
+- Delete a form and related collected data.
 
-### Overview
-The **Overview** screen shows aggregate counts of companies, users, and jobs across all tenants.
+Only active forms can be assigned to candidates.
 
-### Companies
-1. Go to **Admin → Companies**.
-2. **New Company**:
-   - Enter the company name. The system generates a unique slug for the public careers page.
-   - Provide the initial admin's name, email, and a temporary password.
-   - The system creates the auth user, profile, and `admin` role assignment automatically.
-3. **Edit open-job limit**: click the limit value in the Open / Limit column, type a new number, click ✓.
-4. **Search**: filter the list by company name.
+### Send a form to a candidate
 
-> Companies cannot be deleted from the UI by design — contact platform support for tenant removal.
+1. Open the candidate profile.
+2. Go to **Candidate forms**.
+3. Choose an active form.
+4. Select **Send**.
 
----
-
-## For Candidates (Public Pages)
-
-### Browsing roles
-- Go to a company's careers page: `https://app.rizonhire.com/<company-slug>/careers`.
-- Click any open role to view its full description.
-
-### Applying
-1. Click **Apply now**.
-2. Fill in the form:
-   - Name, email, phone (required)
-   - Address, parish/state, country
-   - Education level
-   - LinkedIn profile URL (optional, must start with `https://www.linkedin.com/`)
-   - Upload your resume (PDF/DOC/DOCX)
-3. Read and check the **Data Protection Agreement** (link opens in a new tab).
-4. Submit. You will see a confirmation screen.
-
-### Video screening
-If invited via a unique link:
-1. Open the link.
-2. Accept the privacy notice.
-3. Read the question, then record your one-take answer within the timer.
-4. Wait for the upload to complete before closing the tab.
-
-### Guest feedback
-Interviewers receive a one-time link valid for 30 days:
-1. Open the link.
-2. Provide a star rating and written feedback (strengths, weaknesses, opportunities).
-3. Submit.
+The candidate receives a secure candidate-specific link. You can resend, revoke, or reissue invitations depending on their status.
 
 ---
 
-## Privacy & Data Protection
+## 9. Video Screening
 
-All candidate data is protected under the policy at `/legal/data-protection`. Resumes and screening videos are stored in private storage; access is only granted via short-lived signed links.
+Video Screening helps your team collect short recorded answers before a live interview.
+
+### Create a screening job
+
+1. Open **Video Screening**.
+2. Select **New Screening Job**.
+3. Enter the job title.
+4. Write the screening question.
+5. Choose an expiration date. Expiration can be up to 30 days from today.
+6. Save the screening job.
+
+Each screening job generates a unique public link in the format:
+
+`/screen/<link-id>`
+
+Share this link with candidates directly, or use a video screening email template if configured.
+
+### Review screening submissions
+
+1. Open **Video Screening**.
+2. Select the submissions action for the relevant screening job.
+3. Review submitted videos.
+4. Add ratings, notes, and status updates as needed.
+
+Expired screening jobs remain available under the all-jobs view, but candidates cannot submit after expiration.
 
 ---
 
-## Troubleshooting
+## 10. Candidate Tags
 
-| Problem | Try this |
-|---|---|
-| Can't sign in | Use **Forgot password**. If invite never arrived, contact your admin. |
-| Public careers page shows "company not found" | The company has no open jobs, or the slug is wrong. |
-| Resume upload fails | Check file size (≤ 10 MB) and type (PDF/DOC/DOCX). Try a different browser. |
-| LinkedIn URL rejected | Must start with `https://www.linkedin.com/` and be under 500 chars. |
-| Pipeline drag does nothing | Refresh the page; another user may have moved the candidate. |
-| Hit open-job limit | Close an old job, or ask your Super Admin to raise the limit. |
+Candidate Tags help your team organize and filter applicants.
+
+Common tag examples:
+
+- Shortlist
+- Needs follow-up
+- Strong technical fit
+- Reference required
+- Future role
+
+### Manage tags
+
+1. Open **Candidate Tags**.
+2. Create or edit the tag library.
+3. Choose clear names and colors your team will understand.
+
+Tags can be applied from candidate profiles and used when reviewing lists of candidates.
+
+---
+
+## 11. Email Templates
+
+Email Templates help your team send consistent candidate communication.
+
+Templates can be created for purposes such as:
+
+- General candidate messages.
+- Rejection emails.
+- Form links.
+- Video screening links.
+
+### Create or edit a template
+
+1. Open your account menu.
+2. Select **Email Templates**.
+3. Select **New template** or choose an existing template.
+4. Choose the purpose.
+5. Write the subject and email body.
+6. Insert available variables, such as candidate name, company name, job title, form link, or screening link.
+7. Mark the template active.
+8. Save the template.
+
+Some template purposes require a specific link variable before they can be sent. For example, form-link emails need the form link variable, and video-screening emails need the screening link variable.
+
+### Send candidate emails
+
+Candidate email actions are available from candidate-related workflows. Before sending, review the selected template, subject, body, recipients, and any required link.
+
+For bulk sends, RizonHire may ask you to confirm before messages are sent.
+
+---
+
+## 12. Team Management
+
+Company admins can manage who has access to the workspace.
+
+### Add a user
+
+1. Open your account menu.
+2. Select **Team**.
+3. Select **Add user**.
+4. Enter the user's full name, email address, temporary password, and role.
+5. Create the user and share onboarding instructions with them.
+
+Your subscription may include a seat limit. If your active seat count has reached the limit, deactivate an unused account or contact `support@rizonhire.com`.
+
+### Edit or deactivate users
+
+From **Team**, admins can:
+
+- Edit a user's display name.
+- Change a user's role.
+- Deactivate a user who should no longer have access.
+- Reactivate a user if seats are available.
+
+Email addresses are treated as read-only once the user exists.
+
+---
+
+## 13. Data Protection Settings
+
+RizonHire includes a platform data protection policy and supports company-specific candidate privacy notices.
+
+Company admins can maintain the candidate privacy notice shown in public hiring flows.
+
+### Publish your candidate privacy notice
+
+1. Open your account menu.
+2. Select **Data Protection Settings**.
+3. Edit the draft policy title and content.
+4. Preview the notice.
+5. Save the draft.
+6. Publish when ready.
+
+Published versions are kept for audit history. To make changes later, edit the draft and publish a new version.
+
+Have your privacy notice reviewed by your legal advisor before publishing. If your company has not published its own notice, candidates will see the RizonHire platform data protection policy.
+
+---
+
+## 14. Billing and Invoices
+
+The Billing area helps your company review billing details, renewal information, and invoices.
+
+### Review billing profile
+
+1. Open your account menu.
+2. Select **Billing**.
+3. Review your legal name, billing email, contact details, address, TRN, and customer information.
+4. If you are an admin, update editable billing profile details as needed.
+
+### View renewal information
+
+The billing cycle section shows subscription dates and renewal information for your workspace.
+
+### Download invoices
+
+1. Open **Billing**.
+2. Go to **Invoice history**.
+3. Select an invoice to view details, or use **Download PDF** when available.
+
+Draft invoices are not shown in the client invoice history until issued.
+
+---
+
+## 15. Candidate and Guest Experience
+
+Your external users interact with RizonHire through secure public links.
+
+### Candidate application experience
+
+Candidates can:
+
+1. Visit your careers page at `https://app.rizonhire.com/<company-slug>/careers`.
+2. Open a job detail page.
+3. Select the application action.
+4. Complete the required fields.
+5. Upload a resume.
+6. Review and accept the data protection notice.
+7. Submit the application.
+
+### Candidate form experience
+
+When sent a form invitation, the candidate opens a secure link, completes the requested fields, uploads files if required, and submits the form.
+
+### Video screening experience
+
+When sent a screening link, the candidate opens the link, accepts the privacy notice, reviews the question, records a one-take answer within the allowed time, and waits for the upload to complete.
+
+### Guest interviewer feedback
+
+Guest interviewers may receive a secure feedback link. They can provide a star rating and written feedback without logging in. Submitted feedback appears on the candidate profile.
+
+---
+
+## 16. FAQ
+
+### What is RizonHire?
+
+RizonHire is a hiring platform for managing job postings, candidate applications, hiring pipelines, screening, forms, candidate communication, compliance settings, and billing.
+
+### Do candidates need accounts?
+
+No. Candidates use public or secure links for applications, forms, and screening.
+
+### How do candidates find our jobs?
+
+Share your careers page:
+
+`https://app.rizonhire.com/<company-slug>/careers`
+
+You can also share direct application links for individual jobs.
+
+### Can we manually add candidates?
+
+No. Candidates enter the system through public application links. This keeps application records tied to a job and preserves the candidate consent flow.
+
+### Why can I not create another open job?
+
+Your workspace may have reached its open-job limit. Close an older job or contact `support@rizonhire.com`.
+
+### Why can I not add another team member?
+
+Your workspace may have reached its active seat limit. Deactivate an unused user or contact `support@rizonhire.com`.
+
+### What is the difference between closing and deleting a job?
+
+Closing a job removes it from active hiring while preserving its history. Deleting a job permanently removes it and may be restricted to admins.
+
+### What is the difference between Forms and application forms?
+
+The public application form is used when candidates first apply. The **Forms** area is for reusable follow-up forms that your team can assign to existing candidates.
+
+### Can we disable a form without deleting it?
+
+Yes. Disable a form when you want to stop sending it but keep its history.
+
+### How long can video screening links stay active?
+
+Screening expiration dates can be set up to 30 days from the creation or edit date.
+
+### Can we customize candidate emails?
+
+Yes. Use **Email Templates** to create active templates for different purposes. Templates can include variables such as candidate name, job title, form link, and screening link.
+
+### Who can update the company privacy notice?
+
+Company admins can edit, save, preview, and publish the candidate privacy notice in **Data Protection Settings**.
+
+### Where can we download invoices?
+
+Open **Billing**, then use **Invoice history** to view issued invoices and download PDFs when available.
+
+### Who should we contact for onboarding help?
+
+Contact `onboarding@rizonhire.com`.
+
+---
+
+## 17. Troubleshooting
+
+| Problem | What to try |
+| --- | --- |
+| Cannot sign in | Use **Forgot password**. If the reset email does not arrive, contact your company admin or `support@rizonhire.com`. |
+| Missing menu item | Your role may not include that area. Ask a company admin to review your role. |
+| Careers page does not show a job | Confirm the job is open and has not expired. |
+| Candidate cannot submit an application | Ask them to confirm required fields, resume file type, and data protection acknowledgement. |
+| Resume upload fails | Try a supported file type such as PDF, DOC, or DOCX, and retry from a stable connection. |
+| LinkedIn URL is rejected | Use a full LinkedIn URL beginning with `https://www.linkedin.com/`. |
+| Pipeline stage did not update | Refresh the page and check whether another user changed the same candidate. |
+| Cannot send a form | Confirm the candidate has a valid email address and the form is active. |
+| Candidate form link expired | Reissue the form invitation from the candidate profile. |
+| Cannot send a video screening email | Confirm an active screening job exists for the candidate's job and the email template includes the screening link variable. |
+| Screening link expired | Edit the screening job expiration if appropriate, or create/send a new screening link. |
+| Invoice PDF is unavailable | The PDF may not have been generated yet. Check again later or contact `support@rizonhire.com`. |
+| Account says suspended | Contact your company administrator or `support@rizonhire.com`. |
+
+---
+
+## 18. Recommended Onboarding Flow for New Team Members
+
+When adding a new hiring team member, send them this guide and ask them to complete these steps:
+
+1. Sign in and reset their password if needed.
+2. Review the Dashboard, Jobs, Candidates, and Pipeline areas.
+3. Open one existing candidate profile and review the available tabs.
+4. Learn the team's stage definitions before moving candidates in Pipeline.
+5. Review any active email templates before sending candidate messages.
+6. Ask a company admin before deleting jobs, forms, candidates, files, or screening data.
+
+For onboarding questions, contact `onboarding@rizonhire.com`.
