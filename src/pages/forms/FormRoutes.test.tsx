@@ -35,6 +35,7 @@ vi.mock("sonner", () => ({
   toast: {
     error: vi.fn(),
     success: vi.fn(),
+    warning: vi.fn(),
   },
 }));
 
@@ -103,6 +104,7 @@ describe("form route rendering", () => {
     renderFormRoutes(`/forms/${formId}/submissions`);
 
     expect(await screen.findByRole("heading", { name: mockForm.title })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /export/i })).toBeDisabled();
     expect(screen.queryByText("Public respondent form")).not.toBeInTheDocument();
   });
 

@@ -128,6 +128,7 @@ Legacy Supabase Storage buckets (`resumes`, `screening-videos`) should remain pr
 - Every business table carries `company_id`.
 - Client queries always filter implicitly via RLS.
 - Public/anonymous reads use SECURITY DEFINER RPCs (`get_public_company_*`) so RLS doesn't have to expose the entire table.
+- Form submission `.xlsx` exports are generated in the browser from data the authenticated user can already view. They rely on existing RLS/page access and are a bulk PII export surface, so future audit logging or role gating should be considered if tenant policy requires it.
 
 ## Validation
 

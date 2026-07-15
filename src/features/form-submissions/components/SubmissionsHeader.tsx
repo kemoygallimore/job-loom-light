@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Columns3, Filter, Plus, X } from "lucide-react";
+import { ArrowLeft, Columns3, FileDown, Filter, Plus, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -65,6 +65,9 @@ type Props = {
   onFiltersChange: Dispatch<SetStateAction<SubmissionTableFilter[]>>;
   onUpdateFilter: (filterId: string, patch: Partial<SubmissionTableFilter>) => void;
   onAddFilter: () => void;
+  onExport: () => void;
+  exportDisabled: boolean;
+  exporting: boolean;
 };
 
 export function SubmissionsHeader({
@@ -80,6 +83,9 @@ export function SubmissionsHeader({
   onFiltersChange,
   onUpdateFilter,
   onAddFilter,
+  onExport,
+  exportDisabled,
+  exporting,
 }: Props) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -95,6 +101,10 @@ export function SubmissionsHeader({
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" variant="outline" onClick={onExport} disabled={exportDisabled}>
+          <FileDown />
+          {exporting ? "Exporting..." : "Export"}
+        </Button>
         <Button variant="outline" asChild>
           <Link to={`/forms/${form.id}/edit`}>Edit form</Link>
         </Button>
