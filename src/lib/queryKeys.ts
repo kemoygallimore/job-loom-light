@@ -19,7 +19,6 @@ type CandidateFilters = {
 export const keys = {
   all: ["app"] as const,
   candidate: (id: string | undefined) => [...keys.all, "candidate", id ?? ""] as const,
-  candidateOptions: () => [...keys.all, "candidate-options"] as const,
   candidates: (view: "active" | "all", filters: CandidateFilters) =>
     [...keys.all, "candidates", view, filters] as const,
   exportJobs: () => [...keys.all, "export-jobs"] as const,
