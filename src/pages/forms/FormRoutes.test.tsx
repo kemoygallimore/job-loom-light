@@ -101,14 +101,10 @@ describe("form route rendering", () => {
     const palette = screen.getByRole("complementary", { name: /field palette/i });
     const settings = screen.getByRole("complementary", { name: /field settings/i });
 
-    expect(palette).toHaveClass("xl:sticky", "xl:top-0", "xl:self-start", "xl:max-h-[calc(100vh-4rem)]");
-    expect(settings).toHaveClass(
-      "xl:sticky",
-      "xl:top-0",
-      "xl:self-start",
-      "xl:max-h-[calc(100vh-4rem)]",
-      "xl:overflow-y-auto",
-    );
+    expect(palette).toHaveClass("xl:sticky", "xl:top-4", "xl:self-start");
+    expect(palette).not.toHaveClass("xl:max-h-[calc(100vh-4rem)]", "xl:overflow-y-auto");
+    expect(settings).toHaveClass("xl:sticky", "xl:top-4", "xl:self-start");
+    expect(settings).not.toHaveClass("xl:max-h-[calc(100vh-4rem)]", "xl:overflow-y-auto");
   });
 
   it("renders edit form slugs through the protected builder route", async () => {

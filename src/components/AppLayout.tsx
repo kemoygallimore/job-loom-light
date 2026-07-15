@@ -28,6 +28,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import type { AdminBillingProfileRow, AdminCompanyRow, AdminInvoiceRow, AdminJobRow, AdminProfileRow } from "@/lib/adminConsole";
+import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -170,6 +171,7 @@ export default function AppLayout() {
   const topLinks = isSuperAdmin ? superAdminNav : [...atsNavItems, ...screeningNavItems];
   const tenantBottom = flags.assessment ? [assessmentNavItem] : [];
   const bottomLinks = isSuperAdmin ? [] : tenantBottom;
+  const isFormBuilderRoute = location.pathname === "/forms/new" || /^\/forms\/[^/]+\/edit$/.test(location.pathname);
 
   return (
     <div className="min-h-screen flex w-full">
@@ -368,7 +370,7 @@ export default function AppLayout() {
           </button>
           <img src={rizonhireLogoBlack} alt="RizonHire" className="ml-3 w-24 h-auto" />
         </header>
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-auto">
+        <main className={cn("flex-1 p-4 sm:p-6 lg:p-8", isFormBuilderRoute ? "overflow-visible" : "overflow-auto")}>
           <Outlet />
         </main>
       </div>
