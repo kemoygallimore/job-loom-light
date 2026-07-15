@@ -93,6 +93,24 @@ describe("form route rendering", () => {
     expect(screen.queryByText("Public respondent form")).not.toBeInTheDocument();
   });
 
+  it("keeps form builder sidebars sticky on desktop", async () => {
+    renderFormRoutes("/forms/new");
+
+    expect(await screen.findByRole("heading", { name: /build form/i })).toBeInTheDocument();
+
+    const palette = screen.getByRole("complementary", { name: /field palette/i });
+    const settings = screen.getByRole("complementary", { name: /field settings/i });
+
+    expect(palette).toHaveClass("xl:sticky", "xl:top-0", "xl:self-start", "xl:max-h-[calc(100vh-4rem)]");
+    expect(settings).toHaveClass(
+      "xl:sticky",
+      "xl:top-0",
+      "xl:self-start",
+      "xl:max-h-[calc(100vh-4rem)]",
+      "xl:overflow-y-auto",
+    );
+  });
+
   it("renders edit form slugs through the protected builder route", async () => {
     renderFormRoutes(`/forms/${formId}/edit`);
 

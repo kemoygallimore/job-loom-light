@@ -193,8 +193,8 @@ export default function FormBuilder() {
   return (
     <div className="flex min-h-[calc(100vh-7rem)] flex-col gap-4">
       <BuilderHeader isEditing={isEditing} dirty={dirty} saving={saving} onLeave={leaveBuilder} onSave={saveForm} />
-      <div className="grid flex-1 gap-4 xl:grid-cols-[220px_minmax(0,1fr)_340px]">
-        <FieldPalette onAddField={addField} />
+      <div className="grid flex-1 gap-4 xl:grid-cols-[220px_minmax(0,1fr)_340px] xl:items-start">
+        <FieldPalette className="xl:sticky xl:top-0 xl:max-h-[calc(100vh-4rem)] xl:self-start xl:overflow-y-auto" onAddField={addField} />
         <FormCanvas
           draft={readyDraft}
           selectedFieldId={selectedFieldId}
@@ -203,6 +203,7 @@ export default function FormBuilder() {
           setSelectedFieldId={setSelectedFieldId}
         />
         <FieldSettingsPanel
+          className="xl:sticky xl:top-0 xl:max-h-[calc(100vh-4rem)] xl:self-start xl:overflow-y-auto"
           schema={readyDraft.schema}
           selectedField={selectedField}
           updateField={updateField}
