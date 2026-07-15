@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Columns3, FileDown, Filter, Plus, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -65,9 +65,10 @@ type Props = {
   onFiltersChange: Dispatch<SetStateAction<SubmissionTableFilter[]>>;
   onUpdateFilter: (filterId: string, patch: Partial<SubmissionTableFilter>) => void;
   onAddFilter: () => void;
-  onExport: () => void;
-  exportDisabled: boolean;
-  exporting: boolean;
+  exportControl?: ReactNode;
+  onExport?: () => void;
+  exportDisabled?: boolean;
+  exporting?: boolean;
 };
 
 export function SubmissionsHeader({
@@ -83,6 +84,7 @@ export function SubmissionsHeader({
   onFiltersChange,
   onUpdateFilter,
   onAddFilter,
+  exportControl,
   onExport,
   exportDisabled,
   exporting,
@@ -101,10 +103,12 @@ export function SubmissionsHeader({
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" variant="outline" onClick={onExport} disabled={exportDisabled}>
-          <FileDown />
-          {exporting ? "Exporting..." : "Export"}
-        </Button>
+        {exportControl ?? (
+          <Button type="button" variant="outline" onClick={onExport} disabled={exportDisabled}>
+            <FileDown />
+            {exporting ? "Exporting..." : "Export"}
+          </Button>
+        )}
         <Button variant="outline" asChild>
           <Link to={`/forms/${form.id}/edit`}>Edit form</Link>
         </Button>

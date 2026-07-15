@@ -11,6 +11,7 @@ export interface Env {
   R2_BUCKET_RESUMES: string;
   R2_BUCKET_VIDEOS: string;
   R2_BUCKET_ADDITIONAL_DOCUMENTS: string;
+  R2_EXPORTS_BUCKET?: string;
   RESEND_API_KEY: string;
   ALLOWED_ORIGINS?: string;
   SUPABASE_URL: string;
@@ -22,6 +23,7 @@ export interface Env {
 }
 
 const INVOICE_BUCKET_NAME = "rizonhire-invoices";
+const DEFAULT_EXPORTS_BUCKET_NAME = "rizonhire-exports";
 const DEFAULT_ALLOWED_ORIGINS = [
   "https://test.rizonhire.com",
   "https://app.rizonhire.com",
@@ -78,6 +80,11 @@ function getAllowedBucket(env: Env, bucket: string) {
   if (bucket === env.R2_BUCKET_ADDITIONAL_DOCUMENTS) return env.R2_BUCKET_ADDITIONAL_DOCUMENTS;
   if (bucket === INVOICE_BUCKET_NAME) return INVOICE_BUCKET_NAME;
   return null;
+}
+
+function getExportsBucket(env: Env, bucket: string) {
+  const exportsBucket = env.R2_EXPORTS_BUCKET || DEFAULT_EXPORTS_BUCKET_NAME;
+  return bucket === exportsBucket ? exportsBucket : null;
 }
 
 function getUploadBucket(env: Env, folder: string): string | null {
@@ -176,6 +183,11 @@ async function authenticateRequest(request: Request, env: Env): Promise<AuthResu
 function keyBelongsToCompany(key: string, companyId: string) {
   const [folder, keyCompanyId] = key.split("/");
   return Boolean(folder && keyCompanyId && key.startsWith(`${folder}/${companyId}/`));
+}
+
+function validExportKey(key: string) {
+  const parts = key.split("/");
+  return parts.length >= 4 && parts[0] === "exports" && Boolean(parts[1]) && Boolean(parts[2]) && Boolean(parts[3]);
 }
 
 function contentTypeAllowed(folder: UploadFolder, contentType: string) {
@@ -300,6 +312,97 @@ export default {
         service: "s3",
         region: "auto"
       });
+
+      if (path === "/exports/upload" && request.method === "POST") {
+        const auth = await authenticateRequest(request, env);
+        if (!auth.ok) {
+          return json(request, env, { error: auth.error }, auth.status);
+        }
+        if (auth.kind !== "worker") {
+          return json(request, env, { error: "Forbidden" }, 403);
+        }
+
+        const bucket = getExportsBucket(env, request.headers.get("x-export-bucket") || "");
+        const key = request.headers.get("x-export-key") || "";
+        const contentType = request.headers.get("Content-Type") || "application/octet-stream";
+        if (!bucket) return json(request, env, { error: "Invalid export bucket" }, 400);
+        if (!validExportKey(key)) return json(request, env, { error: "Invalid export key" }, 400);
+        if (contentType.split(";")[0].trim().toLowerCase() !== "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
+          return json(request, env, { error: "Invalid export content type" }, 400);
+        }
+
+        const endpoint = `${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+        const objectUrl = `https://${endpoint}/${bucket}/${key}`;
+        const signed = await aws.sign(objectUrl, {
+          method: "PUT",
+          headers: { "Content-Type": contentType },
+          aws: { signQuery: true }
+        });
+        const uploadRes = await fetch(signed.url, {
+          method: "PUT",
+          headers: { "Content-Type": contentType },
+          body: await request.arrayBuffer()
+        });
+        if (!uploadRes.ok) {
+          const errorText = await uploadRes.text().catch(() => "");
+          return json(request, env, { error: "Upload failed", details: errorText }, uploadRes.status);
+        }
+
+        return json(request, env, { success: true, bucket, key });
+      }
+
+      if (path === "/exports/sign-download" && request.method === "POST") {
+        const auth = await authenticateRequest(request, env);
+        if (!auth.ok) {
+          return json(request, env, { error: auth.error }, auth.status);
+        }
+        if (auth.kind !== "worker") {
+          return json(request, env, { error: "Forbidden" }, 403);
+        }
+
+        const body = await request.json<{ bucket: string; key: string }>();
+        const bucket = getExportsBucket(env, body.bucket);
+        if (!bucket) return json(request, env, { error: "Invalid export bucket" }, 400);
+        if (!validExportKey(body.key)) return json(request, env, { error: "Invalid export key" }, 400);
+
+        const endpoint = `${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+        const objectUrl = `https://${endpoint}/${bucket}/${body.key}?X-Amz-Expires=900`;
+        const signed = await aws.sign(objectUrl, {
+          method: "GET",
+          aws: { signQuery: true }
+        });
+
+        return json(request, env, { url: signed.url, expires_in: 900 });
+      }
+
+      if (path === "/exports/delete" && request.method === "POST") {
+        const auth = await authenticateRequest(request, env);
+        if (!auth.ok) {
+          return json(request, env, { error: auth.error }, auth.status);
+        }
+        if (auth.kind !== "worker") {
+          return json(request, env, { error: "Forbidden" }, 403);
+        }
+
+        const body = await request.json<{ bucket: string; key: string }>();
+        const bucket = getExportsBucket(env, body.bucket);
+        if (!bucket) return json(request, env, { error: "Invalid export bucket" }, 400);
+        if (!validExportKey(body.key)) return json(request, env, { error: "Invalid export key" }, 400);
+
+        const endpoint = `${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+        const objectUrl = `https://${endpoint}/${bucket}/${body.key}`;
+        const signed = await aws.sign(objectUrl, {
+          method: "DELETE",
+          aws: { signQuery: true }
+        });
+        const deleteRes = await fetch(signed.url, { method: "DELETE" });
+        if (!deleteRes.ok && deleteRes.status !== 404) {
+          const errorText = await deleteRes.text().catch(() => "");
+          return json(request, env, { error: "Delete failed", details: errorText }, deleteRes.status);
+        }
+
+        return json(request, env, { success: true, deleted: [body.key] });
+      }
 
       if (path === "/presign-upload" && request.method === "POST") {
         const body = await request.json<{

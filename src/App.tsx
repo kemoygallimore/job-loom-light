@@ -15,6 +15,7 @@ const Jobs = lazy(() => import("./pages/Jobs"));
 const Candidates = lazy(() => import("./pages/Candidates"));
 const CandidateProfile = lazy(() => import("./pages/CandidateProfile"));
 const Pipeline = lazy(() => import("./pages/Pipeline"));
+const ExportCenter = lazy(() => import("./pages/ExportCenter"));
 const Assessment = lazy(() => import("./pages/Assessment"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const AdminOverview = lazy(() => import("./pages/admin/AdminOverview"));
@@ -117,6 +118,7 @@ const App = () => (
                   <Route path="/candidates" element={<Candidates />} />
                   <Route path="/candidates/:id" element={<CandidateProfile />} />
                   <Route path="/pipeline" element={<Pipeline />} />
+                  <Route path="/exports" element={<ExportCenter />} />
                   <Route path="/admin/candidate-tags" element={<CandidateTagsAdmin />} />
                   <Route path="/screening" element={<ScreeningJobs />} />
                   <Route path="/screening/:jobId/submissions" element={<ScreeningSubmissions />} />

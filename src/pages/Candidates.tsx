@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Trash2, Search, User, X, RotateCcw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { ExportRequestDialog } from "@/components/export/ExportRequestDialog";
 import CandidateFilters from "@/components/candidate/CandidateFilters";
 import CandidateQuickActions from "@/components/candidate/CandidateQuickActions";
 import { fetchTagsForCandidates, getTagColorClasses, type CandidateTag } from "@/lib/candidateTags";
@@ -18,6 +19,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StageBadge from "@/components/shared/StageBadge";
 import PageHeader from "@/components/shared/PageHeader";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
+import { serializeDateFilter } from "@/lib/exportJobs";
 
 interface CandidateWithContext {
   id: string;
@@ -187,6 +189,19 @@ export default function Candidates() {
   const tagsByCandidate = candidatesQuery.data?.tagsByCandidate ?? new Map<string, CandidateTag[]>();
   const loading = candidatesQuery.isLoading;
   const error = candidatesQuery.error ? errorMessage(candidatesQuery.error, "Failed to load candidates") : null;
+  const exportFilters = useMemo(
+    () => ({
+      view,
+      search,
+      stageFilter,
+      jobFilter,
+      parishFilter,
+      dateFrom: serializeDateFilter(dateFrom),
+      dateTo: serializeDateFilter(dateTo),
+      repeatOnly,
+    }),
+    [dateFrom, dateTo, jobFilter, parishFilter, repeatOnly, search, stageFilter, view],
+  );
 
   const refreshCandidates = () => {
     queryClient.invalidateQueries({ queryKey: [...keys.all, "candidates"] });
@@ -294,6 +309,13 @@ export default function Candidates() {
               {activeFilterCount > 0 ? " (filtered)" : ""}
             </p>
           ) : undefined
+        }
+        actions={
+          <ExportRequestDialog
+            exportType="candidates"
+            filters={exportFilters}
+            disabled={loading || candidates.length === 0}
+          />
         }
       />
 

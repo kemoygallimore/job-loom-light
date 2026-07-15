@@ -11,3 +11,15 @@ verify_jwt = false
 
 [functions.candidate-form-verification]
 verify_jwt = true
+
+[functions.request-export]
+verify_jwt = true
+
+[functions.get-export-download-url]
+verify_jwt = true
+
+[functions.delete-export-file]
+verify_jwt = true
+
+[functions.cleanup-expired-exports]
+verify_jwt = false

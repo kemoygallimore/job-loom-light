@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { ChevronDown, FileText, Mail, Plus, Video, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ExportRequestDialog } from "@/components/export/ExportRequestDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -306,6 +307,17 @@ export default function Pipeline() {
 
 
   const filtered = applications;
+  const exportFilters = useMemo(
+    () => ({
+      jobId: selectedJobFilter,
+      search,
+      sort,
+      screeningStatus,
+      screeningMin,
+      screeningMax,
+    }),
+    [screeningMax, screeningMin, screeningStatus, search, selectedJobFilter, sort],
+  );
   const rejectDialogApps = applications.filter((app) => rejectDialogIds.includes(app.id));
   const selectedApps = applications.filter((app) => selectedIds.includes(app.id));
 
@@ -372,6 +384,7 @@ export default function Pipeline() {
             <div className="relative w-52"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search candidates" /></div>
             <Select value={sort} onValueChange={setSort}><SelectTrigger className="w-48"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="screening_desc">Highest screening</SelectItem><SelectItem value="interview_desc">Highest interview</SelectItem><SelectItem value="newest">Newest</SelectItem><SelectItem value="oldest">Oldest</SelectItem><SelectItem value="name_asc">Candidate name</SelectItem></SelectContent></Select>
             <Sheet><SheetTrigger asChild><Button variant="outline"><SlidersHorizontal className="mr-2 size-4" />Filters{(screeningStatus !== "all" || screeningMin || screeningMax) && <Badge className="ml-2" variant="secondary">{[screeningStatus !== "all", screeningMin, screeningMax].filter(Boolean).length}</Badge>}</Button></SheetTrigger><SheetContent><SheetHeader><SheetTitle>Pipeline filters</SheetTitle><SheetDescription>Filters apply only to the selected job.</SheetDescription></SheetHeader><div className="mt-6 space-y-5"><div className="space-y-2"><Label>Screening status</Label><Select value={screeningStatus} onValueChange={setScreeningStatus}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All statuses</SelectItem><SelectItem value="final">Final</SelectItem><SelectItem value="provisional">Provisional</SelectItem></SelectContent></Select></div><div className="grid grid-cols-2 gap-3"><div className="space-y-2"><Label>Minimum score</Label><Input type="number" min={0} max={100} value={screeningMin} onChange={(event) => setScreeningMin(event.target.value)} /></div><div className="space-y-2"><Label>Maximum score</Label><Input type="number" min={0} max={100} value={screeningMax} onChange={(event) => setScreeningMax(event.target.value)} /></div></div><Button variant="outline" className="w-full" onClick={() => { setScreeningStatus("all"); setScreeningMin(""); setScreeningMax(""); }}>Clear all</Button></div></SheetContent></Sheet>
+            <ExportRequestDialog exportType="pipeline" filters={exportFilters} disabled={!selectedJobFilter} />
             <Dialog open={createOpen} onOpenChange={setCreateOpen}>
               <DialogTrigger asChild>
                 <Button><Plus className="w-4 h-4 mr-2" />New Application</Button>

@@ -105,8 +105,7 @@ CORS/origin/JWT-from-browser failure modes and the silent `.catch`.
   flow is otherwise unchanged.)
 
 ### 7. Ops / deploy (run against the live external Supabase project)
-- Confirm the **correct project ref**: `config.toml` says `xkyuybfxdxxzzfdjftss`, but
-  `docs/02-technical.md` references `jfiyvvigvknfemqfnucl`. Verify which is live before scheduling.
+- Use the live project ref `jfiyvvigvknfemqfnucl`.
 - Verify secrets exist: `RESEND_API_KEY`, `CRON_SECRET` (+ `RIZONHIRE_FROM_EMAIL`, `ALLOWED_ORIGINS`).
 - Confirm an **active** `application_received` row exists in `email_templates`, and that
   `email_templates` + `email_send_log` tables exist (per `docs/billing-stage-g-email-migration.sql`).
