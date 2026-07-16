@@ -10,6 +10,7 @@ interface __BaseEnv_Env {
 	R2_BUCKET_RESUMES: string;
 	R2_BUCKET_VIDEOS: string;
 	R2_BUCKET_ADDITIONAL_DOCUMENTS: string;
+	R2_EXPORTS_BUCKET?: string;
 	RESEND_API_KEY: string;
 	ALLOWED_ORIGINS: string;
 	R2_WORKER_SECRET: string;

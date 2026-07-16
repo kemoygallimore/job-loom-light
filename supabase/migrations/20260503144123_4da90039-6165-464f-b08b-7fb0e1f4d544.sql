@@ -9,7 +9,9 @@ AS $$
   SELECT c.id, c.name
   FROM public.companies c
   JOIN public.jobs j ON j.company_id = c.id
-  WHERE j.id = _job_id AND j.status = 'open'
+  WHERE j.id = _job_id
+    AND j.status = 'open'
+    AND c.status = 'active'
   LIMIT 1;
 $$;
 

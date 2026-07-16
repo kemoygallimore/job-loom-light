@@ -498,9 +498,11 @@ BEGIN
 
   SELECT j.company_id INTO _company_id
   FROM public.jobs j
+  JOIN public.companies c ON c.id = j.company_id
   WHERE j.id = _job_id
     AND j.status = 'open'::public.job_status
-    AND j.expires_at > now();
+    AND j.expires_at > now()
+    AND c.status = 'active';
 
   IF _company_id IS NULL THEN
     RAISE EXCEPTION 'This job is no longer accepting applications.';

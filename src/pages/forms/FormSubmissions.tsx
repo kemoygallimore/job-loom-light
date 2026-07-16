@@ -9,6 +9,7 @@ import {
   markSubmissionReviewed,
 } from "@/features/form-submissions/api";
 import { FormSubmissionsAccessError, FormSubmissionsLoading } from "@/features/form-submissions/components/FormSubmissionsStates";
+import { ExportRequestDialog } from "@/components/export/ExportRequestDialog";
 import { SubmissionDetailsDialog } from "@/features/form-submissions/components/SubmissionDetailsDialog";
 import { SubmissionsHeader } from "@/features/form-submissions/components/SubmissionsHeader";
 import { SubmissionsPagination } from "@/features/form-submissions/components/SubmissionsPagination";
@@ -22,10 +23,6 @@ import {
   applySubmissionSort,
   paginateSubmissions,
 } from "@/lib/leadFormSubmissionsTable";
-import {
-  downloadFormSubmissionsXlsx,
-  LARGE_EXPORT_SUBMISSION_THRESHOLD,
-} from "@/lib/leadFormSubmissionsExport";
 
 function messageFromError(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
@@ -41,7 +38,6 @@ export default function FormSubmissions() {
   const [accessError, setAccessError] = useState<string | null>(null);
   const [selectedSubmission, setSelectedSubmission] = useState<LeadFormSubmission | null>(null);
   const [submissionUploads, setSubmissionUploads] = useState<LeadFormUpload[]>([]);
-  const [exporting, setExporting] = useState(false);
   const topScrollRef = useRef<HTMLDivElement>(null);
   const tableScrollRef = useRef<HTMLDivElement>(null);
   const tableElementRef = useRef<HTMLTableElement>(null);
@@ -186,24 +182,6 @@ export default function FormSubmissions() {
     }
   };
 
-  const exportSubmissions = async () => {
-    if (!form || submissions.length === 0 || exporting) return;
-
-    if (submissions.length > LARGE_EXPORT_SUBMISSION_THRESHOLD) {
-      toast.warning("Large exports may take a moment and can use extra memory on this device.");
-    }
-
-    setExporting(true);
-    try {
-      await downloadFormSubmissionsXlsx(form, submissions);
-      toast.success(`Exported ${submissions.length} submission${submissions.length === 1 ? "" : "s"}`);
-    } catch (error: unknown) {
-      toast.error(messageFromError(error, "Could not export submissions"));
-    } finally {
-      setExporting(false);
-    }
-  };
-
   if (accessError) {
     return <FormSubmissionsAccessError message={accessError} onBack={() => navigate("/forms")} />;
   }
@@ -227,9 +205,13 @@ export default function FormSubmissions() {
         onFiltersChange={setFilters}
         onUpdateFilter={updateFilter}
         onAddFilter={addFilter}
-        onExport={exportSubmissions}
-        exportDisabled={submissions.length === 0 || exporting}
-        exporting={exporting}
+        exportControl={
+          <ExportRequestDialog
+            exportType="form_submissions"
+            filters={{ formId: form.id, filters }}
+            disabled={submissions.length === 0}
+          />
+        }
       />
 
       <SubmissionsSummaryBar

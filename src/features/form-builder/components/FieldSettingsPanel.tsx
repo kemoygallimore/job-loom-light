@@ -12,6 +12,7 @@ import {
   type LeadFormField,
   type LeadFormSchema,
 } from "@/lib/leadForms";
+import { cn } from "@/lib/utils";
 import type { FieldSettingsActions } from "../types";
 import { FieldColorSettings } from "./FieldColorSettings";
 import { FileUploadSettings } from "./FileUploadSettings";
@@ -29,13 +30,14 @@ function parseOptions(value: string) {
 }
 
 interface FieldSettingsPanelProps extends FieldSettingsActions {
+  className?: string;
   schema: LeadFormSchema;
   selectedField: LeadFormField | null;
 }
 
-export function FieldSettingsPanel({ schema, selectedField, updateField, moveField, removeField }: FieldSettingsPanelProps) {
+export function FieldSettingsPanel({ className, schema, selectedField, updateField, moveField, removeField }: FieldSettingsPanelProps) {
   return (
-    <aside className="rounded-lg border bg-card p-4">
+    <aside aria-label="Field settings" className={cn("rounded-lg border bg-card p-4", className)}>
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold">Field settings</h2>

@@ -192,6 +192,83 @@ export type Database = {
         }
         Relationships: []
       }
+      export_jobs: {
+        Row: {
+          company_id: string
+          completed_at: string | null
+          created_at: string
+          deleted_at: string | null
+          download_count: number
+          error_message: string | null
+          expires_at: string | null
+          export_type: Database["public"]["Enums"]["export_job_type"]
+          filename: string | null
+          filter_summary: string
+          filters: Json
+          id: string
+          last_downloaded_at: string | null
+          last_downloaded_by: string | null
+          r2_bucket: string | null
+          r2_key: string | null
+          requested_by: string | null
+          row_count: number
+          scope: Database["public"]["Enums"]["export_job_scope"]
+          status: Database["public"]["Enums"]["export_job_status"]
+        }
+        Insert: {
+          company_id: string
+          completed_at?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          download_count?: number
+          error_message?: string | null
+          expires_at?: string | null
+          export_type: Database["public"]["Enums"]["export_job_type"]
+          filename?: string | null
+          filter_summary?: string
+          filters?: Json
+          id?: string
+          last_downloaded_at?: string | null
+          last_downloaded_by?: string | null
+          r2_bucket?: string | null
+          r2_key?: string | null
+          requested_by?: string | null
+          row_count?: number
+          scope: Database["public"]["Enums"]["export_job_scope"]
+          status?: Database["public"]["Enums"]["export_job_status"]
+        }
+        Update: {
+          company_id?: string
+          completed_at?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          download_count?: number
+          error_message?: string | null
+          expires_at?: string | null
+          export_type?: Database["public"]["Enums"]["export_job_type"]
+          filename?: string | null
+          filter_summary?: string
+          filters?: Json
+          id?: string
+          last_downloaded_at?: string | null
+          last_downloaded_by?: string | null
+          r2_bucket?: string | null
+          r2_key?: string | null
+          requested_by?: string | null
+          row_count?: number
+          scope?: Database["public"]["Enums"]["export_job_scope"]
+          status?: Database["public"]["Enums"]["export_job_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "export_jobs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       candidates: {
         Row: {
           company_id: string
@@ -1198,6 +1275,9 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "recruiter" | "super_admin"
+      export_job_type: "form_submissions" | "candidates" | "pipeline"
+      export_job_scope: "current_view" | "full_dataset"
+      export_job_status: "queued" | "running" | "completed" | "failed" | "expired" | "deleted"
       application_stage:
         | "applied"
         | "shortlisted"

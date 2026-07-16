@@ -15,6 +15,7 @@ AS $$
   SELECT c.id, c.name, c.slug
   FROM public.companies c
   WHERE c.slug = _slug
+    AND c.status = 'active'
     AND EXISTS (SELECT 1 FROM public.jobs j WHERE j.company_id = c.id AND j.status = 'open')
   LIMIT 1;
 $$;

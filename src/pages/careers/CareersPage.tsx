@@ -16,6 +16,17 @@ interface Company {
   name: string;
 }
 
+type FeatureQuery = {
+  eq: (column: "company_id", value: string) => FeatureQuery;
+  maybeSingle: () => PromiseLike<{ data: { feature_public_careers: boolean | null } | null }>;
+  select: (columns: "feature_public_careers") => FeatureQuery;
+};
+type FeatureSupabase = {
+  from: (table: "company_features") => FeatureQuery;
+};
+
+const featureDb = supabase as unknown as FeatureSupabase;
+
 export default function CareersPage() {
   const { companySlug } = useParams<{ companySlug: string }>();
   const [company, setCompany] = useState<Company | null>(null);
@@ -30,17 +41,17 @@ export default function CareersPage() {
     const fetch = async () => {
       const { data: companyData } = await supabase
         .from("companies")
-        .select("id, name")
+        .select("id, name, status")
         .eq("slug", companySlug)
         .maybeSingle();
 
-      if (!companyData) {
+      if (!companyData || companyData.status !== "active") {
         setNotFound(true);
         setLoading(false);
         return;
       }
 
-      const { data: feat } = await (supabase as any)
+      const { data: feat } = await featureDb
         .from("company_features")
         .select("feature_public_careers")
         .eq("company_id", companyData.id)

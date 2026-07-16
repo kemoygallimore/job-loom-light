@@ -8,6 +8,7 @@ const testEnv = {
   R2_BUCKET_RESUMES: "silverweb-ats-resumes",
   R2_BUCKET_VIDEOS: "silverweb-ats-videos",
   R2_BUCKET_ADDITIONAL_DOCUMENTS: "silverweb-additional-documents",
+  R2_EXPORTS_BUCKET: "rizonhire-exports",
   RESEND_API_KEY: "test-resend-key",
   R2_WORKER_SECRET: "test-worker-secret",
   ALLOWED_ORIGINS: "https://test.rizonhire.com,http://localhost:8080",
@@ -222,6 +223,94 @@ describe("R2 API Worker bucket routing", () => {
 
     expect(response.status).toBe(403);
     expect(body.error).toBe("Forbidden");
+  });
+
+  it("rejects export bucket access through generic sign-view", async () => {
+    const response = await worker.fetch(
+      new Request("https://api.rizonhire.com/sign-view", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer test-worker-secret",
+        },
+        body: JSON.stringify({
+          bucket: "rizonhire-exports",
+          key: "exports/company-1/export-1/file.xlsx",
+        }),
+      }),
+      testEnv,
+    );
+    const body = await response.json<Record<string, string>>();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe("Invalid bucket");
+  });
+
+  it("allows worker-secret export upload, signed download, and delete", async () => {
+    installFetchMock();
+    const key = "exports/company-1/export-1/file.xlsx";
+
+    const upload = await worker.fetch(
+      new Request("https://api.rizonhire.com/exports/upload", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer test-worker-secret",
+          "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "x-export-bucket": "rizonhire-exports",
+          "x-export-key": key,
+        },
+        body: new Uint8Array([1, 2, 3]),
+      }),
+      testEnv,
+    );
+    expect(upload.status).toBe(200);
+    await expect(upload.json()).resolves.toMatchObject({ success: true, bucket: "rizonhire-exports", key });
+
+    const signed = await worker.fetch(
+      new Request("https://api.rizonhire.com/exports/sign-download", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer test-worker-secret",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ bucket: "rizonhire-exports", key }),
+      }),
+      testEnv,
+    );
+    const signedBody = await signed.json<Record<string, string>>();
+    expect(signed.status).toBe(200);
+    expect(signedBody.url).toContain("rizonhire-exports");
+
+    const deleted = await worker.fetch(
+      new Request("https://api.rizonhire.com/exports/delete", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer test-worker-secret",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ bucket: "rizonhire-exports", key }),
+      }),
+      testEnv,
+    );
+    await expect(deleted.json()).resolves.toMatchObject({ success: true, deleted: [key] });
+  });
+
+  it("rejects export routes without the worker secret", async () => {
+    const response = await worker.fetch(
+      new Request("https://api.rizonhire.com/exports/sign-download", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bucket: "rizonhire-exports",
+          key: "exports/company-1/export-1/file.xlsx",
+        }),
+      }),
+      testEnv,
+    );
+    const body = await response.json<Record<string, string>>();
+
+    expect(response.status).toBe(401);
+    expect(body.error).toBe("Unauthorized");
   });
 
   it("escapes script tags in send-lead-email messages", async () => {

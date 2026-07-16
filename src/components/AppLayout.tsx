@@ -21,10 +21,14 @@ import {
   ChevronUp,
   FileText,
   ClipboardList,
+  FileDown,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { Badge } from "@/components/ui/badge";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
+import type { AdminBillingProfileRow, AdminCompanyRow, AdminInvoiceRow, AdminJobRow, AdminProfileRow } from "@/lib/adminConsole";
+import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -42,6 +46,7 @@ const atsNavItems = [
   { to: "/candidates", label: "Candidates", icon: Users },
   { to: "/pipeline", label: "Pipeline", icon: FolderKanban },
   { to: "/forms", label: "Forms", icon: ClipboardList },
+  { to: "/exports", label: "Export Center", icon: FileDown },
   { to: "/admin/candidate-tags", label: "Candidate Tags", icon: Tags },
 ];
 
@@ -64,8 +69,9 @@ export default function AppLayout() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const [suspended, setSuspended] = useState(false);
+  const [blocked, setBlocked] = useState(false);
   const [companyChecked, setCompanyChecked] = useState(false);
+  const [alertCount, setAlertCount] = useState(0);
 
   const isSuperAdmin = role === "super_admin";
 
@@ -80,12 +86,68 @@ export default function AppLayout() {
         .select("status")
         .eq("id", profile.company_id)
         .maybeSingle();
-      setSuspended(data?.status === "suspended");
+      setBlocked(data?.status !== "active");
       setCompanyChecked(true);
     })();
   }, [isSuperAdmin, profile?.company_id]);
 
-  if (!isSuperAdmin && companyChecked && suspended) {
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    (async () => {
+      const [companiesRes, jobsRes, invoicesRes, profilesRes, billingProfilesRes] = await Promise.all([
+        supabase.from("companies").select("id, name, status, max_open_jobs, created_at"),
+        supabase.from("jobs").select("company_id, status, created_at, expires_at"),
+        supabase.from("invoices").select("company_id, status, due_at, issued_at, paid_at"),
+        supabase.from("profiles").select("company_id"),
+        supabase.from("company_billing_profiles").select("company_id, legal_name, billing_email, billing_address"),
+      ]);
+
+      const activeUsersByCompany: Record<string, number> = {};
+      ((profilesRes.data ?? []) as AdminProfileRow[]).forEach((row) => {
+        if (row.company_id) activeUsersByCompany[row.company_id] = (activeUsersByCompany[row.company_id] || 0) + 1;
+      });
+
+      const jobsByCompany: Record<string, { total: number; open: number }> = {};
+      ((jobsRes.data ?? []) as AdminJobRow[]).forEach((row) => {
+        if (!row.company_id) return;
+        const bucket = jobsByCompany[row.company_id] ?? { total: 0, open: 0 };
+        bucket.total += 1;
+        if (row.status === "open") bucket.open += 1;
+        jobsByCompany[row.company_id] = bucket;
+      });
+
+      const overdueInvoiceByCompany: Record<string, number> = {};
+      ((invoicesRes.data ?? []) as AdminInvoiceRow[]).forEach((row) => {
+        if (!row.company_id) return;
+        const due = row.due_at ? new Date(row.due_at) : null;
+        const paid = row.paid_at ? new Date(row.paid_at) : null;
+        const unpaidAndLate = row.status !== "paid" && row.status !== "void" && due && due.getTime() < Date.now() && !paid;
+        if (unpaidAndLate) overdueInvoiceByCompany[row.company_id] = (overdueInvoiceByCompany[row.company_id] || 0) + 1;
+      });
+
+      const billingProfileMap = new Set(
+        ((billingProfilesRes.data ?? []) as AdminBillingProfileRow[])
+          .map((row) => row.company_id)
+          .filter((companyId): companyId is string => Boolean(companyId)),
+      );
+
+      const alerts = ((companiesRes.data ?? []) as AdminCompanyRow[]).reduce((count, company) => {
+        if (!company?.id) return count;
+        const jobs = jobsByCompany[company.id] ?? { total: 0, open: 0 };
+        const overdue = overdueInvoiceByCompany[company.id] ?? 0;
+        const users = activeUsersByCompany[company.id] ?? 0;
+        const isInactive = company.status !== "active";
+        const overLimit = jobs.open >= (company.max_open_jobs ?? 0);
+        const billingMissing = !billingProfileMap.has(company.id);
+        const stale = !company.created_at ? false : (Date.now() - new Date(company.created_at).getTime()) > 1000 * 60 * 60 * 24 * 45 && users === 0 && jobs.total === 0;
+        return count + Number(isInactive || overLimit || overdue > 0 || billingMissing || stale);
+      }, 0);
+
+      setAlertCount(alerts);
+    })();
+  }, [isSuperAdmin]);
+
+  if (!isSuperAdmin && companyChecked && blocked) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 bg-background">
         <div className="max-w-md w-full text-center space-y-5 rounded-2xl border bg-card p-8 shadow-sm">
@@ -93,9 +155,9 @@ export default function AppLayout() {
             <Shield className="w-6 h-6 text-destructive" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold">Account suspended</h1>
+            <h1 className="text-xl font-semibold">Account unavailable</h1>
             <p className="text-sm text-muted-foreground mt-2">
-              Your workspace is currently suspended. Please contact your account administrator to restore access.
+              Your workspace is currently suspended or archived. Please contact your account administrator to restore access.
             </p>
           </div>
           <Button variant="outline" onClick={signOut} className="w-full">
@@ -109,6 +171,7 @@ export default function AppLayout() {
   const topLinks = isSuperAdmin ? superAdminNav : [...atsNavItems, ...screeningNavItems];
   const tenantBottom = flags.assessment ? [assessmentNavItem] : [];
   const bottomLinks = isSuperAdmin ? [] : tenantBottom;
+  const isFormBuilderRoute = location.pathname === "/forms/new" || /^\/forms\/[^/]+\/edit$/.test(location.pathname);
 
   return (
     <div className="min-h-screen flex w-full">
@@ -176,7 +239,12 @@ export default function AppLayout() {
                 title={collapsed ? item.label : undefined}
               >
                 <item.icon className="w-[18px] h-[18px] flex-shrink-0" />
-                {!collapsed && <span>{item.label}</span>}
+                {!collapsed && <span className="flex-1">{item.label}</span>}
+                {!collapsed && isSuperAdmin && item.to === "/admin" && alertCount > 0 && (
+                  <Badge className="ml-auto bg-destructive text-destructive-foreground hover:bg-destructive">
+                    {alertCount}
+                  </Badge>
+                )}
               </Link>
             );
           })}
@@ -302,7 +370,7 @@ export default function AppLayout() {
           </button>
           <img src={rizonhireLogoBlack} alt="RizonHire" className="ml-3 w-24 h-auto" />
         </header>
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-auto">
+        <main className={cn("flex-1 p-4 sm:p-6 lg:p-8", isFormBuilderRoute ? "overflow-visible" : "overflow-auto")}>
           <Outlet />
         </main>
       </div>

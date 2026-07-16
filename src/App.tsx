@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate, useParams } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -9,43 +9,45 @@ import AppLayout from "./components/AppLayout";
 import NotFound from "./pages/NotFound";
 import ErrorBoundary from "./components/ErrorBoundary";
 import FullPageLoader from "./components/FullPageLoader";
+import { lazyWithRetry } from "./lib/lazyWithRetry";
 
-const Dashboard = lazy(() => import("./pages/Dashboard"));
-const Jobs = lazy(() => import("./pages/Jobs"));
-const Candidates = lazy(() => import("./pages/Candidates"));
-const CandidateProfile = lazy(() => import("./pages/CandidateProfile"));
-const Pipeline = lazy(() => import("./pages/Pipeline"));
-const Assessment = lazy(() => import("./pages/Assessment"));
-const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
-const AdminOverview = lazy(() => import("./pages/admin/AdminOverview"));
-const AdminCompanies = lazy(() => import("./pages/admin/AdminCompanies"));
-const AdminPricing = lazy(() => import("./pages/admin/AdminPricing"));
-const AdminCompanyDetail = lazy(() => import("./pages/admin/AdminCompanyDetail"));
-const CandidateTagsAdmin = lazy(() => import("./pages/admin/CandidateTagsAdmin"));
-const AdminInvoiceDetail = lazy(() => import("./pages/admin/AdminInvoiceDetail"));
-const AdminBilling = lazy(() => import("./pages/admin/AdminBilling"));
-const AdminEmailTemplates = lazy(() => import("./pages/admin/AdminEmailTemplates"));
-const AdminPolicies = lazy(() => import("./pages/admin/AdminPolicies"));
-const Billing = lazy(() => import("./pages/Billing"));
-const Team = lazy(() => import("./pages/Team"));
-const Forms = lazy(() => import("./pages/Forms"));
-const CompanyEmailTemplates = lazy(() => import("./pages/settings/CompanyEmailTemplates"));
-const CompanyDataProtection = lazy(() => import("./pages/settings/CompanyDataProtection"));
-const InvoiceDetail = lazy(() => import("./pages/InvoiceDetail"));
-const CareersPage = lazy(() => import("./pages/careers/CareersPage"));
-const JobDetailsPage = lazy(() => import("./pages/careers/JobDetailsPage"));
-const ScreeningJobs = lazy(() => import("./pages/screening/ScreeningJobs"));
-const ScreeningSubmissions = lazy(() => import("./pages/screening/ScreeningSubmissions"));
-const PublicScreening = lazy(() => import("./pages/screening/PublicScreening"));
-const PublicJobApplication = lazy(() => import("./pages/apply/PublicJobApplication"));
-const PublicFeedback = lazy(() => import("./pages/feedback/PublicFeedback"));
-const FormBuilder = lazy(() => import("./pages/forms/FormBuilder"));
-const FormSubmissions = lazy(() => import("./pages/forms/FormSubmissions"));
-const CandidateAssignedForm = lazy(() => import("./pages/forms/CandidateAssignedForm"));
-const DataProtection = lazy(() => import("./pages/legal/DataProtection"));
-const CompanyPolicy = lazy(() => import("./pages/legal/CompanyPolicy"));
-const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
-const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const Dashboard = lazyWithRetry(() => import("./pages/Dashboard"));
+const Jobs = lazyWithRetry(() => import("./pages/Jobs"));
+const Candidates = lazyWithRetry(() => import("./pages/Candidates"));
+const CandidateProfile = lazyWithRetry(() => import("./pages/CandidateProfile"));
+const Pipeline = lazyWithRetry(() => import("./pages/Pipeline"));
+const ExportCenter = lazyWithRetry(() => import("./pages/ExportCenter"));
+const Assessment = lazyWithRetry(() => import("./pages/Assessment"));
+const AdminDashboard = lazyWithRetry(() => import("./pages/AdminDashboard"));
+const AdminOverview = lazyWithRetry(() => import("./pages/admin/AdminOverview"));
+const AdminCompanies = lazyWithRetry(() => import("./pages/admin/AdminCompanies"));
+const AdminPricing = lazyWithRetry(() => import("./pages/admin/AdminPricing"));
+const AdminCompanyDetail = lazyWithRetry(() => import("./pages/admin/AdminCompanyDetail"));
+const CandidateTagsAdmin = lazyWithRetry(() => import("./pages/admin/CandidateTagsAdmin"));
+const AdminInvoiceDetail = lazyWithRetry(() => import("./pages/admin/AdminInvoiceDetail"));
+const AdminBilling = lazyWithRetry(() => import("./pages/admin/AdminBilling"));
+const AdminEmailTemplates = lazyWithRetry(() => import("./pages/admin/AdminEmailTemplates"));
+const AdminPolicies = lazyWithRetry(() => import("./pages/admin/AdminPolicies"));
+const Billing = lazyWithRetry(() => import("./pages/Billing"));
+const Team = lazyWithRetry(() => import("./pages/Team"));
+const Forms = lazyWithRetry(() => import("./pages/Forms"));
+const CompanyEmailTemplates = lazyWithRetry(() => import("./pages/settings/CompanyEmailTemplates"));
+const CompanyDataProtection = lazyWithRetry(() => import("./pages/settings/CompanyDataProtection"));
+const InvoiceDetail = lazyWithRetry(() => import("./pages/InvoiceDetail"));
+const CareersPage = lazyWithRetry(() => import("./pages/careers/CareersPage"));
+const JobDetailsPage = lazyWithRetry(() => import("./pages/careers/JobDetailsPage"));
+const ScreeningJobs = lazyWithRetry(() => import("./pages/screening/ScreeningJobs"));
+const ScreeningSubmissions = lazyWithRetry(() => import("./pages/screening/ScreeningSubmissions"));
+const PublicScreening = lazyWithRetry(() => import("./pages/screening/PublicScreening"));
+const PublicJobApplication = lazyWithRetry(() => import("./pages/apply/PublicJobApplication"));
+const PublicFeedback = lazyWithRetry(() => import("./pages/feedback/PublicFeedback"));
+const FormBuilder = lazyWithRetry(() => import("./pages/forms/FormBuilder"));
+const FormSubmissions = lazyWithRetry(() => import("./pages/forms/FormSubmissions"));
+const CandidateAssignedForm = lazyWithRetry(() => import("./pages/forms/CandidateAssignedForm"));
+const DataProtection = lazyWithRetry(() => import("./pages/legal/DataProtection"));
+const CompanyPolicy = lazyWithRetry(() => import("./pages/legal/CompanyPolicy"));
+const ForgotPassword = lazyWithRetry(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazyWithRetry(() => import("./pages/ResetPassword"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -117,6 +119,7 @@ const App = () => (
                   <Route path="/candidates" element={<Candidates />} />
                   <Route path="/candidates/:id" element={<CandidateProfile />} />
                   <Route path="/pipeline" element={<Pipeline />} />
+                  <Route path="/exports" element={<ExportCenter />} />
                   <Route path="/admin/candidate-tags" element={<CandidateTagsAdmin />} />
                   <Route path="/screening" element={<ScreeningJobs />} />
                   <Route path="/screening/:jobId/submissions" element={<ScreeningSubmissions />} />
