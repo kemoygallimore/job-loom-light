@@ -201,7 +201,7 @@ The billing cron functions accept `{ "dry_run": true }` to inspect what they wou
 
 ### Required secrets (external project)
 
-`RESEND_API_KEY`, `RESEND_FROM`, `RIZONHIRE_FROM_EMAIL`, `ALLOWED_ORIGINS`, `CRON_SECRET`, `R2_WORKER_BASE_URL`, `R2_WORKER_SECRET`.
+`RESEND_API_KEY`, `RESEND_FROM`, `RIZONHIRE_FROM_EMAIL`, `SUPPORT_ALERT_EMAIL` (optional, defaults to `support@rizonhire.com`), `ALLOWED_ORIGINS`, `CRON_SECRET`, `R2_WORKER_BASE_URL`, `R2_WORKER_SECRET`.
 
 `ALLOWED_ORIGINS` should include only the production app origin plus local development origins, for example:
 `https://app.rizonhire.com,http://localhost:8080,http://127.0.0.1:8080`.

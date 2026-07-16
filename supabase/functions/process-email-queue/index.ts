@@ -39,6 +39,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const FROM_ADDRESS = Deno.env.get("RIZONHIRE_FROM_EMAIL") ?? "RizonHire <no-reply@rizonhire.com>";
+const SUPPORT_ALERT_EMAIL = Deno.env.get("SUPPORT_ALERT_EMAIL") ?? "support@rizonhire.com";
 const QUEUE_NAME = "application_emails";
 
 const DEFAULT_BATCH_SIZE = 20;
@@ -111,6 +112,43 @@ function isValidEmail(email: string) {
 
 function fail(status: number, error: string, details?: unknown, retryable = true): EmailSendResult {
   return { ok: false, status, error, details, retryable };
+}
+
+async function sendSupportAlert(subject: string, details: Record<string, unknown>) {
+  const recipient = SUPPORT_ALERT_EMAIL.trim();
+  if (!recipient) return false;
+
+  if (!RESEND_API_KEY) {
+    console.error("Support alert skipped: RESEND_API_KEY not configured", { subject, details });
+    return false;
+  }
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${RESEND_API_KEY}` },
+      body: JSON.stringify({
+        from: "RizonHire Alerts <info@rizonhire.com>",
+        to: [recipient],
+        subject: normalizeSubject(subject),
+        html: `
+          <h2>${escapeHtml(subject)}</h2>
+          <pre>${escapeHtml(JSON.stringify(details, null, 2))}</pre>
+        `,
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      console.error("Support alert send failed", { status: response.status, body, subject, details });
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Support alert request failed", { error, subject, details });
+    return false;
+  }
 }
 
 async function getTemplate(admin: SupabaseAdmin, templateKey: string) {
@@ -325,6 +363,7 @@ Deno.serve(async (req) => {
     invalid: 0,
     delete_errors: 0,
     archive_errors: 0,
+    support_alerts: 0,
     stopped_for_time: false,
   };
 
@@ -382,6 +421,17 @@ Deno.serve(async (req) => {
             try {
               await archiveMessage(admin, msgId);
               summary.archived += 1;
+              if (await sendSupportAlert("RizonHire application email workflow archived a failed message", {
+                queue: QUEUE_NAME,
+                msg_id: msgId,
+                application_id: applicationId,
+                read_ct: readCount,
+                max_attempts: maxAttempts,
+                error: result.error,
+                details: result.details ?? null,
+              })) {
+                summary.support_alerts += 1;
+              }
             } catch (error) {
               summary.archive_errors += 1;
               console.error("Queue message archive failed after max attempts:", error);
@@ -409,6 +459,13 @@ Deno.serve(async (req) => {
       },
     });
   } catch (error: unknown) {
+    if (await sendSupportAlert("RizonHire application email workflow failed", {
+      queue: QUEUE_NAME,
+      error: error instanceof Error ? error.message : "Unknown error",
+      summary,
+    })) {
+      summary.support_alerts += 1;
+    }
     return json(
       {
         success: false,

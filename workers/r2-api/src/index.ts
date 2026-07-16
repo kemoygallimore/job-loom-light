@@ -13,6 +13,7 @@ export interface Env {
   R2_BUCKET_ADDITIONAL_DOCUMENTS: string;
   R2_EXPORTS_BUCKET?: string;
   RESEND_API_KEY: string;
+  SUPPORT_ALERT_EMAIL?: string;
   ALLOWED_ORIGINS?: string;
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
@@ -24,6 +25,7 @@ export interface Env {
 
 const INVOICE_BUCKET_NAME = "rizonhire-invoices";
 const DEFAULT_EXPORTS_BUCKET_NAME = "rizonhire-exports";
+const DEFAULT_SUPPORT_ALERT_EMAIL = "support@rizonhire.com";
 const DEFAULT_ALLOWED_ORIGINS = [
   "https://test.rizonhire.com",
   "https://app.rizonhire.com",
@@ -40,7 +42,20 @@ type SupabaseUser = {
 type AuthResult =
   | { ok: true; kind: "worker" }
   | { ok: true; kind: "user"; userId: string; companyId: string }
-  | { ok: false; status: 401 | 403; error: string };
+  | { ok: false; status: 401 | 403 | 503; error: string; alert?: SupportAlert };
+
+type SupabaseJsonResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; status: number; error: string };
+
+type AvailabilityResult =
+  | { ok: true; exists: boolean }
+  | { ok: false; status: number; error: string };
+
+type SupportAlert = {
+  subject: string;
+  details: Record<string, unknown>;
+};
 
 function allowedOrigins(env: Env) {
   return (env.ALLOWED_ORIGINS || DEFAULT_ALLOWED_ORIGINS.join(","))
@@ -120,23 +135,73 @@ function supabaseUrl(env: Env, pathname: string, params?: Record<string, string>
   return url.toString();
 }
 
+function supportAlertEmail(env: Env) {
+  return (env.SUPPORT_ALERT_EMAIL || DEFAULT_SUPPORT_ALERT_EMAIL).trim();
+}
+
+async function sendSupportAlert(env: Env, alert: SupportAlert) {
+  const recipient = supportAlertEmail(env);
+  if (!recipient) return;
+
+  if (!env.RESEND_API_KEY) {
+    console.error("Support alert skipped: RESEND_API_KEY is not configured", alert);
+    return;
+  }
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "RizonHire Alerts <info@rizonhire.com>",
+        to: [recipient],
+        subject: alert.subject.slice(0, 240),
+        html: `
+          <h2>${escapeHtml(alert.subject)}</h2>
+          <pre>${escapeHtml(JSON.stringify(alert.details, null, 2))}</pre>
+        `,
+      }),
+    });
+
+    if (!response.ok) {
+      const details = await response.text().catch(() => "");
+      console.error("Support alert send failed", { status: response.status, details, alert });
+    }
+  } catch (error) {
+    console.error("Support alert request failed", { error, alert });
+  }
+}
+
 async function fetchSupabaseJson<T>(
   env: Env,
   url: string,
   authorizationToken: string,
-): Promise<{ ok: true; data: T } | { ok: false; status: number }> {
-  const response = await fetch(url, {
-    headers: {
-      apikey: env.SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${authorizationToken}`,
-    },
-  });
-
-  if (!response.ok) {
-    return { ok: false, status: response.status };
+): Promise<SupabaseJsonResult<T>> {
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      headers: {
+        apikey: env.SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${authorizationToken}`,
+      },
+    });
+  } catch (error) {
+    return { ok: false, status: 0, error: error instanceof Error ? error.message : "Supabase request failed" };
   }
 
-  return { ok: true, data: await response.json<T>() };
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "");
+    return { ok: false, status: response.status, error: errorText || response.statusText };
+  }
+
+  try {
+    return { ok: true, data: await response.json<T>() };
+  } catch (error) {
+    return { ok: false, status: 0, error: error instanceof Error ? error.message : "Supabase response was not JSON" };
+  }
 }
 
 async function getProfileCompanyId(env: Env, userId: string, token: string) {
@@ -211,7 +276,7 @@ function contentTypeAllowed(folder: UploadFolder, contentType: string) {
   ]).has(normalized);
 }
 
-async function hasOpenJob(env: Env, companyId: string, jobId: string) {
+async function hasOpenJob(env: Env, companyId: string, jobId: string): Promise<AvailabilityResult> {
   const jobsUrl = supabaseUrl(env, "/rest/v1/jobs", {
     id: `eq.${jobId}`,
     company_id: `eq.${companyId}`,
@@ -219,10 +284,11 @@ async function hasOpenJob(env: Env, companyId: string, jobId: string) {
     select: "id",
   });
   const result = await fetchSupabaseJson<Array<{ id: string }>>(env, jobsUrl, env.SUPABASE_ANON_KEY);
-  return result.ok && result.data.length > 0;
+  if (!result.ok) return result;
+  return { ok: true, exists: result.data.length > 0 };
 }
 
-async function hasActiveLeadForm(env: Env, companyId: string, formId: string) {
+async function hasActiveLeadForm(env: Env, companyId: string, formId: string): Promise<AvailabilityResult> {
   const formUrl = supabaseUrl(env, "/rest/v1/lead_forms", {
     id: `eq.${formId}`,
     company_id: `eq.${companyId}`,
@@ -231,7 +297,36 @@ async function hasActiveLeadForm(env: Env, companyId: string, formId: string) {
     select: "id",
   });
   const result = await fetchSupabaseJson<Array<{ id: string }>>(env, formUrl, env.SUPABASE_ANON_KEY);
-  return result.ok && result.data.length > 0;
+  if (!result.ok) return result;
+  return { ok: true, exists: result.data.length > 0 };
+}
+
+function uploadVerificationUnavailableAlert(args: {
+  request: Request;
+  folder: UploadFolder;
+  companyId: string;
+  jobId: string;
+  check: "jobs" | "lead_forms";
+  result: { status: number; error: string };
+}): AuthResult {
+  return {
+    ok: false,
+    status: 503,
+    error: "Upload verification unavailable",
+    alert: {
+      subject: "RizonHire upload verification failed",
+      details: {
+        route: new URL(args.request.url).pathname,
+        check: args.check,
+        status: args.result.status,
+        error: args.result.error,
+        folder: args.folder,
+        company_id: args.companyId,
+        job_id: args.jobId,
+        origin: args.request.headers.get("Origin"),
+      },
+    },
+  };
 }
 
 async function canPresignUpload(
@@ -253,12 +348,34 @@ async function canPresignUpload(
     return auth;
   }
 
-  if (jobId && await hasOpenJob(env, companyId, jobId)) {
-    return { ok: true, kind: "worker" };
+  if (jobId) {
+    const jobResult = await hasOpenJob(env, companyId, jobId);
+    if (!jobResult.ok) {
+      return uploadVerificationUnavailableAlert({
+        request,
+        folder,
+        companyId,
+        jobId,
+        check: "jobs",
+        result: jobResult,
+      });
+    }
+    if (jobResult.exists) return { ok: true, kind: "worker" };
   }
 
-  if (folder === "documents" && jobId && await hasActiveLeadForm(env, companyId, jobId)) {
-    return { ok: true, kind: "worker" };
+  if (folder === "documents" && jobId) {
+    const leadFormResult = await hasActiveLeadForm(env, companyId, jobId);
+    if (!leadFormResult.ok) {
+      return uploadVerificationUnavailableAlert({
+        request,
+        folder,
+        companyId,
+        jobId,
+        check: "lead_forms",
+        result: leadFormResult,
+      });
+    }
+    if (leadFormResult.exists) return { ok: true, kind: "worker" };
   }
 
   return { ok: false, status: 403, error: "Forbidden" };
@@ -432,6 +549,10 @@ export default {
 
         const auth = await canPresignUpload(request, env, uploadFolder, companyId, jobId);
         if (!auth.ok) {
+          if (auth.alert) {
+            console.error("Upload presign verification failed", auth.alert.details);
+            await sendSupportAlert(env, auth.alert);
+          }
           return json(request, env, { error: auth.error }, auth.status);
         }
 
@@ -632,6 +753,16 @@ export default {
         404
       );
     } catch (err) {
+      console.error("Worker request failed", { path, error: err });
+      await sendSupportAlert(env, {
+        subject: "RizonHire Worker request failed",
+        details: {
+          path,
+          method: request.method,
+          error: err instanceof Error ? err.message : "Unknown error",
+          origin: request.headers.get("Origin"),
+        },
+      });
       return json(
         request,
         env,
