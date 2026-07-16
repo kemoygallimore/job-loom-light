@@ -23,9 +23,10 @@
     "R2_BUCKET_VIDEOS": "silverweb-ats-videos",
     "R2_BUCKET_ADDITIONAL_DOCUMENTS": "silverweb-additional-documents",
     "R2_EXPORTS_BUCKET": "rizonhire-exports",
+    "SUPPORT_ALERT_EMAIL": "support@rizonhire.com",
     "ALLOWED_ORIGINS": "https://test.rizonhire.com,https://app.rizonhire.com,http://localhost:8080,http://127.0.0.1:8080",
     "SUPABASE_URL": "https://jfiyvvigvknfemqfnucl.supabase.co",
-    "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhreXV5YmZ4ZHh4enpmZGpmdHNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxOTgxMjEsImV4cCI6MjA4OTc3NDEyMX0.P3ieR98TgHutbTyc0IW1tKx0vRaKbIhrNz0ua820Ioo"
+    "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpmaXl2dmlndmtuZmVtcWZudWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzNDU2MzgsImV4cCI6MjA5MDkyMTYzOH0.Pb1f5_vlaqG16ONMRO3FQsOtyBby6nVFfA_26KSI4ik"
   },
 
   "r2_buckets": [
