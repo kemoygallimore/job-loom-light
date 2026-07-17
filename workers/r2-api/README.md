@@ -19,6 +19,7 @@ Do not commit `.dev.vars`. The archived Worker ZIP exposed old-looking secrets, 
 - `R2_ACCOUNT_ID`
 - `R2_EXPORTS_BUCKET` (configured as a Worker var in `wrangler.jsonc`)
 - `RESEND_API_KEY`
+- `SUPPORT_ALERT_EMAIL` (optional Worker var; defaults to `support@rizonhire.com`)
 - `R2_WORKER_SECRET`
 
 ## Required Cloudflare Setup

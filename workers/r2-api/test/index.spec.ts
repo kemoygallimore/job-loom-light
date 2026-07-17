@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import worker, { Env } from "../src/index";
 
 const testEnv = {
@@ -11,6 +12,7 @@ const testEnv = {
   R2_EXPORTS_BUCKET: "rizonhire-exports",
   RESEND_API_KEY: "test-resend-key",
   R2_WORKER_SECRET: "test-worker-secret",
+  SUPPORT_ALERT_EMAIL: "support@rizonhire.com",
   ALLOWED_ORIGINS: "https://test.rizonhire.com,http://localhost:8080",
   SUPABASE_URL: "https://test.supabase.co",
   SUPABASE_ANON_KEY: "test-anon-key",
@@ -100,6 +102,33 @@ async function presign(folder: string, contentType = "application/pdf", jobId = 
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+function decodeJwtPayload(token: string) {
+  const [, payload] = token.split(".");
+  return JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as Record<string, unknown>;
+}
+
+function supabaseProjectRef(url: string) {
+  return new URL(url).hostname.split(".")[0];
+}
+
+describe("R2 API Worker configuration", () => {
+  it("uses a Supabase anon key for the configured Supabase project", () => {
+    const config = JSON.parse(readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8")) as {
+      vars: { SUPABASE_URL: string; SUPABASE_ANON_KEY: string };
+    };
+
+    expect(decodeJwtPayload(config.vars.SUPABASE_ANON_KEY).ref).toBe(supabaseProjectRef(config.vars.SUPABASE_URL));
+  });
+
+  it("detects a mismatched Supabase anon key project ref", () => {
+    const mismatchedUrl = "https://project-a.supabase.co";
+    const mismatchedKey =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InByb2plY3QtYiIsInJvbGUiOiJhbm9uIn0.signature";
+
+    expect(decodeJwtPayload(mismatchedKey).ref).not.toBe(supabaseProjectRef(mismatchedUrl));
+  });
 });
 
 describe("R2 API Worker bucket routing", () => {
@@ -311,6 +340,91 @@ describe("R2 API Worker bucket routing", () => {
 
     expect(response.status).toBe(401);
     expect(body.error).toBe("Unauthorized");
+  });
+
+  it("returns service unavailable and alerts support when public job verification cannot authenticate", async () => {
+    const resendPayloads: Array<Record<string, unknown>> = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const parsedUrl = new URL(url);
+
+      if (url === "https://api.resend.com/emails") {
+        resendPayloads.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+        return new Response(JSON.stringify({ id: "support-alert-1" }), { status: 200 });
+      }
+
+      if (parsedUrl.hostname.endsWith(".supabase.co") && parsedUrl.pathname === "/rest/v1/jobs") {
+        return new Response(JSON.stringify({ message: "Invalid API key" }), { status: 401 });
+      }
+
+      return new Response("", { status: 200 });
+    }));
+
+    const response = await worker.fetch(
+      new Request("https://api.rizonhire.com/presign-upload", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: "https://test.rizonhire.com",
+        },
+        body: JSON.stringify({
+          filename: "sample.pdf",
+          contentType: "application/pdf",
+          folder: "resumes",
+          companyId: "company-1",
+          jobId: "job-1",
+          candidateId: "candidate-1",
+        }),
+      }),
+      testEnv,
+    );
+    const body = await response.json<Record<string, string>>();
+
+    expect(response.status).toBe(503);
+    expect(body.error).toBe("Upload verification unavailable");
+    expect(resendPayloads).toHaveLength(1);
+    expect(resendPayloads[0].to).toEqual(["support@rizonhire.com"]);
+  });
+
+  it("does not alert support for a closed or missing public job", async () => {
+    const resendPayloads: Array<Record<string, unknown>> = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const parsedUrl = new URL(url);
+
+      if (url === "https://api.resend.com/emails") {
+        resendPayloads.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+        return new Response(JSON.stringify({ id: "unexpected-alert" }), { status: 200 });
+      }
+
+      if (parsedUrl.hostname.endsWith(".supabase.co") && parsedUrl.pathname === "/rest/v1/jobs") {
+        return new Response(JSON.stringify([]), { status: 200 });
+      }
+
+      return new Response("", { status: 200 });
+    }));
+
+    const response = await worker.fetch(
+      new Request("https://api.rizonhire.com/presign-upload", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: "https://test.rizonhire.com",
+        },
+        body: JSON.stringify({
+          filename: "sample.pdf",
+          contentType: "application/pdf",
+          folder: "resumes",
+          companyId: "company-1",
+          jobId: "job-closed",
+          candidateId: "candidate-1",
+        }),
+      }),
+      testEnv,
+    );
+
+    expect(response.status).toBe(403);
+    expect(resendPayloads).toHaveLength(0);
   });
 
   it("escapes script tags in send-lead-email messages", async () => {

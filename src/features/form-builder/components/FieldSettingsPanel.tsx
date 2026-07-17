@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ArrowDown, ArrowUp, GripVertical, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,38 @@ function parseOptions(value: string) {
     .split("\n")
     .map((option) => option.trim())
     .filter(Boolean);
+}
+
+function FieldOptionsEditor({
+  field,
+  updateField,
+}: {
+  field: LeadFormField;
+  updateField: (fieldId: string, patch: Partial<LeadFormField>) => void;
+}) {
+  const [rawOptions, setRawOptions] = useState(fieldOptionsText(field));
+
+  const updateOptions = (value: string) => {
+    setRawOptions(value);
+    updateField(field.id, { options: parseOptions(value) });
+  };
+
+  const cleanOptions = () => {
+    setRawOptions(parseOptions(rawOptions).join("\n"));
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Label htmlFor={`field-options-${field.id}`}>Options</Label>
+      <Textarea
+        id={`field-options-${field.id}`}
+        rows={4}
+        value={rawOptions}
+        onBlur={cleanOptions}
+        onChange={(event) => updateOptions(event.target.value)}
+      />
+    </div>
+  );
 }
 
 interface FieldSettingsPanelProps extends FieldSettingsActions {
@@ -101,10 +134,7 @@ export function FieldSettingsPanel({ className, schema, selectedField, updateFie
           </div>
 
           {OPTION_FIELD_TYPES.has(selectedField.type) && (
-            <div className="flex flex-col gap-2">
-              <Label>Options</Label>
-              <Textarea rows={4} value={fieldOptionsText(selectedField)} onChange={(event) => updateField(selectedField.id, { options: parseOptions(event.target.value) })} />
-            </div>
+            <FieldOptionsEditor key={selectedField.id} field={selectedField} updateField={updateField} />
           )}
 
           {TEXT_LIMIT_FIELD_TYPES.has(selectedField.type) && <ValidationSettings field={selectedField} updateField={updateField} />}
