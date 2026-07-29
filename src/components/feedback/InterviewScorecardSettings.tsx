@@ -15,7 +15,17 @@ export default function InterviewScorecardSettings({ companyId, userId, onPublis
   const load = useCallback(async () => {
     const { data: versionRow } = await supabase.from("interview_scorecard_versions").select("*").eq("company_id", companyId).in("status", ["draft", "published"]).order("version", { ascending: false }).limit(1).maybeSingle();
     if (!versionRow) { setVersionId(null); setAreas([]); setStatus("draft"); return; }
-    const { data: areaRows } = await supabase.from("interview_scorecard_areas").select("*").eq("version_id", versionRow.id).order("position");
+    const { data: currentAreaRows, error: areaError } = await supabase.from("interview_scorecard_areas").select("*").eq("version_id", versionRow.id).order("position");
+    if (areaError) { toast.error(areaError.message); return; }
+    let areaRows = currentAreaRows;
+    if (versionRow.status === "draft" && !areaRows?.length) {
+      const { data: archivedVersion } = await supabase.from("interview_scorecard_versions").select("id").eq("company_id", companyId).eq("status", "archived").order("version", { ascending: false }).limit(1).maybeSingle();
+      if (archivedVersion) {
+        const { data: archivedAreaRows, error: archivedAreaError } = await supabase.from("interview_scorecard_areas").select("*").eq("version_id", archivedVersion.id).order("position");
+        if (archivedAreaError) { toast.error(archivedAreaError.message); return; }
+        areaRows = archivedAreaRows;
+      }
+    }
     setVersionId(versionRow.id); setVersion(versionRow.version); setStatus(versionRow.status); setAreas((areaRows ?? []).map((area) => ({ id: area.id, label: area.label, description: area.description ?? "" })));
   }, [companyId]);
   useEffect(() => { load(); }, [load]);
@@ -31,7 +41,7 @@ export default function InterviewScorecardSettings({ companyId, userId, onPublis
       if (error) { toast.error(error.message); setSaving(false); return; } targetId = data.id;
     }
     await supabase.from("interview_scorecard_areas").delete().eq("version_id", targetId!);
-    const { error } = await supabase.from("interview_scorecard_areas").insert(areas.map((area, position) => ({ id: area.id, version_id: targetId!, position, label: area.label.trim(), description: area.description.trim() || null })));
+    const { error } = await supabase.from("interview_scorecard_areas").insert(areas.map((area, position) => ({ version_id: targetId!, position, label: area.label.trim(), description: area.description.trim() || null })));
     if (error) { toast.error(error.message); setSaving(false); return; }
     await supabase.from("interview_scorecard_versions").update({ status: "published", published_at: new Date().toISOString() }).eq("id", targetId!);
     toast.success("Company interview scorecard published"); setSaving(false); await load(); onPublished?.();
