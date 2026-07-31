@@ -49,4 +49,4 @@ CREATE POLICY "Requesters and admins can view export jobs"
   );
 
 GRANT SELECT ON public.export_jobs TO authenticated;
-GRANT ALL ON public.export_jobs TO service_role;
+GRANT ALL ON public.export_jobs TO service_role;;

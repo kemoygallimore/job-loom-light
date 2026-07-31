@@ -1,13 +1,26 @@
-import { createClient } from '@supabase/supabase-js';
-import type { Database } from './types';
+import { createClient } from "@supabase/supabase-js";
+import type { Database } from "./types";
+import {
+  createInstrumentedFetch,
+  setOperationalErrorAccessToken,
+} from "@/lib/operationalErrorReporting";
+import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "./config";
 
-const EXTERNAL_SUPABASE_URL = "https://jfiyvvigvknfemqfnucl.supabase.co";
-const EXTERNAL_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpmaXl2dmlndmtuZmVtcWZudWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzNDU2MzgsImV4cCI6MjA5MDkyMTYzOH0.Pb1f5_vlaqG16ONMRO3FQsOtyBby6nVFfA_26KSI4ik";
-
-export const supabase = createClient<Database>(EXTERNAL_SUPABASE_URL, EXTERNAL_SUPABASE_ANON_KEY, {
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
-  }
+  },
+  global: {
+    fetch: createInstrumentedFetch(globalThis.fetch.bind(globalThis)),
+  },
+});
+
+void supabase.auth.getSession().then(({ data }) => {
+  setOperationalErrorAccessToken(data.session?.access_token);
+});
+
+supabase.auth.onAuthStateChange((_event, session) => {
+  setOperationalErrorAccessToken(session?.access_token);
 });

@@ -1,3 +1,50 @@
+CREATE TABLE IF NOT EXISTS public.company_features (
+  company_id uuid PRIMARY KEY REFERENCES public.companies(id) ON DELETE CASCADE,
+  feature_assessment boolean NOT NULL DEFAULT false,
+  feature_public_careers boolean NOT NULL DEFAULT true,
+  feature_guest_feedback boolean NOT NULL DEFAULT true,
+  feature_email_notifications boolean NOT NULL DEFAULT false,
+  feature_custom_email_domain boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.company_features ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Super admin manage features" ON public.company_features;
+CREATE POLICY "Super admin manage features"
+  ON public.company_features
+  FOR ALL
+  USING (public.has_role((SELECT auth.uid()), 'super_admin'::public.app_role))
+  WITH CHECK (public.has_role((SELECT auth.uid()), 'super_admin'::public.app_role));
+
+DROP POLICY IF EXISTS "Tenant reads own features" ON public.company_features;
+CREATE POLICY "Tenant reads own features"
+  ON public.company_features
+  FOR SELECT
+  USING (company_id = public.get_user_company_id((SELECT auth.uid())));
+
+CREATE OR REPLACE FUNCTION public.is_feature_enabled(_company_id uuid, _feature text)
+RETURNS boolean
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  enabled boolean;
+BEGIN
+  EXECUTE format(
+    'SELECT %I FROM public.company_features WHERE company_id = $1',
+    'feature_' || _feature
+  ) INTO enabled USING _company_id;
+
+  RETURN coalesce(enabled, false);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.is_feature_enabled(uuid, text) TO anon, authenticated;
+
 CREATE OR REPLACE FUNCTION public.get_public_feedback_context(_token text)
 RETURNS TABLE (
   id uuid,

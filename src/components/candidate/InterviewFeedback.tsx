@@ -39,7 +39,7 @@ export default function InterviewFeedback({ candidateId, companyId, userId, jobs
     setSaving(true); const average = Number((areas.reduce((sum, area) => sum + ratings[area.id], 0) / areas.length).toFixed(2));
     const snapshot = { areas, scale: ["Poor", "Below expectations", "Meets expectations", "Exceeds expectations", "Exceptional"] };
     const { error } = await supabase.from("interview_feedback").insert({ candidate_id: candidateId, company_id: companyId, job_id: activeJob.id, submitted_by: userId, feedback_by: currentUserName ?? null, feedback_text: summary.trim(), summary: summary.trim(), scorecard_version_id: versionId, scorecard_snapshot: snapshot as unknown as Json, ratings, panelist_average: average, rating: Math.round(average), source: "internal" });
-    setSaving(false); if (error) { toast.error(error.message); return; } setRatings({}); setSummary(""); toast.success("Interview feedback submitted"); await load();
+    setSaving(false); if (error) { toast.error("Could not submit interview feedback. Please try again."); return; } setRatings({}); setSummary(""); toast.success("Interview feedback submitted"); await load();
   };
   const remove = async (id: string) => { if (!window.confirm("Permanently delete this feedback? The interview average will recalculate.")) return; const { error } = await supabase.from("interview_feedback").delete().eq("id", id); if (error) toast.error(error.message); else { toast.success("Feedback deleted"); await load(); } };
 
