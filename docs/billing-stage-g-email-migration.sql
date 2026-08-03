@@ -59,7 +59,7 @@ INSERT INTO public.email_templates (key, name, subject, html_body, text_body, va
 VALUES (
   'application_received',
   'Application Received',
-  'Thanks for applying to {{job_title}} at {{company_name}}',
+  'Thanks for applying to the {{job_title}} position at {{company_name}}',
   '<p>Hi {{candidate_name}},</p><p>Thank you for applying for the <strong>{{job_title}}</strong> role at <strong>{{company_name}}</strong>. Our team has received your application and will review it shortly.</p><p>If your background matches what we are looking for, someone from {{company_name}} will reach out to you directly.</p><p>Best regards,<br/>The {{company_name}} Hiring Team</p>',
   'Hi {{candidate_name}}, thank you for applying for {{job_title}} at {{company_name}}. We have received your application and will review it shortly.',
   '["candidate_name","company_name","job_title"]'::jsonb

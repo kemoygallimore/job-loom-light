@@ -36,7 +36,7 @@ export function ApplicationSuccessScreen({ job }: { job: JobSummary | null }) {
         <CheckCircle2 className="w-16 h-16 text-emerald-500 mx-auto mb-4" />
         <h1 className="text-2xl font-bold" data-testid="application-success-message">Application Submitted!</h1>
         <p className="text-muted-foreground text-sm mt-2 max-w-sm mx-auto">
-          Thank you for applying to <span className="font-medium text-foreground">{job?.title}</span>. We'll review
+          Thank you for applying to the <span className="font-medium text-foreground">{job?.title}</span> position. We'll review
           your application and get back to you soon.
         </p>
       </div>
