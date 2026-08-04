@@ -246,7 +246,7 @@ CountRows(
 )
 ```
 
-Display zero results as `0 customers · page 0 of 0`; otherwise calculate total pages with `RoundUp(totalCustomers / varPageSize, 0)`. Previous uses `If(varCurrentPage > 1, UpdateContext({varCurrentPage: varCurrentPage - 1}))`. Next uses `If(varCurrentPage < RoundUp(totalCustomers / varPageSize, 0), UpdateContext({varCurrentPage: varCurrentPage + 1}))` inside the same `With({totalCustomers: ...}, ...)` expression. Set accessible labels to **Previous customer page** and **Next customer page**, and preserve a visible two-pixel focus border on both overlays.
+Display zero results as `0 customers · page 0 of 0`; otherwise calculate total pages with `RoundUp(totalCustomers / varPageSize, 0)`. Previous uses `If(varCurrentPage > 1, UpdateContext({varCurrentPage: varCurrentPage - 1}))`. Next uses `If(varCurrentPage < RoundUp(totalCustomers / varPageSize, 0), UpdateContext({varCurrentPage: varCurrentPage + 1}))` inside a `With` expression that binds `totalCustomers` to the exact `CountRows` expression above. Set accessible labels to **Previous customer page** and **Next customer page**, and preserve a visible two-pixel focus border on both overlays.
 
 - [ ] **Step 7: Validate the artifact**
 
