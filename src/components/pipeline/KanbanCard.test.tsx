@@ -38,4 +38,11 @@ describe("KanbanCard screening score", () => {
     expect(screen.getByText("Review needed")).toBeInTheDocument();
     expect(screen.queryByText(/answer/i)).not.toBeInTheDocument();
   });
+
+  it("labels and disables candidate selection when another stage owns the batch", async () => {
+    render(<KanbanCard app={application()} isDragging={false} selectionDisabled />);
+
+    const checkbox = screen.getByRole("checkbox", { name: "Select Alicia Robinson" });
+    await waitFor(() => expect(checkbox).toBeDisabled());
+  });
 });

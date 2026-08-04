@@ -9,21 +9,27 @@ interface Props {
   app: Application;
   isDragging: boolean;
   selected?: boolean;
+  selectionDisabled?: boolean;
   onToggle?: (id: string, checked: boolean) => void;
 }
 
-export default function KanbanCard({ app, isDragging, selected, onToggle }: Props) {
+type CandidateTagAssignmentRow = {
+  tag: CandidateTag | null;
+};
+
+export default function KanbanCard({ app, isDragging, selected, selectionDisabled, onToggle }: Props) {
   const [tags, setTags] = useState<CandidateTag[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from("candidate_tag_assignments")
         .select("tag:candidate_tags(id, company_id, label, color)")
         .eq("candidate_id", app.candidate_id);
       if (cancelled) return;
-      setTags(((data as any[]) ?? []).map(r => r.tag).filter(Boolean));
+      const rows = (data ?? []) as unknown as CandidateTagAssignmentRow[];
+      setTags(rows.flatMap((row) => row.tag ? [row.tag] : []));
     })();
     return () => { cancelled = true; };
   }, [app.candidate_id]);
@@ -32,7 +38,12 @@ export default function KanbanCard({ app, isDragging, selected, onToggle }: Prop
     <div className={`kanban-card ${isDragging ? "dragging" : ""}`}>
       <div className="flex items-start gap-2.5">
         <div onClick={(e) => e.stopPropagation()} className="pt-1">
-          <Checkbox checked={!!selected} onCheckedChange={(v) => onToggle?.(app.id, v === true)} />
+          <Checkbox
+            aria-label={`Select ${app.candidate?.name ?? "candidate"}`}
+            checked={!!selected}
+            disabled={selectionDisabled}
+            onCheckedChange={(v) => onToggle?.(app.id, v === true)}
+          />
         </div>
         <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center flex-shrink-0 mt-0.5">
           <User className="w-3.5 h-3.5 text-muted-foreground" />

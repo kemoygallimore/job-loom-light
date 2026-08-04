@@ -3,15 +3,28 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { ChevronDown, FileText, Mail, Video, XCircle } from "lucide-react";
+import { ArrowRightLeft, ChevronDown, FileText, Mail, Video, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ExportRequestDialog } from "@/components/export/ExportRequestDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -110,6 +123,7 @@ export default function Pipeline() {
   const [formDialogOpen, setFormDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectDialogIds, setRejectDialogIds] = useState<string[]>([]);
+  const [pendingMoveStage, setPendingMoveStage] = useState<Stage | null>(null);
   
   const pipelineFilters = useMemo<PipelineFilters>(
     () => ({ search, screeningMax, screeningMin, screeningStatus, sort }),
@@ -188,6 +202,34 @@ export default function Pipeline() {
     },
   });
 
+  const batchMoveStageMutation = useMutation({
+    mutationFn: async ({ applicationIds, newStage }: { applicationIds: string[]; newStage: Stage }) => {
+      const { error } = await supabase.from("applications").update({ stage: newStage }).in("id", applicationIds);
+      if (error) throw error;
+    },
+    onMutate: async ({ applicationIds, newStage }) => {
+      await queryClient.cancelQueries({ queryKey: pipelineKey });
+      const previous = queryClient.getQueryData<Application[]>(pipelineKey);
+      const targetIds = new Set(applicationIds);
+      queryClient.setQueryData<Application[]>(pipelineKey, (current = []) =>
+        current.map((app) => (targetIds.has(app.id) ? { ...app, stage: newStage } : app)),
+      );
+      return { previous };
+    },
+    onError: (error, _variables, context) => {
+      if (context?.previous) queryClient.setQueryData(pipelineKey, context.previous);
+      toast.error(errorMessage(error, "Failed to move candidates"));
+    },
+    onSuccess: (_data, { applicationIds, newStage }) => {
+      const count = applicationIds.length;
+      toast.success(`Moved ${count} ${count === 1 ? "candidate" : "candidates"} to ${STAGE_LABELS[newStage]}`);
+      setSelectedIds([]);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: pipelineKey });
+    },
+  });
+
   const onDragEnd = (result: DropResult) => {
     const { destination, draggableId } = result;
     if (!destination) return;
@@ -205,7 +247,12 @@ export default function Pipeline() {
 
   const toggleSelected = (id: string, checked: boolean) => {
     setSelectedIds(prev => {
-      if (checked) return Array.from(new Set([...prev, id]));
+      if (checked) {
+        const selectedStage = applications.find((app) => prev.includes(app.id))?.stage;
+        const candidateStage = applications.find((app) => app.id === id)?.stage;
+        if (selectedStage && candidateStage !== selectedStage) return prev;
+        return Array.from(new Set([...prev, id]));
+      }
       return prev.filter(x => x !== id);
     });
   };
@@ -213,6 +260,8 @@ export default function Pipeline() {
   const toggleStageSelection = (stageApps: Application[]) => {
     const ids = stageApps.map((app) => app.id);
     if (ids.length === 0) return;
+    const selectedStage = applications.find((app) => selectedIds.includes(app.id))?.stage;
+    if (selectedStage && stageApps[0].stage !== selectedStage) return;
     const allSelected = ids.every((id) => selectedIds.includes(id));
 
     setSelectedIds((current) => {
@@ -272,6 +321,10 @@ export default function Pipeline() {
   );
   const rejectDialogApps = applications.filter((app) => rejectDialogIds.includes(app.id));
   const selectedApps = applications.filter((app) => selectedIds.includes(app.id));
+  const selectedSourceStage = selectedApps[0]?.stage ?? null;
+  const moveDestinations = selectedSourceStage
+    ? PIPELINE_STAGES.filter((stage) => stage !== selectedSourceStage && stage !== "rejected")
+    : [];
 
   const toEmailRecipients = (apps: Application[]): CandidateEmailRecipient[] =>
     apps.map((app) => ({
@@ -346,6 +399,21 @@ export default function Pipeline() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
+                  {selectedSourceStage !== "rejected" && (
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger>
+                        <ArrowRightLeft className="mr-2 h-4 w-4" />
+                        Move to stage
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        {moveDestinations.map((stage) => (
+                          <DropdownMenuItem key={stage} onClick={() => setPendingMoveStage(stage)}>
+                            {STAGE_LABELS[stage]}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                  )}
                   <DropdownMenuItem onClick={() => openActionDialog("general")}>
                     <Mail className="mr-2 h-4 w-4" />
                     Email Selected
@@ -388,6 +456,7 @@ export default function Pipeline() {
           {PIPELINE_STAGES.map(stage => {
             const stageApps = filtered.filter(a => a.stage === stage);
             const allStageAppsSelected = stageApps.length > 0 && stageApps.every((app) => selectedIds.includes(app.id));
+            const stageSelectionDisabled = selectedSourceStage !== null && selectedSourceStage !== stage;
             return (
               <Droppable droppableId={stage} key={stage}>
                 {(provided, snapshot) => (
@@ -407,7 +476,7 @@ export default function Pipeline() {
                           variant="ghost"
                           size="sm"
                           className="h-7 px-2 text-xs"
-                          disabled={stageApps.length === 0}
+                          disabled={stageApps.length === 0 || stageSelectionDisabled}
                           onClick={(e) => {
                             e.stopPropagation();
                             toggleStageSelection(stageApps);
@@ -428,7 +497,13 @@ export default function Pipeline() {
                               {...provided.dragHandleProps}
                               onClick={() => setSelectedApp(app)}
                             >
-                              <KanbanCard app={app} isDragging={snapshot.isDragging} selected={selectedIds.includes(app.id)} onToggle={toggleSelected} />
+                              <KanbanCard
+                                app={app}
+                                isDragging={snapshot.isDragging}
+                                selected={selectedIds.includes(app.id)}
+                                selectionDisabled={stageSelectionDisabled}
+                                onToggle={toggleSelected}
+                              />
                             </div>
                           )}
                         </Draggable>
@@ -485,6 +560,39 @@ export default function Pipeline() {
         onOpenChange={handleRejectDialogOpenChange}
         onSent={handleRejectSent}
       />
+
+      <AlertDialog
+        open={pendingMoveStage !== null}
+        onOpenChange={(open) => {
+          if (!open && !batchMoveStageMutation.isPending) setPendingMoveStage(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Move {selectedIds.length} {selectedIds.length === 1 ? "candidate" : "candidates"} to{" "}
+              {pendingMoveStage ? STAGE_LABELS[pendingMoveStage] : "this stage"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will move the selected {selectedIds.length === 1 ? "candidate" : "candidates"} from{" "}
+              {selectedSourceStage ? STAGE_LABELS[selectedSourceStage] : "the current stage"} to{" "}
+              {pendingMoveStage ? STAGE_LABELS[pendingMoveStage] : "the selected stage"}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={batchMoveStageMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!pendingMoveStage || batchMoveStageMutation.isPending}
+              onClick={() => {
+                if (!pendingMoveStage) return;
+                batchMoveStageMutation.mutate({ applicationIds: selectedIds, newStage: pendingMoveStage });
+              }}
+            >
+              Move candidates
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
