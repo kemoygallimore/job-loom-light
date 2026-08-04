@@ -25,6 +25,7 @@ playwright-report/
 test-results/
 tests/e2e/.auth/
 supabase/.temp/
+.worktrees/
 
 # Editor directories and files
 .vscode/*
