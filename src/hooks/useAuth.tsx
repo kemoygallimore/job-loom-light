@@ -1,6 +1,7 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
+import { subscribeToUnauthorizedSession } from "@/lib/authSessionEvents";
 
 interface Profile {
   id: string;
@@ -16,17 +17,31 @@ interface AuthContextType {
   profile: Profile | null;
   role: string | null;
   loading: boolean;
+  sessionExpired: boolean;
   signOut: () => Promise<void>;
   refreshAuth: () => Promise<void>;
+  clearSessionExpired: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null, session: null, profile: null, role: null, loading: true,
+  sessionExpired: false,
   signOut: async () => {},
   refreshAuth: async () => {},
+  clearSessionExpired: () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
+
+function isDefinitiveSessionError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { status?: unknown; code?: unknown };
+  return candidate.status === 401 ||
+    candidate.status === 403 ||
+    candidate.code === "session_not_found" ||
+    candidate.code === "bad_jwt" ||
+    candidate.code === "refresh_token_not_found";
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -34,37 +49,93 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [initialSessionChecked, setInitialSessionChecked] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
+  const recoveryPromise = useRef<Promise<void> | null>(null);
+
+  const clearAuthenticatedState = useCallback(() => {
+    setSession(null);
+    setUser(null);
+    setProfile(null);
+    setRole(null);
+  }, []);
+
+  const expireSession = useCallback(async () => {
+    try {
+      await supabase.auth.signOut({ scope: "local" });
+    } finally {
+      clearAuthenticatedState();
+      setSessionExpired(true);
+    }
+  }, [clearAuthenticatedState]);
+
+  const recoverUnauthorizedSession = useCallback(() => {
+    if (recoveryPromise.current) return recoveryPromise.current;
+
+    const recovery = (async () => {
+      const { data, error } = await supabase.auth.getUser();
+      if (data.user) return;
+      if (isDefinitiveSessionError(error)) await expireSession();
+    })().finally(() => {
+      recoveryPromise.current = null;
+    });
+
+    recoveryPromise.current = recovery;
+    return recovery;
+  }, [expireSession]);
 
   useEffect(() => {
-    // First, restore session from storage before subscribing to changes
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setInitialSessionChecked(true);
-    });
+    let active = true;
+    let unsubscribeAuth: (() => void) | undefined;
 
-    // Subscribe to subsequent auth changes (sign in, sign out, token refresh).
-    // IMPORTANT: only update React state when the user identity actually changes.
-    // Supabase fires SIGNED_IN / TOKEN_REFRESHED on tab focus; updating state on
-    // every event causes a full app re-render and wipes unsaved form input.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession((prevSession) => {
-        const prevUserId = prevSession?.user?.id ?? null;
-        const nextUserId = newSession?.user?.id ?? null;
-        if (prevUserId === nextUserId) {
-          // Same user (token refresh or focus re-emit) — keep existing references
-          // so downstream effects don't re-run.
-          return prevSession;
+    const initialize = async () => {
+      const { data: { session: storedSession } } = await supabase.auth.getSession();
+      if (!active) return;
+
+      if (!storedSession) {
+        clearAuthenticatedState();
+        setInitialSessionChecked(true);
+      } else {
+        const { data, error } = await supabase.auth.getUser();
+        if (!active) return;
+
+        if (data.user) {
+          setSession(storedSession);
+          setUser(data.user);
+          setSessionExpired(false);
+        } else if (isDefinitiveSessionError(error)) {
+          await expireSession();
+        } else {
+          // Preserve a locally valid session during a temporary Auth/network outage.
+          setSession(storedSession);
+          setUser(storedSession.user);
         }
-        setUser(newSession?.user ?? null);
-        return newSession;
-      });
-    });
+        if (active) setInitialSessionChecked(true);
+      }
 
-    return () => subscription.unsubscribe();
-  }, []);
+      if (!active) return;
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+        setSession(newSession);
+        setUser((currentUser) => currentUser?.id === newSession?.user?.id
+          ? currentUser
+          : newSession?.user ?? null);
+        if (newSession) setSessionExpired(false);
+      });
+      unsubscribeAuth = () => subscription.unsubscribe();
+    };
+
+    void initialize();
+
+    return () => {
+      active = false;
+      unsubscribeAuth?.();
+    };
+  }, [clearAuthenticatedState, expireSession]);
+
+  useEffect(() => subscribeToUnauthorizedSession(() => {
+    void recoverUnauthorizedSession();
+  }), [recoverUnauthorizedSession]);
 
   useEffect(() => {
     // Don't do anything until the initial session check is done
@@ -94,9 +165,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user?.id, initialSessionChecked, refreshTick]);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setProfile(null);
-    setRole(null);
+    setSessionExpired(false);
+    try {
+      await supabase.auth.signOut({ scope: "local" });
+    } finally {
+      clearAuthenticatedState();
+    }
   };
 
   const refreshAuth = async () => {
@@ -107,8 +181,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRefreshTick((n) => n + 1);
   };
 
+  const clearSessionExpired = () => setSessionExpired(false);
+
   return (
-    <AuthContext.Provider value={{ user, session, profile, role, loading, signOut, refreshAuth }}>
+    <AuthContext.Provider value={{
+      user,
+      session,
+      profile,
+      role,
+      loading,
+      sessionExpired,
+      signOut,
+      refreshAuth,
+      clearSessionExpired,
+    }}>
       {children}
     </AuthContext.Provider>
   );
