@@ -24,7 +24,7 @@ export default function Team() {
     <div className="space-y-6">
       <PageHeader
         title="Team"
-        description="Manage who has access to your workspace. Seat limits come from your subscription plan and add-ons."
+        description="Give every person their own account and never share passwords. Manage workspace access here; seat limits come from your subscription plan and add-ons."
       />
       <CompanyUsersTab companyId={profile.company_id} seatLimit={seatLimit} />
     </div>

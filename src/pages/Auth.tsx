@@ -1,17 +1,21 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { AlertCircle, ArrowRight, Loader2 } from "lucide-react";
+import { SESSION_EXPIRED_MESSAGE } from "@/lib/functionErrors";
 import rizonhireLogoBlack from "@/assets/RIZONHire_logo_Black.png";
 import rizonhireLogoBlue from "@/assets/rizonhire blue logo.png";
 
 export default function Auth() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { sessionExpired, clearSessionExpired } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,6 +28,7 @@ export default function Auth() {
     if (error) {
       toast.error(error.message);
     } else {
+      clearSessionExpired();
       navigate("/");
     }
   };
@@ -58,6 +63,13 @@ export default function Auth() {
 
           <h2 className="text-2xl font-bold">Welcome back</h2>
           <p className="text-muted-foreground mt-1.5 text-sm">Sign in to your dashboard</p>
+
+          {sessionExpired ? (
+            <Alert variant="destructive" className="mt-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{SESSION_EXPIRED_MESSAGE}</AlertDescription>
+            </Alert>
+          ) : null}
 
           <form onSubmit={handleLogin} className="mt-8 space-y-4">
             <div className="space-y-1.5">
