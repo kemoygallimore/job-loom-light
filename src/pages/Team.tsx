@@ -5,6 +5,11 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import PageHeader from "@/components/shared/PageHeader";
 
+type SeatLimitRpc = (
+  functionName: "get_company_seat_limit",
+  args: { _company_id: string },
+) => PromiseLike<{ data: unknown }>;
+
 export default function Team() {
   const { profile, role } = useAuth();
   const [seatLimit, setSeatLimit] = useState<number | null>(null);
@@ -12,7 +17,8 @@ export default function Team() {
   useEffect(() => {
     if (!profile?.company_id) return;
     (async () => {
-      const { data } = await (supabase as any).rpc("get_company_seat_limit", { _company_id: profile.company_id });
+      const getSeatLimit = supabase.rpc as unknown as SeatLimitRpc;
+      const { data } = await getSeatLimit("get_company_seat_limit", { _company_id: profile.company_id });
       setSeatLimit(typeof data === "number" ? data : null);
     })();
   }, [profile?.company_id]);

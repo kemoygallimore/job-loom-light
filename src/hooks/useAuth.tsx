@@ -53,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [initialSessionChecked, setInitialSessionChecked] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
   const recoveryPromise = useRef<Promise<void> | null>(null);
+  const userId = user?.id;
 
   const clearAuthenticatedState = useCallback(() => {
     setSession(null);
@@ -64,6 +65,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const expireSession = useCallback(async () => {
     try {
       await supabase.auth.signOut({ scope: "local" });
+    } catch {
+      // React state still needs to recover if browser storage cleanup fails.
     } finally {
       clearAuthenticatedState();
       setSessionExpired(true);
@@ -74,9 +77,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (recoveryPromise.current) return recoveryPromise.current;
 
     const recovery = (async () => {
-      const { data, error } = await supabase.auth.getUser();
-      if (data.user) return;
-      if (isDefinitiveSessionError(error)) await expireSession();
+      try {
+        const { data, error } = await supabase.auth.getUser();
+        if (data.user) return;
+        if (isDefinitiveSessionError(error)) await expireSession();
+      } catch {
+        // A network failure is not proof that the session was revoked.
+        // Keep the current browser signed in and retry on the next request.
+      }
     })().finally(() => {
       recoveryPromise.current = null;
     });
@@ -97,17 +105,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         clearAuthenticatedState();
         setInitialSessionChecked(true);
       } else {
-        const { data, error } = await supabase.auth.getUser();
-        if (!active) return;
+        try {
+          const { data, error } = await supabase.auth.getUser();
+          if (!active) return;
 
-        if (data.user) {
-          setSession(storedSession);
-          setUser(data.user);
-          setSessionExpired(false);
-        } else if (isDefinitiveSessionError(error)) {
-          await expireSession();
-        } else {
-          // Preserve a locally valid session during a temporary Auth/network outage.
+          if (data.user) {
+            setSession(storedSession);
+            setUser(data.user);
+            setSessionExpired(false);
+          } else if (isDefinitiveSessionError(error)) {
+            await expireSession();
+          } else {
+            // Preserve a locally valid session during a temporary Auth/network outage.
+            setSession(storedSession);
+            setUser(storedSession.user);
+          }
+        } catch {
+          if (!active) return;
+          // A rejected fetch is also a temporary validation failure.
           setSession(storedSession);
           setUser(storedSession.user);
         }
@@ -141,7 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Don't do anything until the initial session check is done
     if (!initialSessionChecked) return;
 
-    if (!user) {
+    if (!userId) {
       setProfile(null);
       setRole(null);
       setLoading(false);
@@ -150,8 +165,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const fetchProfile = async () => {
       const [{ data: profileData }, { data: roleData }] = await Promise.all([
-        supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
-        supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle(),
+        supabase.from("profiles").select("*").eq("user_id", userId).maybeSingle(),
+        supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
       ]);
 
       setProfile(profileData as Profile | null);
@@ -162,7 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     fetchProfile();
     // Depend on user.id (primitive) rather than the user object so that a
     // refreshed-but-identical user does not re-trigger profile fetches.
-  }, [user?.id, initialSessionChecked, refreshTick]);
+  }, [userId, initialSessionChecked, refreshTick]);
 
   const signOut = async () => {
     setSessionExpired(false);

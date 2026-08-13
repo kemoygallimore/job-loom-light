@@ -111,6 +111,19 @@ describe("AuthProvider session recovery", () => {
     expect(authMocks.signOut).toHaveBeenCalledWith({ scope: "local" });
   });
 
+  it("finishes startup recovery even when local session cleanup throws", async () => {
+    authMocks.getUser.mockResolvedValue({
+      data: { user: null },
+      error: { status: 401, code: "session_not_found", message: "Session not found" },
+    });
+    authMocks.signOut.mockRejectedValue(new TypeError("storage unavailable"));
+
+    renderProvider();
+
+    await waitFor(() => expect(screen.getByTestId("identity")).toHaveTextContent("signed-out"));
+    expect(screen.getByTestId("session-state")).toHaveTextContent("expired");
+  });
+
   it("preserves the restored session when validation fails because of the network", async () => {
     authMocks.getUser.mockResolvedValue({
       data: { user: null },
@@ -121,6 +134,16 @@ describe("AuthProvider session recovery", () => {
 
     await waitFor(() => expect(screen.getByTestId("identity")).toHaveTextContent(user.id));
     expect(authMocks.getUser).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("session-state")).toHaveTextContent("active");
+    expect(authMocks.signOut).not.toHaveBeenCalled();
+  });
+
+  it("preserves the restored session when validation rejects during a network outage", async () => {
+    authMocks.getUser.mockRejectedValue(new TypeError("Failed to fetch"));
+
+    renderProvider();
+
+    await waitFor(() => expect(screen.getByTestId("identity")).toHaveTextContent(user.id));
     expect(screen.getByTestId("session-state")).toHaveTextContent("active");
     expect(authMocks.signOut).not.toHaveBeenCalled();
   });
@@ -159,6 +182,19 @@ describe("AuthProvider session recovery", () => {
     await waitFor(() => expect(screen.getByTestId("identity")).toHaveTextContent("signed-out"));
     expect(screen.getByTestId("session-state")).toHaveTextContent("expired");
     expect(authMocks.signOut).toHaveBeenCalledWith({ scope: "local" });
+  });
+
+  it("keeps the current session when revalidation rejects during a network outage", async () => {
+    renderProvider();
+    await waitFor(() => expect(screen.getByTestId("identity")).toHaveTextContent(user.id));
+    authMocks.getUser.mockRejectedValue(new TypeError("Failed to fetch"));
+
+    act(() => publishUnauthorizedSession());
+
+    await waitFor(() => expect(authMocks.getUser).toHaveBeenCalledTimes(2));
+    expect(screen.getByTestId("identity")).toHaveTextContent(user.id);
+    expect(screen.getByTestId("session-state")).toHaveTextContent("active");
+    expect(authMocks.signOut).not.toHaveBeenCalled();
   });
 
   it("signs out only the current browser without showing an expiry notice", async () => {
