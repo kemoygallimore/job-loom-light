@@ -28,6 +28,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { VariableChips } from "@/components/email/VariableChips";
 import { htmlToPlainText } from "@/lib/htmlToPlainText";
+import { functionErrorMessage } from "@/lib/functionErrors";
 import { sanitizeRichHtml } from "@/lib/sanitizeHtml";
 import {
   CANDIDATE_EMAIL_PURPOSE_LABELS,
@@ -365,7 +366,7 @@ export function CandidateEmailComposer({
     setConfirmOpen(false);
 
     if (error) {
-      toast.error(error.message);
+      toast.error(await functionErrorMessage(error, "Could not send candidate email"));
       return;
     }
 
