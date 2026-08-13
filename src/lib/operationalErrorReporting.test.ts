@@ -1,9 +1,15 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createInstrumentedFetch,
   installGlobalErrorReporting,
+  setOperationalErrorAccessToken,
   type OperationalErrorPayload,
 } from "./operationalErrorReporting";
+import { subscribeToUnauthorizedSession } from "./authSessionEvents";
+
+afterEach(() => {
+  setOperationalErrorAccessToken(undefined);
+});
 
 describe("createInstrumentedFetch", () => {
   it("does not report successful requests", async () => {
@@ -64,6 +70,56 @@ describe("createInstrumentedFetch", () => {
     await instrumented("https://project.supabase.co/functions/v1/report-client-error", { method: "POST" });
 
     expect(send).not.toHaveBeenCalled();
+  });
+
+  it("publishes session recovery for an authenticated protected 401", async () => {
+    setOperationalErrorAccessToken("user-token");
+    const listener = vi.fn();
+    const unsubscribe = subscribeToUnauthorizedSession(listener);
+    const nativeFetch = vi.fn().mockResolvedValue(new Response("unauthorized", { status: 401 }));
+    const instrumented = createInstrumentedFetch(nativeFetch, vi.fn(), () => "/pipeline");
+
+    await instrumented("https://project.supabase.co/functions/v1/send-candidate-email", {
+      method: "POST",
+      headers: { authorization: "Bearer user-token" },
+    });
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    unsubscribe();
+  });
+
+  it.each([
+    {
+      name: "anonymous protected requests",
+      url: "https://project.supabase.co/functions/v1/candidate-form-verification",
+      headers: undefined,
+    },
+    {
+      name: "operational error reports",
+      url: "https://project.supabase.co/functions/v1/report-client-error",
+      headers: { authorization: "Bearer user-token" },
+    },
+    {
+      name: "Auth validation requests",
+      url: "https://project.supabase.co/auth/v1/user",
+      headers: { authorization: "Bearer user-token" },
+    },
+    {
+      name: "requests carrying a different bearer token",
+      url: "https://project.supabase.co/rest/v1/profiles",
+      headers: { authorization: "Bearer different-token" },
+    },
+  ])("does not publish session recovery for $name", async ({ url, headers }) => {
+    setOperationalErrorAccessToken("user-token");
+    const listener = vi.fn();
+    const unsubscribe = subscribeToUnauthorizedSession(listener);
+    const nativeFetch = vi.fn().mockResolvedValue(new Response("unauthorized", { status: 401 }));
+    const instrumented = createInstrumentedFetch(nativeFetch, vi.fn(), () => "/pipeline");
+
+    await instrumented(url, { method: "POST", headers });
+
+    expect(listener).not.toHaveBeenCalled();
+    unsubscribe();
   });
 });
 

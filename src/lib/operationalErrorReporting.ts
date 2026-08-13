@@ -2,6 +2,7 @@ import {
   SUPABASE_PUBLISHABLE_KEY,
   SUPABASE_URL,
 } from "@/integrations/supabase/config";
+import { publishUnauthorizedSession } from "@/lib/authSessionEvents";
 
 export type OperationalErrorSource =
   | "supabase"
@@ -59,6 +60,17 @@ function requestDetails(input: RequestInfo | URL, init?: RequestInit) {
     servicePath: sanitizePath(rawUrl),
     isReportingRequest: sanitizePath(rawUrl) === REPORTING_PATH,
   };
+}
+
+function shouldPublishUnauthorizedSession(
+  status: number,
+  servicePath: string,
+  authorization?: string,
+): boolean {
+  if (status !== 401 || !currentAccessToken) return false;
+  if (authorization !== `Bearer ${currentAccessToken}`) return false;
+  if (servicePath === REPORTING_PATH) return false;
+  return ["/rest/v1/", "/functions/v1/", "/storage/v1/"].some((prefix) => servicePath.startsWith(prefix));
 }
 
 async function responseErrorCode(response: Response): Promise<string | undefined> {
@@ -134,6 +146,9 @@ export function createInstrumentedFetch(
       const response = await nativeFetch(input, init);
 
       if (!response.ok && !details.isReportingRequest) {
+        if (shouldPublishUnauthorizedSession(response.status, details.servicePath, details.authorization)) {
+          publishUnauthorizedSession();
+        }
         const code = await responseErrorCode(response);
         sendReport(
           {
