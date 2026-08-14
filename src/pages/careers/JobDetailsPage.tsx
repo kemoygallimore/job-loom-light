@@ -145,7 +145,7 @@ export default function JobDetailsPage() {
           <div className="animate-fade-in">
             {job?.description && (
               <div
-                className="prose prose-sm sm:prose-base max-w-none prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-li:text-foreground prose-a:text-primary"
+                className="rich-text prose prose-sm sm:prose-base max-w-none prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-li:text-foreground prose-a:text-primary"
                 dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(job.description) }}
               />
             )}

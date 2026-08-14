@@ -13,7 +13,7 @@ export function JobHeader({ job, company }: { job: JobSummary | null; company: C
         </div>
         {job?.description && (
           <div
-            className="prose prose-sm max-w-none mt-3 prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-li:text-foreground prose-a:text-primary"
+            className="rich-text prose prose-sm max-w-none mt-3 prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-li:text-foreground prose-a:text-primary"
             dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(job.description) }}
           />
         )}

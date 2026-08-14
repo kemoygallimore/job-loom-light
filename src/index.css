@@ -77,6 +77,30 @@
     @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
   }
 
+  /* Layout guard for sanitized, author-supplied HTML (job descriptions, policies).
+     Without this an unbreakable run of characters (e.g. "--------" used as a section
+     divider) or a pasted wide table scrolls the whole page sideways on mobile. */
+  .rich-text {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  .rich-text table {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .rich-text img,
+  .rich-text video,
+  .rich-text iframe {
+    max-width: 100%;
+    height: auto;
+  }
+  .rich-text pre {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
   /* Stage badges */
   .badge-stage {
     @apply inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium;
