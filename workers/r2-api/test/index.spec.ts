@@ -56,13 +56,10 @@ function installFetchMock() {
       return new Response(JSON.stringify(isOpenJob ? [{ id: "job-1" }] : []), { status: 200 });
     }
 
-    if (parsedUrl.hostname.endsWith(".supabase.co") && parsedUrl.pathname === "/rest/v1/lead_forms") {
-      const isActiveForm =
-        parsedUrl.searchParams.get("id") === "eq.form-1" &&
-        parsedUrl.searchParams.get("company_id") === "eq.company-1" &&
-        parsedUrl.searchParams.get("status") === "eq.active" &&
-        parsedUrl.searchParams.get("deleted_at") === "is.null";
-      return new Response(JSON.stringify(isActiveForm ? [{ id: "form-1" }] : []), { status: 200 });
+    if (parsedUrl.hostname.endsWith(".supabase.co") && parsedUrl.pathname === "/rest/v1/rpc/is_active_lead_form") {
+      const body = JSON.parse(String(init?.body)) as { _form_id?: string; _company_id?: string };
+      const isActiveForm = body._form_id === "form-1" && body._company_id === "company-1";
+      return new Response(JSON.stringify(isActiveForm), { status: 200 });
     }
 
     return new Response("", { status: 200 });

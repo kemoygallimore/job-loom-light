@@ -289,16 +289,36 @@ async function hasOpenJob(env: Env, companyId: string, jobId: string): Promise<A
 }
 
 async function hasActiveLeadForm(env: Env, companyId: string, formId: string): Promise<AvailabilityResult> {
-  const formUrl = supabaseUrl(env, "/rest/v1/lead_forms", {
-    id: `eq.${formId}`,
-    company_id: `eq.${companyId}`,
-    status: "eq.active",
-    deleted_at: "is.null",
-    select: "id",
-  });
-  const result = await fetchSupabaseJson<Array<{ id: string }>>(env, formUrl, env.SUPABASE_ANON_KEY);
-  if (!result.ok) return result;
-  return { ok: true, exists: result.data.length > 0 };
+  // lead_forms has no anon SELECT policy (only company users can read it directly), so a raw
+  // REST query always returns zero rows for anon regardless of the form's actual state. Use the
+  // SECURITY DEFINER RPC instead, which is already granted to anon for exactly this check.
+  const rpcUrl = supabaseUrl(env, "/rest/v1/rpc/is_active_lead_form");
+  let response: Response;
+  try {
+    response = await fetch(rpcUrl, {
+      method: "POST",
+      headers: {
+        apikey: env.SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${env.SUPABASE_ANON_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ _form_id: formId, _company_id: companyId }),
+    });
+  } catch (error) {
+    return { ok: false, status: 0, error: error instanceof Error ? error.message : "Supabase request failed" };
+  }
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "");
+    return { ok: false, status: response.status, error: errorText || response.statusText };
+  }
+
+  try {
+    const exists = await response.json<boolean>();
+    return { ok: true, exists: exists === true };
+  } catch (error) {
+    return { ok: false, status: 0, error: error instanceof Error ? error.message : "Supabase response was not JSON" };
+  }
 }
 
 function uploadVerificationUnavailableAlert(args: {
