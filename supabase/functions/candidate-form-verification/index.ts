@@ -345,6 +345,7 @@ async function handleLoad(body: Record<string, unknown>) {
     candidate_id: result.assignment.candidate_id,
     candidate_name: result.candidate.name,
     expires_at: result.assignment.expires_at,
+    form_id: result.form.id,
   });
 }
 

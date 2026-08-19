@@ -29,6 +29,7 @@ interface LoadedForm {
   schema: LeadFormSchema;
   company_id: string;
   candidate_id: string;
+  form_id: string;
 }
 
 function buildAnswerValue(value: LeadFormValue) {
@@ -73,6 +74,7 @@ export default function CandidateAssignedForm() {
         schema: normalizeSchema(data.schema),
         company_id: data.company_id,
         candidate_id: data.candidate_id,
+        form_id: data.form_id,
       });
       setPolicyContext(await loadConsentPolicyContext(data.company_id));
       setState("ready");
@@ -142,6 +144,7 @@ export default function CandidateAssignedForm() {
             category: "document",
             companyId: form.company_id,
             candidateId: form.candidate_id,
+            jobId: form.form_id,
             fieldId: field.id,
           });
           answers[field.id] = {
