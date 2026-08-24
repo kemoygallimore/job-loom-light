@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { authorizeCreateCompanyUser } from "./permissions";
+import { authorizeCreateCompanyUser, resolveCreateCompanyUserRole } from "./permissions";
 
 describe("authorizeCreateCompanyUser", () => {
   it("allows super admins to create admins for any company", () => {
@@ -45,5 +45,27 @@ describe("authorizeCreateCompanyUser", () => {
       targetCompanyId: "company-2",
       targetRole: "recruiter",
     })).toEqual({ allowed: false, error: "Forbidden" });
+  });
+});
+
+describe("resolveCreateCompanyUserRole", () => {
+  it("uses an explicitly selected recruiter role", () => {
+    expect(resolveCreateCompanyUserRole("recruiter", ["admin"])).toBe("recruiter");
+  });
+
+  it("uses an explicitly selected admin role", () => {
+    expect(resolveCreateCompanyUserRole("admin", ["admin"])).toBe("admin");
+  });
+
+  it("defaults super admin company-admin creation to admin when older callers omit role", () => {
+    expect(resolveCreateCompanyUserRole(undefined, ["super_admin"])).toBe("admin");
+  });
+
+  it("defaults tenant-created users to recruiter when older callers omit role", () => {
+    expect(resolveCreateCompanyUserRole(undefined, ["admin"])).toBe("recruiter");
+  });
+
+  it("defaults invalid tenant role values to recruiter so bad payloads cannot create admins", () => {
+    expect(resolveCreateCompanyUserRole("owner", ["admin"])).toBe("recruiter");
   });
 });

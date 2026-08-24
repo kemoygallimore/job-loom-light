@@ -33,3 +33,18 @@ export function authorizeCreateCompanyUser({
 
   return { allowed: false, error: "Forbidden" };
 }
+
+export function resolveCreateCompanyUserRole(
+  requestedRole: unknown,
+  callerRoles: TenantRole[],
+): CreatedUserRole {
+  if (requestedRole === "admin" || requestedRole === "recruiter") {
+    return requestedRole;
+  }
+
+  if (callerRoles.includes("super_admin")) {
+    return "admin";
+  }
+
+  return "recruiter";
+}

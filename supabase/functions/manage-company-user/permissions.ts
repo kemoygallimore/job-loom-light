@@ -1,4 +1,5 @@
 export type TenantRole = "admin" | "recruiter" | "super_admin";
+export type ManagedCompanyUserRole = "admin" | "recruiter";
 export type CompanyUserAction = "list" | "update" | "deactivate" | "reactivate";
 
 interface AuthorizeCompanyUserActionInput {
@@ -23,4 +24,9 @@ export function authorizeCompanyUserAction({
   if (callerRoles.includes("admin")) return { allowed: true };
   if (callerRoles.includes("recruiter") && action === "list") return { allowed: true };
   return { allowed: false, error: "Forbidden" };
+}
+
+export function parseManagedCompanyUserRole(value: unknown): ManagedCompanyUserRole | null {
+  if (value === "admin" || value === "recruiter") return value;
+  return null;
 }

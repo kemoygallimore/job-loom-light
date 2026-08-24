@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
-import { authorizeCreateCompanyUser, type TenantRole } from "./permissions.ts";
+import { authorizeCreateCompanyUser, resolveCreateCompanyUserRole, type TenantRole } from "./permissions.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,7 +32,6 @@ Deno.serve(async (req) => {
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
     const body = await req.json();
     const { company_id, admin_name, admin_email, admin_password } = body;
-    const role: "admin" | "recruiter" = body.role === "recruiter" ? "recruiter" : "admin";
 
     if (!company_id || !admin_name || !admin_email || !admin_password) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -66,6 +65,8 @@ Deno.serve(async (req) => {
       }
       callerCompanyId = callerProfile?.company_id ?? null;
     }
+
+    const role = resolveCreateCompanyUserRole(body.role, callerRoles);
 
     const authorization = authorizeCreateCompanyUser({
       callerRoles,

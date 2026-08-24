@@ -1,5 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
-import { authorizeCompanyUserAction, type CompanyUserAction, type TenantRole } from "./permissions.ts";
+import {
+  authorizeCompanyUserAction,
+  parseManagedCompanyUserRole,
+  type CompanyUserAction,
+  type TenantRole,
+} from "./permissions.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -122,18 +127,19 @@ Deno.serve(async (req) => {
       }
       case "update": {
         await requireTarget();
-        const { name, role } = body;
+        const { name } = body;
+        const role = parseManagedCompanyUserRole(body.role);
+        if (!role) return json(400, { error: "A valid role is required" });
+
         if (name) {
           const { error } = await admin.from("profiles").update({ name }).eq("user_id", target_user_id);
           if (error) return json(500, { error: error.message });
         }
-        if (role && (role === "admin" || role === "recruiter")) {
-          // Replace tenant-level role rows (admin/recruiter). Never touch super_admin.
-          await admin.from("user_roles").delete()
-            .eq("user_id", target_user_id).in("role", ["admin", "recruiter"]);
-          const { error: insErr } = await admin.from("user_roles").insert({ user_id: target_user_id, role });
-          if (insErr) return json(500, { error: insErr.message });
-        }
+        // Replace tenant-level role rows (admin/recruiter). Never touch super_admin.
+        await admin.from("user_roles").delete()
+          .eq("user_id", target_user_id).in("role", ["admin", "recruiter"]);
+        const { error: insErr } = await admin.from("user_roles").insert({ user_id: target_user_id, role });
+        if (insErr) return json(500, { error: insErr.message });
         return json(200, { success: true });
       }
       case "deactivate": {
@@ -148,7 +154,9 @@ Deno.serve(async (req) => {
       }
       case "reactivate": {
         await requireTarget();
-        const role: "admin" | "recruiter" = body.role === "admin" ? "admin" : "recruiter";
+        const role = parseManagedCompanyUserRole(body.role);
+        if (!role) return json(400, { error: "A valid role is required" });
+
         const { error } = await admin.from("profiles").update({ is_active: true }).eq("user_id", target_user_id);
         if (error) return json(500, { error: error.message });
         await admin.from("user_roles").delete()

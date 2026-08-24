@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { authorizeCompanyUserAction } from "./permissions";
+import { authorizeCompanyUserAction, parseManagedCompanyUserRole } from "./permissions";
 
 describe("authorizeCompanyUserAction", () => {
   it("allows admins to list, edit, deactivate, and reactivate users in their company", () => {
@@ -36,5 +36,20 @@ describe("authorizeCompanyUserAction", () => {
       callerCompanyId: "company-1",
       targetCompanyId: "company-2",
     })).toEqual({ allowed: false, error: "Forbidden" });
+  });
+});
+
+describe("parseManagedCompanyUserRole", () => {
+  it("accepts admin and recruiter roles", () => {
+    expect(parseManagedCompanyUserRole("admin")).toBe("admin");
+    expect(parseManagedCompanyUserRole("recruiter")).toBe("recruiter");
+  });
+
+  it("rejects missing role values so edit requests cannot silently leave roles unchanged", () => {
+    expect(parseManagedCompanyUserRole(undefined)).toBeNull();
+  });
+
+  it("rejects invalid role values so edit requests cannot silently leave roles unchanged", () => {
+    expect(parseManagedCompanyUserRole("owner")).toBeNull();
   });
 });
