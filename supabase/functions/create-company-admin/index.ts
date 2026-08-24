@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { authorizeCreateCompanyUser, type TenantRole } from "./permissions.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,7 +17,6 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Verify the caller is a super_admin
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -29,25 +29,53 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Check super_admin role using service role client
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
-    const { data: roleData } = await adminClient
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", caller.id)
-      .eq("role", "super_admin")
-      .maybeSingle();
-
-    if (!roleData) {
-      return new Response(JSON.stringify({ error: "Forbidden: super_admin only" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
     const body = await req.json();
     const { company_id, admin_name, admin_email, admin_password } = body;
     const role: "admin" | "recruiter" = body.role === "recruiter" ? "recruiter" : "admin";
 
     if (!company_id || !admin_name || !admin_email || !admin_password) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    const { data: callerRoleRows, error: callerRolesError } = await adminClient
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", caller.id);
+
+    if (callerRolesError) {
+      return new Response(JSON.stringify({ error: "Failed to verify caller role: " + callerRolesError.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    const callerRoles = (callerRoleRows ?? [])
+      .map((row: { role: string }) => row.role)
+      .filter((value: string): value is TenantRole =>
+        value === "admin" || value === "recruiter" || value === "super_admin"
+      );
+
+    let callerCompanyId: string | null = null;
+    if (!callerRoles.includes("super_admin")) {
+      const { data: callerProfile, error: callerProfileError } = await adminClient
+        .from("profiles")
+        .select("company_id")
+        .eq("user_id", caller.id)
+        .maybeSingle();
+
+      if (callerProfileError) {
+        return new Response(JSON.stringify({ error: "Failed to verify caller company: " + callerProfileError.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      callerCompanyId = callerProfile?.company_id ?? null;
+    }
+
+    const authorization = authorizeCreateCompanyUser({
+      callerRoles,
+      callerCompanyId,
+      targetCompanyId: company_id,
+      targetRole: role,
+    });
+
+    if (!authorization.allowed) {
+      return new Response(JSON.stringify({ error: authorization.error }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Seat enforcement: count active profiles vs. seat limit.

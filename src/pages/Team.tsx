@@ -4,6 +4,7 @@ import CompanyUsersTab from "@/components/admin/CompanyUsersTab";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import PageHeader from "@/components/shared/PageHeader";
+import { canAccessTeam } from "@/lib/teamPermissions";
 
 type SeatLimitRpc = (
   functionName: "get_company_seat_limit",
@@ -23,7 +24,7 @@ export default function Team() {
     })();
   }, [profile?.company_id]);
 
-  if (role !== "admin" && role !== "super_admin") return <Navigate to="/dashboard" replace />;
+  if (!canAccessTeam(role)) return <Navigate to="/dashboard" replace />;
   if (!profile?.company_id) return <Navigate to="/dashboard" replace />;
 
   return (

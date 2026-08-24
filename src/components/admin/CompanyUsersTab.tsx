@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +16,8 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { Plus, UserMinus, UserCheck, Pencil } from "lucide-react";
+import { functionErrorMessage } from "@/lib/functionErrors";
+import { canManageCompanyUsers, createUserRoleOptions } from "@/lib/teamPermissions";
 
 type Role = "admin" | "recruiter";
 
@@ -32,6 +35,7 @@ interface Props {
 }
 
 export default function CompanyUsersTab({ companyId, seatLimit }: Props) {
+  const { role: actorRole } = useAuth();
   const [rows, setRows] = useState<ProfileRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
@@ -42,6 +46,13 @@ export default function CompanyUsersTab({ companyId, seatLimit }: Props) {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<Role>("recruiter");
   const [busy, setBusy] = useState(false);
+  const roleOptions = useMemo(() => createUserRoleOptions(actorRole), [actorRole]);
+  const canCreateUsers = roleOptions.length > 0;
+  const canManageUsers = canManageCompanyUsers(actorRole);
+
+  useEffect(() => {
+    if (!roleOptions.includes(role)) setRole(roleOptions[0] ?? "recruiter");
+  }, [role, roleOptions]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -93,8 +104,12 @@ export default function CompanyUsersTab({ companyId, seatLimit }: Props) {
       },
     });
     setBusy(false);
-    if (error || (data as any)?.error) {
-      toast.error((data as any)?.error ?? error?.message ?? "Failed");
+    if (error) {
+      toast.error(await functionErrorMessage(error, "Failed to create user"));
+      return;
+    }
+    if ((data as any)?.error) {
+      toast.error((data as any).error);
       return;
     }
     toast.success("User created");
@@ -105,6 +120,10 @@ export default function CompanyUsersTab({ companyId, seatLimit }: Props) {
 
   const saveEdit = async () => {
     if (!editing) return;
+    if (!canManageUsers) {
+      toast.error("You do not have permission to edit users");
+      return;
+    }
     setBusy(true);
     const { data, error } = await supabase.functions.invoke("manage-company-user", {
       body: {
@@ -116,8 +135,12 @@ export default function CompanyUsersTab({ companyId, seatLimit }: Props) {
       },
     });
     setBusy(false);
-    if (error || (data as any)?.error) {
-      toast.error((data as any)?.error ?? error?.message ?? "Failed");
+    if (error) {
+      toast.error(await functionErrorMessage(error, "Failed to save user"));
+      return;
+    }
+    if ((data as any)?.error) {
+      toast.error((data as any).error);
       return;
     }
     toast.success("Saved");
@@ -126,6 +149,10 @@ export default function CompanyUsersTab({ companyId, seatLimit }: Props) {
   };
 
   const setActivation = async (row: ProfileRow, activate: boolean) => {
+    if (!canManageUsers) {
+      toast.error("You do not have permission to change user status");
+      return;
+    }
     const verb = activate ? "Reactivate" : "Deactivate";
     if (!confirm(`${verb} ${row.name}?`)) return;
     const { data, error } = await supabase.functions.invoke("manage-company-user", {
@@ -136,8 +163,12 @@ export default function CompanyUsersTab({ companyId, seatLimit }: Props) {
         role: row.role ?? "recruiter",
       },
     });
-    if (error || (data as any)?.error) {
-      toast.error((data as any)?.error ?? error?.message ?? "Failed");
+    if (error) {
+      toast.error(await functionErrorMessage(error, `Failed to ${activate ? "reactivate" : "deactivate"} user`));
+      return;
+    }
+    if ((data as any)?.error) {
+      toast.error((data as any).error);
       return;
     }
     toast.success(`${verb}d`);
@@ -151,7 +182,7 @@ export default function CompanyUsersTab({ companyId, seatLimit }: Props) {
           <strong className="text-foreground tabular-nums">{activeCount}</strong>
           {seatLimit != null && <> / <strong className="text-foreground tabular-nums">{seatLimit}</strong></>} active seats
         </div>
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        {canCreateUsers && <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
             <Button disabled={seatBlocked} title={seatBlocked ? "Seat limit reached" : ""}>
               <Plus className="w-4 h-4 mr-2" /> Add user
@@ -174,11 +205,11 @@ export default function CompanyUsersTab({ companyId, seatLimit }: Props) {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-sm">Role</Label>
-                <Select value={role} onValueChange={(v: Role) => setRole(v)}>
+                <Select value={role} onValueChange={(v: Role) => setRole(v)} disabled={roleOptions.length <= 1}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="recruiter">Recruiter</SelectItem>
+                    {roleOptions.includes("admin") && <SelectItem value="admin">Admin</SelectItem>}
+                    {roleOptions.includes("recruiter") && <SelectItem value="recruiter">Recruiter</SelectItem>}
                   </SelectContent>
                 </Select>
               </div>
@@ -187,7 +218,7 @@ export default function CompanyUsersTab({ companyId, seatLimit }: Props) {
               </Button>
             </form>
           </DialogContent>
-        </Dialog>
+        </Dialog>}
       </div>
 
       <div className="rounded-xl border bg-card overflow-hidden">
@@ -203,7 +234,7 @@ export default function CompanyUsersTab({ companyId, seatLimit }: Props) {
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-right w-[1%]"></TableHead>
+                {canManageUsers && <TableHead className="text-right w-[1%]"></TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -219,20 +250,22 @@ export default function CompanyUsersTab({ companyId, seatLimit }: Props) {
                       ? <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Active</Badge>
                       : <Badge variant="destructive">Inactive</Badge>}
                   </TableCell>
-                  <TableCell className="text-right whitespace-nowrap">
-                    <Button size="sm" variant="ghost" className="h-8" onClick={() => setEditing(r)}>
-                      <Pencil className="w-3.5 h-3.5 mr-1.5" /> Edit
-                    </Button>
-                    {r.is_active ? (
-                      <Button size="sm" variant="ghost" className="h-8" onClick={() => setActivation(r, false)}>
-                        <UserMinus className="w-3.5 h-3.5 mr-1.5" /> Deactivate
+                  {canManageUsers && (
+                    <TableCell className="text-right whitespace-nowrap">
+                      <Button size="sm" variant="ghost" className="h-8" onClick={() => setEditing(r)}>
+                        <Pencil className="w-3.5 h-3.5 mr-1.5" /> Edit
                       </Button>
-                    ) : (
-                      <Button size="sm" variant="ghost" className="h-8" onClick={() => setActivation(r, true)} disabled={seatBlocked}>
-                        <UserCheck className="w-3.5 h-3.5 mr-1.5" /> Reactivate
-                      </Button>
-                    )}
-                  </TableCell>
+                      {r.is_active ? (
+                        <Button size="sm" variant="ghost" className="h-8" onClick={() => setActivation(r, false)}>
+                          <UserMinus className="w-3.5 h-3.5 mr-1.5" /> Deactivate
+                        </Button>
+                      ) : (
+                        <Button size="sm" variant="ghost" className="h-8" onClick={() => setActivation(r, true)} disabled={seatBlocked}>
+                          <UserCheck className="w-3.5 h-3.5 mr-1.5" /> Reactivate
+                        </Button>
+                      )}
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>

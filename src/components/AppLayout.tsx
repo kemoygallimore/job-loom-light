@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import rizonhireLogoBlack from "@/assets/RIZONHire_logo_Black.png";
 import rizonhireLogoBlue from "@/assets/rizonhire blue logo.png";
+import { canAccessTeam } from "@/lib/teamPermissions";
 
 const atsNavItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -312,7 +313,7 @@ export default function AppLayout() {
                 <div className="text-xs text-muted-foreground truncate">{profile?.email}</div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {!isSuperAdmin && role === "admin" && (
+              {!isSuperAdmin && canAccessTeam(role) && (
                 <DropdownMenuItem asChild>
                   <Link to="/team">
                     <Users className="w-4 h-4 mr-2" /> Team
