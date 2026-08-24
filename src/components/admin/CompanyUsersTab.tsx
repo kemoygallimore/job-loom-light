@@ -18,15 +18,15 @@ import { toast } from "sonner";
 import { Plus, UserMinus, UserCheck, Pencil } from "lucide-react";
 import { functionErrorMessage } from "@/lib/functionErrors";
 import { canManageCompanyUsers, createUserRoleOptions } from "@/lib/teamPermissions";
+import { normalizeCompanyUsers, type CompanyUserRow, type TeamUserRole } from "@/lib/teamUsers";
 
-type Role = "admin" | "recruiter";
+type Role = TeamUserRole;
+type ProfileRow = CompanyUserRow;
 
-interface ProfileRow {
-  user_id: string;
-  name: string;
-  email: string;
-  is_active: boolean;
-  role: Role | null;
+function responseError(data: unknown) {
+  if (!data || typeof data !== "object") return null;
+  const error = (data as { error?: unknown }).error;
+  return typeof error === "string" && error.trim() ? error : null;
 }
 
 interface Props {
@@ -56,29 +56,19 @@ export default function CompanyUsersTab({ companyId, seatLimit }: Props) {
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const { data: profiles } = await (supabase as any)
-      .from("profiles")
-      .select("user_id, name, email, is_active")
-      .eq("company_id", companyId)
-      .order("name");
-    const ids = (profiles ?? []).map((p: any) => p.user_id);
-    const rolesByUser: Record<string, Role | null> = {};
-    if (ids.length) {
-      const { data: ur } = await (supabase as any)
-        .from("user_roles")
-        .select("user_id, role")
-        .in("user_id", ids);
-      (ur ?? []).forEach((r: any) => {
-        if (r.role === "admin" || r.role === "recruiter") rolesByUser[r.user_id] = r.role;
-      });
+    const { data, error } = await supabase.functions.invoke("manage-company-user", {
+      body: { action: "list", company_id: companyId },
+    });
+
+    if (error) {
+      toast.error(await functionErrorMessage(error, "Failed to load company users"));
+      setRows([]);
+      setLoading(false);
+      return;
     }
-    setRows((profiles ?? []).map((p: any) => ({
-      user_id: p.user_id,
-      name: p.name,
-      email: p.email,
-      is_active: p.is_active ?? true,
-      role: rolesByUser[p.user_id] ?? null,
-    })));
+
+    const users = (data as { users?: unknown } | null)?.users;
+    setRows(normalizeCompanyUsers(Array.isArray(users) ? users : []));
     setLoading(false);
   }, [companyId]);
 
@@ -108,8 +98,9 @@ export default function CompanyUsersTab({ companyId, seatLimit }: Props) {
       toast.error(await functionErrorMessage(error, "Failed to create user"));
       return;
     }
-    if ((data as any)?.error) {
-      toast.error((data as any).error);
+    const serverError = responseError(data);
+    if (serverError) {
+      toast.error(serverError);
       return;
     }
     toast.success("User created");
@@ -139,8 +130,9 @@ export default function CompanyUsersTab({ companyId, seatLimit }: Props) {
       toast.error(await functionErrorMessage(error, "Failed to save user"));
       return;
     }
-    if ((data as any)?.error) {
-      toast.error((data as any).error);
+    const serverError = responseError(data);
+    if (serverError) {
+      toast.error(serverError);
       return;
     }
     toast.success("Saved");
@@ -167,8 +159,9 @@ export default function CompanyUsersTab({ companyId, seatLimit }: Props) {
       toast.error(await functionErrorMessage(error, `Failed to ${activate ? "reactivate" : "deactivate"} user`));
       return;
     }
-    if ((data as any)?.error) {
-      toast.error((data as any).error);
+    const serverError = responseError(data);
+    if (serverError) {
+      toast.error(serverError);
       return;
     }
     toast.success(`${verb}d`);

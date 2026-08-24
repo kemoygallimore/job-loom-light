@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { authorizeCompanyUserAction, type CompanyUserAction, type TenantRole } from "./permissions.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,25 +31,40 @@ Deno.serve(async (req) => {
     const { data: { user: caller } } = await userClient.auth.getUser();
     if (!caller) return json(401, { error: "Unauthorized" });
 
-    // Caller role check: must be super_admin OR admin of the target company.
     const { data: callerRoles } = await admin
       .from("user_roles")
       .select("role")
       .eq("user_id", caller.id);
-    const roles = (callerRoles ?? []).map((r: any) => r.role);
-    const isSuper = roles.includes("super_admin");
+    const roles = (callerRoles ?? [])
+      .map((row: { role: string }) => row.role)
+      .filter((value: string): value is TenantRole =>
+        value === "admin" || value === "recruiter" || value === "super_admin"
+      );
 
     const body = await req.json();
     const { action, company_id, target_user_id } = body;
 
     if (!action || !company_id) return json(400, { error: "Missing action or company_id" });
+    if (!["list", "update", "deactivate", "reactivate"].includes(action)) {
+      return json(400, { error: "Unknown action" });
+    }
 
-    if (!isSuper) {
-      // Must be admin of the same company.
-      if (!roles.includes("admin")) return json(403, { error: "Forbidden" });
+    let callerCompanyId: string | null = null;
+    if (!roles.includes("super_admin")) {
       const { data: callerProfile } = await admin
         .from("profiles").select("company_id").eq("user_id", caller.id).maybeSingle();
-      if (callerProfile?.company_id !== company_id) return json(403, { error: "Forbidden" });
+      callerCompanyId = callerProfile?.company_id ?? null;
+    }
+
+    const authorization = authorizeCompanyUserAction({
+      action: action as CompanyUserAction,
+      callerRoles: roles,
+      callerCompanyId,
+      targetCompanyId: company_id,
+    });
+
+    if (!authorization.allowed) {
+      return json(403, { error: authorization.error });
     }
 
     // Validate target belongs to company (for non-create actions).
@@ -62,6 +78,48 @@ Deno.serve(async (req) => {
     };
 
     switch (action) {
+      case "list": {
+        const { data: profiles, error: profilesError } = await admin
+          .from("profiles")
+          .select("user_id, name, email, is_active")
+          .eq("company_id", company_id)
+          .order("name");
+
+        if (profilesError) return json(500, { error: profilesError.message });
+
+        const ids = (profiles ?? []).map((profile: { user_id: string }) => profile.user_id);
+        const rolesByUser: Record<string, "admin" | "recruiter" | null> = {};
+
+        if (ids.length) {
+          const { data: userRoleRows, error: userRolesError } = await admin
+            .from("user_roles")
+            .select("user_id, role")
+            .in("user_id", ids);
+
+          if (userRolesError) return json(500, { error: userRolesError.message });
+
+          (userRoleRows ?? []).forEach((row: { user_id: string; role: string }) => {
+            if (row.role === "admin" || row.role === "recruiter") {
+              rolesByUser[row.user_id] = row.role;
+            }
+          });
+        }
+
+        return json(200, {
+          users: (profiles ?? []).map((profile: {
+            user_id: string;
+            name: string;
+            email: string;
+            is_active: boolean | null;
+          }) => ({
+            user_id: profile.user_id,
+            name: profile.name,
+            email: profile.email,
+            is_active: profile.is_active ?? true,
+            role: rolesByUser[profile.user_id] ?? null,
+          })),
+        });
+      }
       case "update": {
         await requireTarget();
         const { name, role } = body;
