@@ -7,7 +7,7 @@
 // Auto-provided: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
-import writeXlsxFile from "npm:write-excel-file@4.1.1/universal";
+import { createExportWorkbookBlob } from "./xlsx.ts";
 
 const WARN_ROW_COUNT = 5000;
 const HARD_ROW_COUNT = 25000;
@@ -530,11 +530,11 @@ Deno.serve(async (req) => {
         ? await buildCandidatesExport(auth, scope, filters)
         : await buildPipelineExport(auth, scope, filters);
 
-    const blob = await writeXlsxFile(build.rows as never, {
+    const blob = await createExportWorkbookBlob(build.rows, {
       sheet: "Data",
       stickyRowsCount: 1,
       columns: build.columns,
-    }).toBlob();
+    });
 
     const r2Key = `exports/${auth.companyId}/${jobId}/${build.filename}`;
     const uploadRes = await fetch(`${R2_WORKER_BASE_URL.replace(/\/+$/, "")}/exports/upload`, {
