@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import * as Sentry from "@sentry/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate, useParams } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -59,6 +60,20 @@ const queryClient = new QueryClient({
   },
 });
 
+const SentryRoutes = Sentry.withSentryReactRouterV6Routing(Routes);
+
+function ErrorButton() {
+  return (
+    <button
+      onClick={() => {
+        throw new Error("This is your first error!");
+      }}
+    >
+      Break the world
+    </button>
+  );
+}
+
 function ProtectedRoutes() {
   const { user, loading, profile } = useAuth();
 
@@ -98,7 +113,7 @@ const App = () => (
         <AuthProvider>
           <ErrorBoundary>
             <Suspense fallback={<FullPageLoader />}>
-              <Routes>
+              <SentryRoutes>
                 <Route path="/" element={<Navigate to="/auth" replace />} />
                 <Route path="/auth" element={<AuthRoute />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -145,7 +160,7 @@ const App = () => (
                   </Route>
                 </Route>
                 <Route path="*" element={<NotFound />} />
-              </Routes>
+              </SentryRoutes>
             </Suspense>
           </ErrorBoundary>
         </AuthProvider>

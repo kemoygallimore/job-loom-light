@@ -1,0 +1,1 @@
+This folder contains the built output assets for the worker "rizonhire" generated at 2026-08-27T05:52:15.130Z.

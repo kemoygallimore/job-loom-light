@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import * as Sentry from "@sentry/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { isChunkLoadError } from "@/lib/lazyWithRetry";
@@ -19,6 +20,9 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    Sentry.captureReactException(error, errorInfo, {
+      mechanism: { handled: true, type: "auto.function.react.error_boundary" },
+    });
     console.error(error, errorInfo);
   }
 
