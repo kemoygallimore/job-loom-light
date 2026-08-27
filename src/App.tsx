@@ -62,9 +62,18 @@ const queryClient = new QueryClient({
 
 const SentryRoutes = Sentry.withSentryReactRouterV6Routing(Routes);
 
+function shouldShowSentryTestButton() {
+  if (import.meta.env.DEV || import.meta.env.VITE_ENABLE_SENTRY_TEST_BUTTON === "true") {
+    return true;
+  }
+
+  return typeof window !== "undefined" && new URLSearchParams(window.location.search).get("sentry-test") === "1";
+}
+
 function ErrorButton() {
   return (
     <button
+      className="fixed bottom-4 right-4 z-50 rounded-md bg-destructive px-3 py-2 text-sm font-medium text-destructive-foreground shadow-lg"
       onClick={() => {
         throw new Error("This is your first error!");
       }}
@@ -109,6 +118,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Sonner />
+      {shouldShowSentryTestButton() ? <ErrorButton /> : null}
       <BrowserRouter>
         <AuthProvider>
           <ErrorBoundary>

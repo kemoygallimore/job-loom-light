@@ -41,6 +41,7 @@ export default function Auth() {
           <img src={rizonhireLogoBlue} alt="RizonHire" className="w-36 h-auto" />
         </div>
         <div className="animate-fade-in-up">
+        
           <h1 className="text-3xl font-bold leading-tight" style={{ lineHeight: "1.15" }}>
             Hire smarter,
             <br />
