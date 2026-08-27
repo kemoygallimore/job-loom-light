@@ -1,4 +1,4 @@
-import { Suspense, useState } from "react";
+import { Suspense } from "react";
 import * as Sentry from "@sentry/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate, useParams } from "react-router-dom";
@@ -62,40 +62,6 @@ const queryClient = new QueryClient({
 
 const SentryRoutes = Sentry.withSentryReactRouterV6Routing(Routes);
 
-function shouldShowSentryTestButton() {
-  if (import.meta.env.DEV || import.meta.env.VITE_ENABLE_SENTRY_TEST_BUTTON === "true") {
-    return true;
-  }
-
-  return typeof window !== "undefined" && new URLSearchParams(window.location.search).get("sentry-test") === "1";
-}
-
-function ErrorButton() {
-  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "failed">("idle");
-
-  const sendTestError = async () => {
-    setStatus("sending");
-
-    try {
-      Sentry.captureException(new Error("This is your first error!"));
-      const flushed = await Sentry.flush(2000);
-      setStatus(flushed ? "sent" : "failed");
-    } catch {
-      setStatus("failed");
-    }
-  };
-
-  return (
-    <button
-      className="fixed bottom-4 right-4 z-50 min-w-36 rounded-md bg-destructive px-3 py-2 text-sm font-medium text-destructive-foreground shadow-lg disabled:cursor-wait disabled:opacity-80"
-      disabled={status === "sending"}
-      onClick={sendTestError}
-    >
-      {status === "sending" ? "Sending..." : status === "sent" ? "Sent to Sentry" : status === "failed" ? "Send failed" : "Test Sentry"}
-    </button>
-  );
-}
-
 function ProtectedRoutes() {
   const { user, loading, profile } = useAuth();
 
@@ -131,7 +97,6 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Sonner />
-      {shouldShowSentryTestButton() ? <ErrorButton /> : null}
       <BrowserRouter>
         <AuthProvider>
           <ErrorBoundary>
