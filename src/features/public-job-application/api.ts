@@ -52,7 +52,7 @@ function toCandidateBase(input: CandidateProfileInput) {
 export async function loadPublicApplicationContext(jobId: string): Promise<PublicApplicationContext | null> {
   const { data: jobData, error: jobError } = await supabase
     .from("jobs")
-    .select("id, title, description, company_id, companies!inner(id, name, slug, status)")
+    .select("id, title, description, company_id, location, employment_type, companies!inner(id, name, slug, status)")
     .eq("id", jobId)
     .eq("status", "open")
     .gt("expires_at", new Date().toISOString())

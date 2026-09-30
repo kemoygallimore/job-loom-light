@@ -1,7 +1,10 @@
 import type { Json, Database } from "@/integrations/supabase/types";
 import type { ScreeningQuestion } from "@/lib/jobScreening";
 
-export type JobSummary = Pick<Database["public"]["Tables"]["jobs"]["Row"], "id" | "title" | "description" | "company_id">;
+export type JobSummary = Pick<
+  Database["public"]["Tables"]["jobs"]["Row"],
+  "id" | "title" | "description" | "company_id" | "location" | "employment_type"
+>;
 export type CompanySummary = Pick<Database["public"]["Tables"]["companies"]["Row"], "id" | "name">;
 export type CompanyWithSlug = CompanySummary & { slug?: string | null };
 export type CandidateIdRow = Pick<Database["public"]["Tables"]["candidates"]["Row"], "id">;

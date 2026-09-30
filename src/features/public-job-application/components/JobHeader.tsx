@@ -1,4 +1,5 @@
 import { Building2 } from "lucide-react";
+import PublicJobMetadata from "@/components/jobs/PublicJobMetadata";
 import { sanitizeRichHtml } from "@/lib/sanitizeHtml";
 import type { CompanySummary, JobSummary } from "../types";
 
@@ -11,6 +12,7 @@ export function JobHeader({ job, company }: { job: JobSummary | null; company: C
           <Building2 className="w-4 h-4" />
           {company?.name}
         </div>
+        <PublicJobMetadata location={job?.location} employmentType={job?.employment_type} className="mt-3" />
         {job?.description && (
           <div
             className="rich-text prose prose-sm max-w-none mt-3 prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-li:text-foreground prose-a:text-primary"

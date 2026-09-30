@@ -697,9 +697,11 @@ export type Database = {
           company_id: string
           created_at: string
           description: string | null
+          employment_type: string | null
           expires_at: string
           hiring_manager: string | null
           id: string
+          location: string | null
           status: Database["public"]["Enums"]["job_status"]
           title: string
         }
@@ -707,9 +709,11 @@ export type Database = {
           company_id: string
           created_at?: string
           description?: string | null
+          employment_type?: string | null
           expires_at?: string
           hiring_manager?: string | null
           id?: string
+          location?: string | null
           status?: Database["public"]["Enums"]["job_status"]
           title: string
         }
@@ -717,9 +721,11 @@ export type Database = {
           company_id?: string
           created_at?: string
           description?: string | null
+          employment_type?: string | null
           expires_at?: string
           hiring_manager?: string | null
           id?: string
+          location?: string | null
           status?: Database["public"]["Enums"]["job_status"]
           title?: string
         }
