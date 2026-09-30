@@ -12,6 +12,7 @@ import {
 import { toast } from "sonner";
 
 import { RichTextEditor } from "@/components/RichTextEditor";
+import JobMetadataFields from "@/components/jobs/JobMetadataFields";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -38,6 +39,7 @@ import ScreeningQuestionBuilder, {
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
+import { normalizeJobMetadata, validateJobMetadata, type JobMetadataErrors } from "@/lib/jobMetadata";
 
 type JobRow = Database["public"]["Tables"]["jobs"]["Row"];
 type JobStatus = Database["public"]["Enums"]["job_status"];
@@ -85,6 +87,9 @@ export default function JobEditorDialog({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [hiringManager, setHiringManager] = useState("");
+  const [location, setLocation] = useState("");
+  const [employmentType, setEmploymentType] = useState("");
+  const [metadataErrors, setMetadataErrors] = useState<JobMetadataErrors>({});
   const [status, setStatus] = useState<JobStatus>("open");
   const [expiresAt, setExpiresAt] = useState<Date | undefined>(defaultExpiryDate());
   const [videoQuestion, setVideoQuestion] = useState(defaultVideoQuestion);
@@ -99,6 +104,9 @@ export default function JobEditorDialog({
     setTitle("");
     setDescription("");
     setHiringManager("");
+    setLocation("");
+    setEmploymentType("");
+    setMetadataErrors({});
     setStatus("open");
     setExpiresAt(defaultExpiryDate());
     setVideoQuestion(defaultVideoQuestion);
@@ -130,6 +138,8 @@ export default function JobEditorDialog({
       setTitle(job.title);
       setDescription(job.description ?? "");
       setHiringManager(job.hiring_manager ?? "");
+      setLocation(job.location ?? "");
+      setEmploymentType(job.employment_type ?? "");
       setStatus(job.status);
       setExpiresAt(job.expires_at ? new Date(job.expires_at) : defaultExpiryDate());
 
@@ -416,6 +426,14 @@ export default function JobEditorDialog({
       return;
     }
 
+    const nextMetadataErrors = validateJobMetadata({ location, employmentType });
+    setMetadataErrors(nextMetadataErrors);
+    if (Object.keys(nextMetadataErrors).length > 0) {
+      toast.error("Add a location and employment type before saving.");
+      setActiveTab("details");
+      return;
+    }
+
     if (isAfter(expiresAt, addDays(new Date(), 30))) {
       toast.error("Expiration date cannot exceed 30 days from today.");
       setActiveTab("details");
@@ -435,6 +453,7 @@ export default function JobEditorDialog({
     setSaving(true);
 
     try {
+      const normalizedMetadata = normalizeJobMetadata({ location, employmentType });
       let jobId = job?.id;
 
       if (job) {
@@ -444,6 +463,8 @@ export default function JobEditorDialog({
             title: title.trim(),
             description: description || null,
             hiring_manager: hiringManager.trim() || null,
+            location: normalizedMetadata.location,
+            employment_type: normalizedMetadata.employmentType,
             status,
             expires_at: expiresAt.toISOString(),
           })
@@ -458,6 +479,8 @@ export default function JobEditorDialog({
             title: title.trim(),
             description: description || null,
             hiring_manager: hiringManager.trim() || null,
+            location: normalizedMetadata.location,
+            employment_type: normalizedMetadata.employmentType,
             status,
             expires_at: expiresAt.toISOString(),
           })
@@ -545,6 +568,21 @@ export default function JobEditorDialog({
                             placeholder="Frontend Developer"
                           />
                         </div>
+
+                        <JobMetadataFields
+                          location={location}
+                          employmentType={employmentType}
+                          locationError={metadataErrors.location}
+                          employmentTypeError={metadataErrors.employmentType}
+                          onLocationChange={(value) => {
+                            setLocation(value);
+                            setMetadataErrors((current) => ({ ...current, location: undefined }));
+                          }}
+                          onEmploymentTypeChange={(value) => {
+                            setEmploymentType(value);
+                            setMetadataErrors((current) => ({ ...current, employmentType: undefined }));
+                          }}
+                        />
 
                         <div className="flex flex-col gap-2">
                           <Label>Description</Label>

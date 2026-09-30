@@ -5,12 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Building2, AlertCircle } from "lucide-react";
 import { sanitizeRichHtml } from "@/lib/sanitizeHtml";
+import PublicJobMetadata from "@/components/jobs/PublicJobMetadata";
 
 interface Job {
   id: string;
   title: string;
   description: string | null;
   company_id: string;
+  location: string | null;
+  employment_type: string | null;
 }
 
 interface Company {
@@ -65,7 +68,7 @@ export default function JobDetailsPage() {
 
       const { data: jobData } = await supabase
         .from("jobs")
-        .select("id, title, description, company_id")
+        .select("id, title, description, company_id, location, employment_type")
         .eq("id", jobId)
         .eq("company_id", companyData.id)
         .eq("status", "open")
@@ -127,6 +130,7 @@ export default function JobDetailsPage() {
                 <Building2 className="w-4 h-4" />
                 {company?.name}
               </div>
+              <PublicJobMetadata location={job?.location} employmentType={job?.employment_type} className="mt-3" />
             </div>
           )}
         </div>

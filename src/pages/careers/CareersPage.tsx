@@ -4,11 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { Briefcase, ArrowRight, Building2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { htmlToPlainText } from "@/lib/htmlToPlainText";
+import PublicJobMetadata from "@/components/jobs/PublicJobMetadata";
 
 interface Job {
   id: string;
   title: string;
   description: string | null;
+  location: string | null;
+  employment_type: string | null;
 }
 
 interface Company {
@@ -66,7 +69,7 @@ export default function CareersPage() {
 
       const { data: jobsData } = await supabase
         .from("jobs")
-        .select("id, title, description")
+        .select("id, title, description, location, employment_type")
         .eq("company_id", companyData.id)
         .eq("status", "open")
         .gt("expires_at", new Date().toISOString())
@@ -166,6 +169,7 @@ export default function CareersPage() {
                     <h3 className="text-base sm:text-lg font-semibold group-hover:text-primary transition-colors">
                       {job.title}
                     </h3>
+                    <PublicJobMetadata location={job.location} employmentType={job.employment_type} className="mt-2" />
                     {job.description && (
                       <p className="text-sm text-muted-foreground mt-1.5 line-clamp-2 leading-relaxed">
                         {htmlToPlainText(job.description)}

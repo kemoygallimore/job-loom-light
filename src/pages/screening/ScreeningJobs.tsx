@@ -28,6 +28,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { deleteScreeningVideosFromR2 } from "@/lib/storage";
+import JobMetadataFields from "@/components/jobs/JobMetadataFields";
+import { normalizeJobMetadata, validateJobMetadata, type JobMetadataErrors } from "@/lib/jobMetadata";
 
 interface ScreeningJob {
   id: string;
@@ -40,6 +42,10 @@ interface ScreeningJob {
   unique_link_id: string;
   created_at: string;
   submission_count?: number;
+  jobMetadata?: {
+    location: string | null;
+    employment_type: string | null;
+  } | null;
 }
 
 export default function ScreeningJobs() {
@@ -47,12 +53,18 @@ export default function ScreeningJobs() {
   const [jobs, setJobs] = useState<ScreeningJob[]>([]);
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
+  const [location, setLocation] = useState("");
+  const [employmentType, setEmploymentType] = useState("");
+  const [metadataErrors, setMetadataErrors] = useState<JobMetadataErrors>({});
   const [question, setQuestion] = useState("");
   const [expiresAt, setExpiresAt] = useState<Date | undefined>(addDays(new Date(), 7));
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [editJob, setEditJob] = useState<ScreeningJob | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  const [editLocation, setEditLocation] = useState("");
+  const [editEmploymentType, setEditEmploymentType] = useState("");
+  const [editMetadataErrors, setEditMetadataErrors] = useState<JobMetadataErrors>({});
   const [editQuestion, setEditQuestion] = useState("");
   const [editExpiresAt, setEditExpiresAt] = useState<Date | undefined>(undefined);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -63,7 +75,7 @@ export default function ScreeningJobs() {
     setLoading(true);
     const { data: jobsData } = await supabase
       .from("screening_jobs")
-      .select("*")
+      .select("*, jobs(location, employment_type)")
       .order("created_at", { ascending: false });
 
     if (jobsData) {
@@ -79,6 +91,7 @@ export default function ScreeningJobs() {
 
       setJobs(jobsData.map((j: any) => ({
         ...j,
+        jobMetadata: Array.isArray(j.jobs) ? j.jobs[0] ?? null : j.jobs ?? null,
         submission_count: countMap[j.id] || 0,
       })));
     }
@@ -93,6 +106,13 @@ export default function ScreeningJobs() {
     e.preventDefault();
     if (!profile || !user || !expiresAt) return;
 
+    const nextMetadataErrors = validateJobMetadata({ location, employmentType });
+    setMetadataErrors(nextMetadataErrors);
+    if (Object.keys(nextMetadataErrors).length > 0) {
+      toast.error("Add a location and employment type before saving.");
+      return;
+    }
+
     // Validate max 30 days
     if (isAfter(expiresAt, addDays(new Date(), 30))) {
       toast.error("Expiration date cannot exceed 30 days from today");
@@ -100,9 +120,12 @@ export default function ScreeningJobs() {
     }
 
     // First create the regular job
+    const normalizedMetadata = normalizeJobMetadata({ location, employmentType });
     const { data: newJob, error: jobError } = await supabase.from("jobs").insert({
       company_id: profile.company_id,
-      title,
+      title: title.trim(),
+      location: normalizedMetadata.location,
+      employment_type: normalizedMetadata.employmentType,
       expires_at: expiresAt.toISOString(),
       status: "open" as any,
     }).select().single();
@@ -129,6 +152,9 @@ export default function ScreeningJobs() {
     toast.success("Screening job created");
     setOpen(false);
     setTitle("");
+    setLocation("");
+    setEmploymentType("");
+    setMetadataErrors({});
     setQuestion("");
     setExpiresAt(addDays(new Date(), 7));
     load();
@@ -149,6 +175,9 @@ export default function ScreeningJobs() {
   const openEdit = (job: ScreeningJob) => {
     setEditJob(job);
     setEditTitle(job.title);
+    setEditLocation(job.jobMetadata?.location ?? "");
+    setEditEmploymentType(job.jobMetadata?.employment_type ?? "");
+    setEditMetadataErrors({});
     setEditQuestion(job.question);
     setEditExpiresAt(new Date(job.expires_at));
   };
@@ -156,16 +185,27 @@ export default function ScreeningJobs() {
   const saveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editJob || !editExpiresAt) return;
+    if (editJob.job_id) {
+      const nextMetadataErrors = validateJobMetadata({ location: editLocation, employmentType: editEmploymentType });
+      setEditMetadataErrors(nextMetadataErrors);
+      if (Object.keys(nextMetadataErrors).length > 0) {
+        toast.error("Add a location and employment type before saving.");
+        return;
+      }
+    }
     if (isAfter(editExpiresAt, addDays(new Date(), 30))) {
       toast.error("Expiration date cannot exceed 30 days from today");
       return;
     }
     setSavingEdit(true);
     if (editJob.job_id) {
+      const normalizedMetadata = normalizeJobMetadata({ location: editLocation, employmentType: editEmploymentType });
       const { error: jobUpdateError } = await supabase
         .from("jobs")
         .update({
-          title: editTitle,
+          title: editTitle.trim(),
+          location: normalizedMetadata.location,
+          employment_type: normalizedMetadata.employmentType,
           expires_at: editExpiresAt.toISOString(),
         })
         .eq("id", editJob.job_id);
@@ -268,6 +308,20 @@ export default function ScreeningJobs() {
                 <Label>Job Title</Label>
                 <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Frontend Developer" required />
               </div>
+              <JobMetadataFields
+                location={location}
+                employmentType={employmentType}
+                locationError={metadataErrors.location}
+                employmentTypeError={metadataErrors.employmentType}
+                onLocationChange={(value) => {
+                  setLocation(value);
+                  setMetadataErrors((current) => ({ ...current, location: undefined }));
+                }}
+                onEmploymentTypeChange={(value) => {
+                  setEmploymentType(value);
+                  setMetadataErrors((current) => ({ ...current, employmentType: undefined }));
+                }}
+              />
               <div className="space-y-1.5">
                 <Label>Screening Question</Label>
                 <Textarea
@@ -418,6 +472,22 @@ export default function ScreeningJobs() {
               <Label>Job Title</Label>
               <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} required />
             </div>
+            {editJob?.job_id ? (
+              <JobMetadataFields
+                location={editLocation}
+                employmentType={editEmploymentType}
+                locationError={editMetadataErrors.location}
+                employmentTypeError={editMetadataErrors.employmentType}
+                onLocationChange={(value) => {
+                  setEditLocation(value);
+                  setEditMetadataErrors((current) => ({ ...current, location: undefined }));
+                }}
+                onEmploymentTypeChange={(value) => {
+                  setEditEmploymentType(value);
+                  setEditMetadataErrors((current) => ({ ...current, employmentType: undefined }));
+                }}
+              />
+            ) : null}
             <div className="space-y-1.5">
               <Label>Screening Question</Label>
               <Textarea
